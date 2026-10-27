@@ -2,6 +2,7 @@
 
 Guia para o Claude Code trabalhar neste repositório. Leia antes de qualquer tarefa.
 Contexto completo do produto em `docs/planejamento.md`, arquitetura em `docs/arquitetura.md`, escopo da v1 em `docs/mvp.md`.
+Planos de desenvolvimento por módulo: `docs/plano-dev-canal-whatsapp.md` (etapas E1 a E10) e `docs/plano-dev-frontend.md` (etapas F0 a F8). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa.
 
 ## O produto em uma frase
 
@@ -22,7 +23,7 @@ Não é sistema fiscal: não emite nota, não apura imposto. Somos aliados do co
 | Web | Next.js (App Router), Tailwind, shadcn/ui, Recharts; responsivo/PWA |
 | Auth | Better Auth, login por código (OTP) via WhatsApp ou e-mail |
 | Arquivos | Armazenamento compatível com S3 (áudios, fotos, exportações) |
-| IA | Claude (Haiku para extração, Sonnet para casos difíceis e relatórios) via tool use com saída estruturada; transcrição com gpt-4o-transcribe |
+| IA | Claude (Haiku para extração, Sonnet para casos difíceis e relatórios) via saída estruturada (`output_config.format`) na extração, tool use só para consultas e relatórios; transcrição com gpt-4o-transcribe |
 | Testes | Vitest (unitário/integração), Testcontainers para Postgres, Playwright (e2e web, depois) |
 | Lint/format | Biome |
 | Observabilidade | pino (logs estruturados) + Sentry |
@@ -91,4 +92,4 @@ pnpm --filter @app/ai eval
 
 ## Estado atual
 
-Fase 0 (fundação) quase pronta: monorepo, TypeScript strict, Biome, Vitest e validação de env funcionam; a API sobe com `/health`. O Postgres do Docker Compose sobe com o papel `app` sem BYPASSRLS. Falta rodar o CI no GitHub. Próximo passo: fase 1 (domínio e banco), seguindo `docs/mvp.md`.
+Fase 0 (fundação) quase pronta: monorepo, TypeScript strict, Biome, Vitest e validação de env funcionam; a API sobe com `/health`. O Postgres do Docker Compose sobe com o papel `app` sem BYPASSRLS. Falta rodar o CI no GitHub. Próximo passo: E1 do canal WhatsApp (`packages/core`) e F0 do painel, seguindo os planos em `docs/`.
