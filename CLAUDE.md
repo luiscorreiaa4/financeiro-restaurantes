@@ -15,7 +15,7 @@ Não é sistema fiscal: não emite nota, não apura imposto. Somos aliados do co
 |---|---|
 | Linguagem | TypeScript em tudo (strict) |
 | Monorepo | pnpm workspaces + Turborepo |
-| API / webhook / workers | Node 22 LTS + Fastify + Zod |
+| API / webhook / workers | Node 24 LTS + Fastify + Zod |
 | Fila de jobs | pg-boss (usa o próprio Postgres, sem Redis) |
 | Banco | PostgreSQL 16+, com Row Level Security por tenant |
 | ORM | Drizzle ORM + drizzle-kit (migrations em SQL versionadas) |
@@ -75,7 +75,7 @@ docs/
 - Toda regra nova em `packages/core` vem com teste.
 - Prefira mudanças pequenas e verificáveis. Rode `pnpm typecheck && pnpm lint && pnpm test` antes de concluir.
 
-## Comandos (a criar no scaffold)
+## Comandos
 
 ```
 pnpm install
@@ -91,4 +91,4 @@ pnpm --filter @app/ai eval
 
 ## Estado atual
 
-Repositório recém-criado, só documentação. Próximo passo: scaffold do monorepo seguindo `docs/mvp.md`, fase 0.
+Fase 0 (fundação) quase pronta: monorepo, TypeScript strict, Biome, Vitest e validação de env funcionam; a API sobe com `/health`. O Postgres do Docker Compose sobe com o papel `app` sem BYPASSRLS. Falta rodar o CI no GitHub. Próximo passo: fase 1 (domínio e banco), seguindo `docs/mvp.md`.

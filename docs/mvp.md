@@ -6,12 +6,12 @@ Cada fase termina com algo testável de ponta a ponta.
 
 ## Fase 0 — Fundação
 
-- [ ] Monorepo pnpm + Turborepo (`apps/api`, `apps/web`, `packages/{db,core,ai,whatsapp,config}`)
-- [ ] TypeScript strict, Biome, Vitest configurados na raiz
-- [ ] `packages/config/env`: validação de variáveis de ambiente com Zod
-- [ ] Docker Compose com Postgres 16 para desenvolvimento
-- [ ] CI no GitHub Actions: lint, typecheck, testes
-- [ ] `.env.example` completo
+- [x] Monorepo pnpm + Turborepo (`apps/api`, `apps/web`, `packages/{db,core,ai,whatsapp,config}`)
+- [x] TypeScript strict, Biome, Vitest configurados na raiz
+- [x] `packages/config/env`: validação de variáveis de ambiente com Zod
+- [x] Docker Compose com Postgres 16 para desenvolvimento
+- [ ] CI no GitHub Actions: lint, typecheck, testes (workflow escrito; falta rodar no GitHub)
+- [x] `.env.example` completo
 
 ## Fase 1 — Domínio e banco
 

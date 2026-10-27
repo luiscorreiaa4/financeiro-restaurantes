@@ -1,0 +1,11 @@
+-- Papel da aplicação: sem BYPASSRLS e sem ser dono das tabelas, para que as
+-- políticas de RLS valham. Migrations rodam com o papel postgres.
+CREATE ROLE app LOGIN PASSWORD 'app' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+
+GRANT CONNECT ON DATABASE app TO app;
+GRANT USAGE ON SCHEMA public TO app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO app;

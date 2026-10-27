@@ -24,3 +24,5 @@ docs/guia-setup-contas.md
 docs/plano-luis.md
 docs/subplano-sem-cnpj.md
 docs/politica-meta-whatsapp.md
+
+next-env.d.ts
