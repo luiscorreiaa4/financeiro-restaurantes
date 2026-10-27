@@ -24,5 +24,11 @@ docs/guia-setup-contas.md
 docs/plano-luis.md
 docs/subplano-sem-cnpj.md
 docs/politica-meta-whatsapp.md
+docs/prompt-inicio-canal-whatsapp.txt
+docs/pesquisa-ecossistema-claude-code.md
 
 next-env.d.ts
+
+# Claude Code: configuracao pessoal, fora do git
+.claude/settings.local.json
+CLAUDE.local.md
