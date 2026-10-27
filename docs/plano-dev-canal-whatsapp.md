@@ -27,6 +27,12 @@ Legenda de confiança, usada em todo o documento:
 | E9 Áudio e foto | A fazer | |
 | E10 Envio real e operação | A fazer | Bloqueada pela Meta (erro 130497) |
 
+**Fechamento de etapa (sempre, antes de marcar "Feita"):**
+1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
+2. Atualizar a tabela de progresso e o campo "Atualizado em".
+3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.** Ver os candidatos previstos por etapa em `docs/pesquisa-ecossistema-claude-code.md`, seção 12 (arquivo local, fora do git).
+4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
+
 **Decisões já tomadas (27/10/2026):** D1 (structured outputs na extração), D2 (Drizzle 0.45.x estável, sem API relacional). As demais (D3 a D6) seguem como recomendação até você confirmar.
 
 **Estado do repositório:** fase 0 pronta (monorepo, Biome, Vitest, validação de env, Postgres no Compose). Faltava só rodar o CI no GitHub.

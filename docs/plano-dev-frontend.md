@@ -24,6 +24,12 @@ Legenda de confiança, usada em todo o documento:
 | F7 PWA e responsividade | A fazer | |
 | F8 Endurecimento e lançamento | A fazer | |
 
+**Fechamento de etapa (sempre, antes de marcar "Feita"):**
+1. Rodar `pnpm typecheck && pnpm lint && pnpm test` (e o E2E, quando a etapa tiver) e conferir que a etapa cumpre o "Pronto quando".
+2. Atualizar a tabela de progresso e o campo "Atualizado em".
+3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.**
+4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
+
 **Decisões já tomadas (27/10/2026):** D-F1 (Better Auth na API, com `rewrites` no web), D-F5 (login por e-mail primeiro, WhatsApp depois). As demais (D-F2, D-F3, D-F4, D-F6, D-F7) seguem como recomendação até você confirmar.
 
 **Prazo (ajuste seu, 27/10/2026):** F0 a F2 juntas, de 2 a 3 semanas (8 a 15 dias úteis), não 3,5 a 5,5.

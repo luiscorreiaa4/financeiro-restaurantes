@@ -2,7 +2,7 @@
 
 Guia para o Claude Code trabalhar neste repositório. Leia antes de qualquer tarefa.
 Contexto completo do produto em `docs/planejamento.md`, arquitetura em `docs/arquitetura.md`, escopo da v1 em `docs/mvp.md`.
-Planos de desenvolvimento por módulo: `docs/plano-dev-canal-whatsapp.md` (etapas E1 a E10) e `docs/plano-dev-frontend.md` (etapas F0 a F8). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa.
+Planos de desenvolvimento por módulo: `docs/plano-dev-canal-whatsapp.md` (etapas E1 a E10) e `docs/plano-dev-frontend.md` (etapas F0 a F8). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa e siga o "Fechamento de etapa" do plano, que inclui propor (sem criar) regras, skills, hooks e `CLAUDE.md` de módulo para o que repetiu na etapa.
 
 ## O produto em uma frase
 
