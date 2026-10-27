@@ -17,3 +17,10 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Documentos de trabalho locais (não vão para o GitHub)
+TODOLIST.md
+docs/guia-setup-contas.md
+docs/plano-luis.md
+docs/subplano-sem-cnpj.md
+docs/politica-meta-whatsapp.md
