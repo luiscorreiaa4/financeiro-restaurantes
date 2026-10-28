@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "@app/config": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }

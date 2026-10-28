@@ -16,7 +16,7 @@ Legenda de confiança, usada em todo o documento:
 
 | Etapa | Status | Observação |
 |---|---|---|
-| E1 Núcleo de domínio (`core`) | A fazer | Pode começar já, sem dependência externa |
+| E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
 | E2 Banco e multi-tenancy (`db`) | A fazer | |
 | E3 Gateway do WhatsApp (webhook) | A fazer | Túnel e app da Meta já existem |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
