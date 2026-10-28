@@ -1,5 +1,7 @@
 # E3: o que falta para fechar a etapa (passo a passo)
 
+> **Situação em 28/10/2026:** passos 1, 2 e 3 feitos. No passo 4, a URL, o verify token e o botão **Teste** funcionaram (POST assinado chegou, status gravado). A mensagem real do celular **não chega** porque o app da Meta está em modo desenvolvimento (aviso oficial: só webhooks de teste do painel até publicar). Pendência **P1**, em `docs/plano-dev-canal-whatsapp.md` ("Pendências da Meta"). Do passo 4.5 em diante, só vale depois de publicar o app. O erro 130497 (P2) é de envio e não bloqueia a E3. Na tela atual da Meta, os campos de webhook ficam em **Etapa 2. Configuração da produção > Configurar webhooks**.
+
 Atualizado em 28/10/2026. O código da E3 está pronto e commitado. A etapa só fica "Feita" de verdade quando você completar os passos 1 a 4 abaixo (é o "Pronto quando" do plano: a mensagem "Teste" do seu celular aparece no banco e o reenvio não duplica). Os passos 5 a 7 são pendências menores e não bloqueiam a E4.
 
 Legenda: ✅ conferido na documentação oficial em 28/10/2026.
@@ -12,7 +14,7 @@ Legenda: ✅ conferido na documentação oficial em 28/10/2026.
    `docker compose exec -T postgres psql -U postgres -d app < docker/postgres/init.sql`
 4. `pnpm db:migrate` (aplica a migration 0002, tabela `whatsapp_status_events`).
 5. Abra o seu `.env` e confira estas variáveis (use o `.env.example` como modelo):
-   - `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5432/app` (**nova**)
+   - `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5434/app` (**nova**). A porta é **5434** porque o container do Postgres foi movido para ela (a 5432 estava ocupada por um Postgres nativo do Windows); `DATABASE_URL` e `DATABASE_ADMIN_URL` também usam 5434. O `pnpm db:migrate` não lê o `.env`: use `DATABASE_ADMIN_URL=postgres://postgres:postgres@localhost:5434/app pnpm db:migrate`.
    - `WHATSAPP_VERIFY_TOKEN`: invente uma frase, por exemplo `meu-token-local-123`. É você quem escolhe; a Meta só vai devolvê-la.
    - `WHATSAPP_APP_SECRET`: painel da Meta, **App settings > Basic > App secret** (o mesmo que você anotou no `docs/plano-luis.md`).
 

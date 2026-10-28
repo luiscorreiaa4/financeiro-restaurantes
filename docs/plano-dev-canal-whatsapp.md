@@ -18,14 +18,14 @@ Legenda de confiança, usada em todo o documento:
 |---|---|---|
 | E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
 | E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
-| E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026), falta só o teste real pelo túnel | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Pendente: mensagem do celular pelo túnel (precisa de `DATABASE_INGEST_URL` no `.env`) e conferir `redact`/logs do Pino |
+| E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026) **com ressalva**: falta só o teste com mensagem real do celular, bloqueado por pendência da Meta (P1, ver "Pendências da Meta") | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Verificado em 28/10 pelo túnel: handshake, POST assinado, reenvio sem duplicar, assinatura inválida (401) e o botão **Teste** do painel da Meta (status gravado). Pendente: mensagem real do celular (P1) e conferir `redact`/logs do Pino |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
 | E5 Identificação e roteamento | A fazer | |
 | E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |
 | E7 Fluxo de lançamento e confirmação | A fazer | |
 | E8 Evals e qualidade da IA | A fazer | Começa junto com a E6 |
 | E9 Áudio e foto | A fazer | |
-| E10 Envio real e operação | A fazer | Bloqueada pela Meta (erro 130497) |
+| E10 Envio real e operação | A fazer | Bloqueada pela Meta (erro 130497, P2) |
 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
@@ -45,7 +45,24 @@ Uma mensagem de WhatsApp (texto, depois áudio e foto) vira um ou mais lançamen
 
 **Fora (pós-MVP):** perguntas em linguagem natural sobre os dados, resumo semanal e alertas, importação de planilhas, Open Finance.
 
-**Premissa atual:** o envio real de mensagens está bloqueado (erro 130497 no número de teste, ver `docs/subplano-sem-cnpj.md`). Tudo é construído com o envio atrás de uma interface e liga quando a Meta liberar.
+**Premissa atual:** dois bloqueios na Meta, ambos fora do código (detalhe em "Pendências da Meta", logo abaixo): **P1** mensagens reais não chegam ao nosso webhook (app em modo desenvolvimento) e **P2** o envio real está bloqueado (erro 130497). Tudo é construído com o envio atrás de uma interface e com fixtures no lugar do recebimento real; liga quando a Meta liberar. As etapas E4 a E9 não dependem de P1 nem de P2.
+
+### Pendências da Meta (P1 e P2), atualizado em 28/10/2026
+
+Não são tarefas de código. São duas coisas diferentes e não devem ser confundidas. Antes de 28/10 achávamos que o recebimento "funcionava"; o que funcionava era o **console de teste da própria Meta**, que não passa pelo nosso webhook.
+
+| | P1: recebimento real | P2: envio real |
+|---|---|---|
+| Sintoma | Mensagem do celular para o número de teste (+1 555 189-5223) aparece no console da Meta, mas **nenhum POST chega à nossa API**. Só o botão **Teste** do painel chega. | Ao enviar pelo console de teste para o celular, o status volta `failed` com erro `130497` ("Business account is restricted from messaging users in this country"). |
+| Causa (o que sabemos) | ✅ Aviso do painel da Meta (Etapa 2, "Configurar webhooks"): enquanto o app não for publicado, só chegam webhooks de **teste enviados pelo painel**; dados de produção, inclusive de administradores, desenvolvedores e testadores, só depois de publicar. | ⚠️ Não confirmada. O código é de integridade e indica restrição **por país de destino da conta** (fontes de terceiros). Hipóteses: forma de pagamento, perfil do negócio incompleto, verificação da empresa, categoria do negócio. Não é "bot internacional". |
+| O que já descartamos | Nosso código (botão Teste: POST assinado, 200 em 17 ms, status gravado), túnel, verify token (handshake 200), campo `messages` assinado. | Lista de países da exceção para provedores de IA: o Brasil está incluído, não é a causa provável. |
+| Como resolver | Publicar o app (modo Live). ⚠️ Não conferimos o que a Meta exige para publicar (costuma pedir política de privacidade e categoria). Alternativa: número de produção. | Forma de pagamento, completar perfil, repetir o envio; depois verificação da empresa (CNPJ); se persistir, ticket no suporte com o `fbtrace_id`. |
+| O que bloqueia | Só o teste real da E3 (o "Pronto quando"). | Só a E10 e qualquer resposta real no WhatsApp (regra 7, "confirmar sempre"). |
+| Dono | Luís | Luís (pagamento e perfil); Matheus (CNPJ para a verificação) |
+
+**Para repetir o teste real da E3 quando P1 for resolvido:** `docs/e3-o-que-falta-para-fechar.md`, passo 4. Mandar "Teste" do celular; deve entrar 1 linha em `inbound_messages` com o seu `wa_id` e 1 job em `pgboss.job`.
+
+**Enquanto isso:** desenvolver E4 a E9 com as fixtures e o POST assinado local; o envio fica atrás da interface com modo log.
 
 ## 2. Tecnologias: o que a documentação atual diz
 
@@ -291,7 +308,7 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 **Como testar à mão**
 1. `docker compose up -d`. Em banco antigo, crie o papel: `docker compose exec -T postgres psql -U postgres -d app < docker/postgres/init.sql`.
 2. `pnpm db:migrate`.
-3. No `.env`: `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5432/app`, e `WHATSAPP_APP_SECRET` e `WHATSAPP_VERIFY_TOKEN` com qualquer valor local.
+3. No `.env`: `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5434/app` (porta **5434**: a 5432 pode estar ocupada por um Postgres nativo do Windows), e `WHATSAPP_APP_SECRET` e `WHATSAPP_VERIFY_TOKEN` com qualquer valor local.
 4. `pnpm dev`.
 5. Handshake no navegador: `http://localhost:4000/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=SEU_TOKEN&hub.challenge=123` deve mostrar `123`. Token errado: 403.
 6. POST assinado, na raiz do repositório (deve imprimir `200 {"ok":true}`; rodar duas vezes não duplica):
@@ -302,11 +319,11 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 8. Troque um caractere do comando do passo 6: deve voltar 401 e nada é gravado.
 
 **Pendências da E3**
-- [ ] Teste real pelo túnel (cloudflared ou ngrok): URL e `WHATSAPP_VERIFY_TOKEN` no app da Meta; a mensagem "Teste" do celular deve virar linha em `inbound_messages` e o reenvio não duplicar. É o "Pronto quando" da etapa.
+- [ ] Teste real pelo túnel: túnel, URL, verify token e botão Teste da Meta **já feitos em 28/10** (POST assinado chegou, status gravado). Falta a mensagem "Teste" real do celular virar linha em `inbound_messages` e o reenvio não duplicar. ⏳ Bloqueado por **P1** (app da Meta não publicado). É o "Pronto quando" da etapa.
 - [ ] Trocar/acrescentar as fixtures sintéticas pelos dois payloads reais anonimizados (texto recebido e `status: failed` 130497).
 - [ ] Conferir `redact` do Pino na doc (⚠️ item da seção 2); hoje o `req` é serializado só com método, caminho e id.
 - [ ] Script de carga do webhook (o teste de latência cobre uma requisição com folga; a carga em rajada fica para antes do piloto).
-- [ ] Formato do `user_id` (`BR.<número>`): confirmar na doc da Meta onde o campo vem (`contacts[].user_id` ou `messages[].from_user_id`); o parser aceita os dois.
+- [x] Formato do `user_id` (`BR.<número>`): no payload real do console de teste (28/10) vem nos **dois** lugares, `contacts[].user_id` e `messages[].from_user_id`. O parser já aceita os dois; falta só virar fixture real anonimizada.
 
 **Candidatos de contexto do Claude propostos (aguardam aprovação, nada foi criado):**
 1. Regra `.claude/rules/webhook.md` (`apps/api/src/http/**`, `packages/whatsapp/**`): assinatura sobre bytes brutos, `bodyLimit` ≥ 3 MB, idempotência, 200 em < 1 s, iterar todos os eventos, nunca logar query string nem conteúdo.
@@ -449,7 +466,8 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 
 | Risco | Impacto | Mitigação |
 |---|---|---|
-| Envio bloqueado pela Meta (130497) | Sem confirmação real no WhatsApp | Interface de envio e modo log; resolver pagamento e verificação; ticket no suporte |
+| Envio bloqueado pela Meta (130497, P2) | Sem confirmação real no WhatsApp | Interface de envio e modo log; resolver pagamento e verificação; ticket no suporte |
+| App da Meta em modo desenvolvimento (P1) | Mensagens reais do celular não chegam ao webhook; só o botão Teste | Publicar o app; até lá, testar com POST assinado e fixtures |
 | IA não chega a 90% de acerto | Piloto frustra | Evals desde cedo; roteamento para Sonnet; perguntas de volta; ajuste de prompt medido |
 | Áudio OGG/Opus não aceito ou transcrição ruim | Fluxo de áudio travado | Teste com áudios reais na E9; conversão com ffmpeg; modelo alternativo |
 | Mudança nos formatos da Meta (`user_id`, nomes de usuário) | Identificação quebra | Guardar `wa_id` e `wa_user_id`; fixtures novas a cada formato; tolerância a campos novos |
@@ -465,7 +483,7 @@ E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6 ─► E7 ─► E8 (contí
 ```
 
 - E1 e E2 não dependem de nada externo.
-- E3 e E4 dependem só do túnel e do app da Meta, que já existem.
+- E3 e E4 dependem só do túnel e do app da Meta, que já existem. O teste com mensagem real da E3 depende de P1 (app publicado) e não bloqueia a E4.
 - E6 precisa do crédito da Anthropic. A parte de contrato e do orquestrador com `FakeEntryExtractor` pode ser feita antes.
 - E8 começa junto com a E6 (o dataset inicial é pré-requisito para medir qualquer prompt).
 - E10 só fecha com a Meta liberada.
