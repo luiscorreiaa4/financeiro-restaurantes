@@ -71,6 +71,10 @@ worker process-inbound
   └─ envia confirmação (guarda wa_message_id da resposta para permitir correção por reply)
 ```
 
+## Desenvolvimento sem WhatsApp (chat de terminal)
+
+Durante o desenvolvimento, o canal é testado por um **chat de terminal** (`pnpm dev:chat`), só para teste e sem interface visual. Ele monta payloads no formato real da Cloud API, assina e envia ao webhook local; a resposta sai por um `DevMessageSender` e aparece no próprio terminal. Por isso tudo (webhook, fila, IA, banco) roda de verdade, sem precisar da Meta, do CNPJ nem de número. O WhatsApp real é configurado **no fim do desenvolvimento**, trocando só os adaptadores na composição (`CHANNEL_MODE=whatsapp`). Detalhe, comandos, salvaguardas e checklist em `docs/plano-dev-canal-whatsapp.md`, seção 3.5.
+
 ## Modelo de dados (rascunho)
 
 ```

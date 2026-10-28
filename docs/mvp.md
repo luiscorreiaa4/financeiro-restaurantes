@@ -34,6 +34,7 @@ Cada fase termina com algo testável de ponta a ponta.
 - [ ] Correção respondendo (reply) à confirmação
 - [ ] Registro de `ai_usage`
 - [ ] Evals: primeiro conjunto com 30+ mensagens de exemplo e resultado esperado
+- [ ] Chat de desenvolvimento no terminal (`pnpm dev:chat`), só para teste: simula o WhatsApp para testar o fluxo e a IA sem a Meta, sem interface visual. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.5
 
 ## Fase 3 — Áudio e foto
 
@@ -42,6 +43,7 @@ Cada fase termina com algo testável de ponta a ponta.
 - [ ] Foto: leitura de QR Code da NFC-e e consulta à SEFAZ (começar pelos estados dos pilotos)
 - [ ] Foto sem QR: extração multimodal
 - [ ] Rate limit por usuário
+- [ ] Testar áudio e foto pelo chat de desenvolvimento (`/audio`, `/foto`), sem a Meta
 
 ## Fase 4 — Painel web
 
@@ -64,6 +66,7 @@ Cada fase termina com algo testável de ponta a ponta.
 - [ ] Backup verificado com teste de restauração
 - [ ] Painel interno simples de custo de IA por tenant
 - [ ] Deploy em staging e produção
+- [ ] **Ligar o WhatsApp real, só aqui no fim:** publicar o app da Meta, resolver o envio (erro 130497), número definitivo, `CHANNEL_MODE=whatsapp` e repetir pelo celular o roteiro do chat de dev
 
 ## Depois do MVP (backlog)
 

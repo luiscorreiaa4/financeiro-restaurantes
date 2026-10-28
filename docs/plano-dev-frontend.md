@@ -2,7 +2,7 @@
 
 Atualizado em 27/10/2026. Cobre a fase 4 do `docs/mvp.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/plano-dev-canal-whatsapp.md`.
 
-**Pendências da Meta (28/10/2026) não bloqueiam o painel.** O recebimento real no webhook (P1, app em modo desenvolvimento) e o envio pelo WhatsApp (P2, erro 130497) estão na seção "Pendências da Meta" do plano do canal. O painel usa login por e-mail (D-F5), então F0 a F8 seguem sem depender delas. Só o login por código via WhatsApp e o teste "um lançamento criado pelo WhatsApp aparece no painel" dependem de P1/P2; até lá, usar lançamentos do seed ou criados por POST assinado local.
+**Pendências da Meta (28/10/2026) não bloqueiam o painel.** O recebimento real no webhook (P1, app em modo desenvolvimento) e o envio pelo WhatsApp (P2, erro 130497) estão na seção "Pendências da Meta" do plano do canal. O painel usa login por e-mail (D-F5), então F0 a F8 seguem sem depender delas. Só o login por código via WhatsApp e o teste "um lançamento criado pelo WhatsApp aparece no painel" dependem de P1/P2; até lá, usar lançamentos do seed ou criados pelo **chat de desenvolvimento no terminal** (`pnpm dev:chat`, seção 3.5 do plano do canal; só para teste, e o WhatsApp real é ligado no fim, na E10 do canal).
 
 Legenda de confiança, usada em todo o documento:
 
@@ -270,7 +270,7 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 **Testes:** unitário da conversão de entrada em reais para centavos (vírgula, ponto, milhar); componentes do formulário; E2E de editar, excluir, restaurar e ver origem; conflito de edição entre duas abas; filtros sobrevivem a recarregar e ao botão voltar; permissão (lançador sem acesso a categoria sensível não vê o valor); a edição gera versão (verificada pela API).
 
-**Pronto quando:** um lançamento criado pelo WhatsApp aparece, é editado no painel, e o histórico mostra as duas origens.
+**Pronto quando:** um lançamento criado pelo WhatsApp aparece, é editado no painel, e o histórico mostra as duas origens. (Durante o desenvolvimento, o lançamento "pelo WhatsApp" é criado no `pnpm dev:chat`; com o WhatsApp real, só depois da E10 do canal.)
 
 ### F4: Dashboard — G
 

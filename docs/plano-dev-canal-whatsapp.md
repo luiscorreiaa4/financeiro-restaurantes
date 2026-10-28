@@ -20,12 +20,12 @@ Legenda de confiança, usada em todo o documento:
 | E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
 | E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026) **com ressalva**: falta só o teste com mensagem real do celular, bloqueado por pendência da Meta (P1, ver "Pendências da Meta") | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Verificado em 28/10 pelo túnel: handshake, POST assinado, reenvio sem duplicar, assinatura inválida (401) e o botão **Teste** do painel da Meta (status gravado). Pendente: mensagem real do celular (P1) e conferir `redact`/logs do Pino |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
-| E5 Identificação e roteamento | A fazer | |
+| E5 Identificação e roteamento | A fazer | Cria o **chat de desenvolvimento** no terminal (D7, seção 3.5) |
 | E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |
-| E7 Fluxo de lançamento e confirmação | A fazer | |
+| E7 Fluxo de lançamento e confirmação | A fazer | Chat de dev ganha `/reply` e `/custo` |
 | E8 Evals e qualidade da IA | A fazer | Começa junto com a E6 |
-| E9 Áudio e foto | A fazer | |
-| E10 Envio real e operação | A fazer | Bloqueada pela Meta (erro 130497, P2) |
+| E9 Áudio e foto | A fazer | Chat de dev ganha `/audio` e `/foto` |
+| E10 Envio real e operação | A fazer | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
@@ -45,7 +45,7 @@ Uma mensagem de WhatsApp (texto, depois áudio e foto) vira um ou mais lançamen
 
 **Fora (pós-MVP):** perguntas em linguagem natural sobre os dados, resumo semanal e alertas, importação de planilhas, Open Finance.
 
-**Premissa atual:** dois bloqueios na Meta, ambos fora do código (detalhe em "Pendências da Meta", logo abaixo): **P1** mensagens reais não chegam ao nosso webhook (app em modo desenvolvimento) e **P2** o envio real está bloqueado (erro 130497). Tudo é construído com o envio atrás de uma interface e com fixtures no lugar do recebimento real; liga quando a Meta liberar. As etapas E4 a E9 não dependem de P1 nem de P2.
+**Premissa atual:** dois bloqueios na Meta, ambos fora do código (detalhe em "Pendências da Meta", logo abaixo): **P1** mensagens reais não chegam ao nosso webhook (app em modo desenvolvimento) e **P2** o envio real está bloqueado (erro 130497). Tudo é construído com o envio atrás de uma interface e com fixtures no lugar do recebimento real; liga quando a Meta liberar. As etapas E4 a E9 não dependem de P1 nem de P2: durante todo o desenvolvimento o canal é testado pelo **chat de desenvolvimento no terminal** (D7, seção 3.5), e o WhatsApp real só é configurado no fim (E10).
 
 ### Pendências da Meta (P1 e P2), atualizado em 28/10/2026
 
@@ -62,7 +62,7 @@ Não são tarefas de código. São duas coisas diferentes e não devem ser confu
 
 **Para repetir o teste real da E3 quando P1 for resolvido:** `docs/e3-o-que-falta-para-fechar.md`, passo 4. Mandar "Teste" do celular; deve entrar 1 linha em `inbound_messages` com o seu `wa_id` e 1 job em `pgboss.job`.
 
-**Enquanto isso:** desenvolver E4 a E9 com as fixtures e o POST assinado local; o envio fica atrás da interface com modo log.
+**Enquanto isso:** desenvolver E4 a E9 testando pelo **chat de desenvolvimento no terminal** (D7, seção 3.5), mais as fixtures e o POST assinado local. O WhatsApp real só é configurado no fim, na E10.
 
 ## 2. Tecnologias: o que a documentação atual diz
 
@@ -117,7 +117,8 @@ Versões instaladas hoje no repositório: Node 24, TypeScript 7.0.2, Fastify 5.1
 
 | Porta | Adaptador real | Adaptador de desenvolvimento/teste |
 |---|---|---|
-| `MessageSender` (enviar texto, marcar como lido, indicador de digitação) | `CloudMessageSender` | `LogMessageSender` (só registra), `FakeMessageSender` (testes) |
+| `MessageSender` (enviar texto, marcar como lido, indicador de digitação) | `CloudMessageSender` | `DevMessageSender` (chat de desenvolvimento, grava e mostra no terminal), `LogMessageSender` (só registra), `FakeMessageSender` (testes) |
+| `MediaDownloader` (baixar a mídia recebida) | `MetaMediaDownloader` | `DevFileMediaDownloader` (lê arquivo local, usado pelo chat de dev), `FakeMediaDownloader` (testes) |
 | `EntryExtractor` (texto/imagem → `ExtractionResult`) | `ClaudeEntryExtractor` | `FakeEntryExtractor` (respostas roteirizadas) |
 | `Transcriber` (áudio → texto) | `OpenAITranscriber` | `FakeTranscriber` |
 | `MediaStore` (guardar/ler mídia, URL assinada) | `S3MediaStore` | `InMemoryMediaStore` |
@@ -175,6 +176,42 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 
 `Result<T, E>` no domínio, com erros nomeados (`AmountMissing`, `UnknownUnit`, `PermissionDenied`, `DuplicateMessage`, `ExtractionInvalid`, `LlmRefused`, …). Exceções só para falhas de infraestrutura. Cada erro de domínio mapeia para uma mensagem em pt-BR escrita pelo Matheus.
 
+### 3.5 Chat de desenvolvimento (D7): conversar com o sistema sem o WhatsApp
+
+> **Só para desenvolvimento e teste.** Não é produto, não vai para o cliente e **não precisa de interface bonita**: é um programa de terminal. O WhatsApp real é ligado **no fim do desenvolvimento** (E10), quando a Meta estiver liberada (P1 e P2).
+
+**O que é:** um simulador de WhatsApp no terminal (`pnpm dev:chat`). Você digita como se fosse o dono do restaurante, o sistema processa de verdade (fila, worker, IA, banco) e a resposta aparece na própria tela.
+
+**Como funciona (alta fidelidade, quase nenhum código especial):**
+1. O chat monta um payload **no formato real da Cloud API** (o mesmo construtor das fixtures), assina com `WHATSAPP_APP_SECRET` e faz POST em `http://localhost:4000/webhooks/whatsapp`. Assim exercita a rota, a assinatura, o parser, a idempotência, a fila, o worker e a IA exatamente como na produção. Nada de atalho no caminho de entrada.
+2. A resposta sai pela porta `MessageSender`. O adaptador de desenvolvimento, `DevMessageSender`, grava a resposta na tabela de mensagens enviadas (que a E7 já precisa para a correção por reply, com id `dev.out.<uuid>`) e o chat a mostra, consultando a tabela a cada ~1 s.
+3. Áudio e foto: `/audio arquivo.ogg` e `/foto nota.jpg` geram um payload com mídia apontando para um arquivo local; o `DevFileMediaDownloader` (porta `MediaDownloader`) lê do disco em vez de baixar da Meta. O resto do fluxo (transcrição, QR, extração) é o real.
+
+**Comandos do chat (primeira lista, enxuta):** texto livre (vira mensagem); `/como <telefone>` troca de usuário (testa papéis, dois tenants, 9º dígito, número desconhecido); `/audio <arquivo>`; `/foto <arquivo>`; `/reply` responde à última confirmação (preenche `context.message_id`); `/custo` mostra o `ai_usage` da conversa; `/sair`.
+
+**Salvaguardas:** `CHANNEL_MODE=dev|whatsapp` no `.env` (validado com Zod). O chat e os adaptadores `Dev*` recusam subir com `NODE_ENV=production`. Mensagens do chat usam `wa_message_id` com prefixo `dev.` e ficam marcadas, para nunca se misturarem com dados reais.
+
+**Por que terminal e não outra coisa (o que estudamos):**
+
+| Opção | Veredito |
+|---|---|
+| Terminal (REPL em Node, `readline`) | ✅ Escolhida. Zero interface, mesmo repositório, scriptável (serve para testes ponta a ponta e para gravar uma demo para o Matheus), sem conta nem custo. |
+| Interface web em React | Descartada: custo de construção sem ganho para testar. O painel real é a F0 a F8; não duplicar. |
+| Console de teste da Meta | Não serve: só entrega testes do painel enquanto o app não estiver publicado (P1) e o envio dá 130497 (P2). |
+| Telegram ou outro app de mensagem | Descartada: exige conta e adaptador extras e não é o formato do WhatsApp. |
+| Só testes automatizados | Continuam (seção 5), mas não deixam "conversar" e explorar frases novas. O chat é o complemento. |
+
+**O que o chat NÃO testa (fica para a E10, com a Meta real):** janela de 24 h, templates aprovados, status de entrega, limites de mídia, erros como 130497 e 131030, latência da Meta.
+
+**Quando é construído:** versão 1 na **E5** (digitar texto e ver a resposta, trocar de usuário); cresce na **E7** (`/reply`, `/custo`) e na **E9** (`/audio`, `/foto`). O script da E6 (10 a 15 frases direto na IA, com custo por mensagem) continua existindo: testa só a extração, sem banco.
+
+**Ligar o WhatsApp real (checklist do fim do desenvolvimento, E10):**
+1. P1: publicar o app da Meta e repetir o teste real da E3 (`docs/e3-o-que-falta-para-fechar.md`, passo 4).
+2. P2: resolver o erro 130497 (pagamento, perfil, verificação da empresa com CNPJ).
+3. Número definitivo e nome de exibição.
+4. `CHANNEL_MODE=whatsapp`: entram `CloudMessageSender` e `MetaMediaDownloader` no lugar dos `Dev*` (só a composição em `apps/api` muda; o `core` e a IA não sabem a diferença).
+5. Rodar o mesmo roteiro do chat de dev, agora pelo celular, em staging.
+
 ## 4. Decisões que precisam do seu OK
 
 | # | Decisão | Recomendação | Por quê |
@@ -185,6 +222,7 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 | D4 | Build de produção da API e dos workers | 🧭 Decidir na E10: bundle (tsup/esbuild) ou rodar TypeScript direto no Node 24. | Hoje usamos `tsx` só em desenvolvimento. ⚠️ Não verifiquei o suporte do Node a TS em pacotes do workspace. |
 | D5 | Modelo para o primeiro passe: Haiku 5.5 ou Sonnet 5.5? | 🧭 Começar com Haiku 5.5 e **medir nos evals** antes de decidir. | CLAUDE.md já define Haiku para extração. Custo é ~20x menor, mas só o eval diz se a precisão chega a 90%. |
 | D6 | Pergunta de volta vs. salvar com presunção | Regra do CLAUDE.md (salvar direto, perguntar só se faltar informação essencial). Definir com o Matheus **o que é essencial**. | É uma regra de negócio, não técnica. |
+| D7 🧭 | Como testar o canal e a IA sem WhatsApp durante o desenvolvimento? | **Chat de desenvolvimento no terminal** (`pnpm dev:chat`), que simula o WhatsApp assinando e enviando payloads reais ao nosso webhook, com `DevMessageSender` e `DevFileMediaDownloader`. Detalhe na seção 3.5. | Permite desenvolver e testar tudo antes do CNPJ e da liberação da Meta; o WhatsApp real é ligado só no fim (E10). Não é produto nem precisa de interface bonita. |
 
 ## 5. Estratégia de testes
 
@@ -362,11 +400,11 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - Roteamento em ordem: comando (`desfazer`, `ajuda`) → resposta a uma confirmação (correção por reply, via `context.message_id`) → resposta a pergunta pendente → extração.
 - Saída para humano nas mensagens de ajuda e erro (canal de suporte).
 - Recusa curta e padronizada para assunto fora do escopo (a política da Meta trata IA de propósito geral como proibida).
-- `MessageSender` com `LogMessageSender` ligado em desenvolvimento.
+- **Chat de desenvolvimento v1** (D7, seção 3.5): `pnpm dev:chat` no terminal, que assina e envia payloads ao webhook local, mostra as respostas pelo `DevMessageSender` e troca de usuário com `/como`. Só desenvolvimento; sem interface visual. `CHANNEL_MODE=dev` no `.env`.
 
 **Testes:** tabela de telefones com e sem 9º dígito; usuário de dois tenants; usuário desativado; comandos com variações; reply para a confirmação certa e para uma antiga; mensagem fora de escopo.
 
-**Pronto quando:** cada tipo de mensagem cai no ramo certo sem chamar a IA nos casos de comando e número desconhecido.
+**Pronto quando:** cada tipo de mensagem cai no ramo certo sem chamar a IA nos casos de comando e número desconhecido, e dá para ver isso conversando pelo `pnpm dev:chat`.
 
 ### E6: Extração por IA (texto) — G
 
@@ -404,7 +442,7 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Testes:** ponta a ponta do canal (fixture de webhook → banco → saída do `FakeMessageSender`); desfazer duas vezes; corrigir um lançamento antigo; erro no meio da transação não deixa lançamento pela metade; permissão negada.
 
-**Pronto quando:** a mensagem do seu celular vira lançamento com versão e origem, e a confirmação aparece no log.
+**Pronto quando:** a mensagem digitada no `pnpm dev:chat` vira lançamento com versão e origem, e a confirmação aparece no próprio chat. (Pelo celular, só na E10.)
 
 ### E8: Evals e qualidade da IA — M (contínuo)
 
@@ -435,11 +473,11 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Testes:** áudios de exemplo com transcrição esperada (tolerância a erro de palavra); QR com fixtures gravadas da SEFAZ (contrato, sem bater no site em CI); imagem sem QR no dataset de evals; rate limit excedido responde de forma padronizada.
 
-**Pronto quando:** um áudio de 20 s e uma foto de NFC-e viram lançamentos confirmados.
+**Pronto quando:** um áudio de 20 s e uma foto de NFC-e, enviados pelo `/audio` e `/foto` do chat de dev, viram lançamentos confirmados.
 
 ### E10: Envio real, operação e produção do canal — M
 
-Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, número definitivo).
+Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, número definitivo). **É a etapa que liga o WhatsApp real, no fim do desenvolvimento**; até aqui tudo foi testado pelo chat de desenvolvimento (seção 3.5). Siga o checklist "Ligar o WhatsApp real" da seção 3.5.
 
 **Entregas**
 - `CloudMessageSender`: texto dentro da janela de 24 h; templates aprovados para o que inicia conversa (resumo, alertas, OTP por WhatsApp).
