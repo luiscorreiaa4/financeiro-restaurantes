@@ -1,0 +1,38 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "200000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15551234567",
+              "phone_number_id": "100000000000001"
+            },
+            "statuses": [
+              {
+                "id": "wamid.SAIDA1",
+                "status": "failed",
+                "timestamp": "1793152800",
+                "recipient_id": "551187654321",
+                "errors": [
+                  {
+                    "code": 130497,
+                    "title": "Business account is restricted from messaging users in this country.",
+                    "message": "Business account is restricted from messaging users in this country.",
+                    "error_data": {
+                      "details": "Business account is restricted from messaging users in this country."
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

@@ -31,6 +31,7 @@ export const TABLES = [
   "tenants",
   "units",
   "users",
+  "whatsapp_status_events",
 ] as const;
 
 let phoneCounter = 0;
@@ -113,6 +114,11 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     "insert into audit_log (id, tenant_id, actor_id, action) values ($1, $2, $3, 'teste')",
     [uuidv7(), f.tenantId, f.userId],
   );
+  await run(
+    `insert into whatsapp_status_events (id, tenant_id, wa_message_id, status, raw)
+     values ($1, $2, $3, 'delivered', '{}')`,
+    [uuidv7(), f.tenantId, `wamid.out.${uuidv7()}`],
+  );
   return f;
 }
 
@@ -178,6 +184,10 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     audit_log: {
       sql: "insert into audit_log (id, tenant_id, action) values ($1, $2, 'intruso')",
       params: [id(), f.tenantId],
+    },
+    whatsapp_status_events: {
+      sql: "insert into whatsapp_status_events (id, tenant_id, wa_message_id, status, raw) values ($1, $2, $3, 'sent', '{}')",
+      params: [id(), f.tenantId, `wamid.out.${id()}`],
     },
   };
 }

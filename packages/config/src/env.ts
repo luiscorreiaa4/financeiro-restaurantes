@@ -13,6 +13,8 @@ const baseSchema = z.object({
 
   DATABASE_URL: z.string().min(1),
   DATABASE_ADMIN_URL: z.string().min(1),
+  // Papel `app_ingest`: o webhook grava a mensagem antes de ela ter tenant.
+  DATABASE_INGEST_URL: optionalString,
 
   AUTH_SECRET: optionalString,
 
@@ -41,6 +43,7 @@ const baseSchema = z.object({
 // Em produção os segredos de integração são obrigatórios; em dev podem faltar
 // até a conta correspondente existir.
 const requiredInProduction = [
+  "DATABASE_INGEST_URL",
   "AUTH_SECRET",
   "WHATSAPP_PHONE_NUMBER_ID",
   "WHATSAPP_ACCESS_TOKEN",

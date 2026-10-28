@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   foreignKey,
   index,
+  integer,
   jsonb,
   pgPolicy,
   pgTable,
@@ -10,7 +11,15 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import { createdAt, ingestRole, oneOf, primaryId, tenantIsolation } from "./_shared";
+import {
+  appendOnly,
+  createdAt,
+  ingestCanRead,
+  ingestRole,
+  oneOf,
+  primaryId,
+  tenantIsolation,
+} from "./_shared";
 import { tenantId, tenants, users } from "./tenants";
 
 export const INBOUND_TYPES = ["text", "audio", "image", "unsupported"] as const;
@@ -71,6 +80,44 @@ export const inboundMessages = pgTable(
       for: "update",
       to: ingestRole,
       using: sql`true`,
+      withCheck: sql`true`,
+    }),
+  ],
+);
+
+/**
+ * Eventos de `statuses` da Meta (enviada, entregue, lida, falhou) sobre mensagens que nós
+ * enviamos. É por aqui que aparecem erros como o 130497. `tenant_id` é nulo até a mensagem
+ * enviada ser atribuída a um tenant; até lá só o papel `app_ingest` enxerga a linha. Só
+ * acrescenta: um mesmo `(wa_message_id, status)` nunca é gravado duas vezes.
+ */
+export const whatsappStatusEvents = pgTable(
+  "whatsapp_status_events",
+  {
+    id: primaryId(),
+    tenantId: uuid("tenant_id").references(() => tenants.id),
+    /** Id da mensagem enviada por nós (`statuses[].id`). */
+    waMessageId: text("wa_message_id").notNull(),
+    status: text("status").notNull(),
+    recipientId: text("recipient_id"),
+    errorCode: integer("error_code"),
+    errorTitle: text("error_title"),
+    errorDetail: text("error_detail"),
+    /** Momento do evento segundo a Meta. */
+    occurredAt: timestamp("occurred_at", { withTimezone: true }),
+    raw: jsonb("raw").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("whatsapp_status_events_message_status_unique").on(t.waMessageId, t.status),
+    index("whatsapp_status_events_tenant_received_idx").on(t.tenantId, t.receivedAt),
+    index("whatsapp_status_events_error_idx").on(t.errorCode),
+    ...appendOnly("whatsapp_status_events"),
+    ingestCanRead("whatsapp_status_events"),
+    pgPolicy("whatsapp_status_events_ingest_insert", {
+      as: "permissive",
+      for: "insert",
+      to: ingestRole,
       withCheck: sql`true`,
     }),
   ],

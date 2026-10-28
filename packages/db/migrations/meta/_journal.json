@@ -15,6 +15,13 @@
       "when": 1793152774145,
       "tag": "0001_rls_force_and_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793165006212,
+      "tag": "0002_whatsapp_status_events",
+      "breakpoints": true
     }
   ]
 }

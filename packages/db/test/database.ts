@@ -15,6 +15,8 @@ export interface TestDatabase {
   readonly app: pg.Pool;
   /** Papel `app_ingest`, usado pelo webhook. */
   readonly ingest: pg.Pool;
+  /** Strings de conexão de cada papel, para quem precisa abrir o próprio pool (ex.: pg-boss). */
+  readonly urls: { readonly admin: string; readonly app: string; readonly ingest: string };
   /** Cria um banco vazio no mesmo container e devolve um pool admin para ele. */
   createEmptyDatabase(name: string): Promise<pg.Pool>;
   stop(): Promise<void>;
@@ -46,6 +48,11 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     admin,
     app,
     ingest,
+    urls: {
+      admin: urlFor("postgres", "postgres"),
+      app: urlFor("app", "app"),
+      ingest: urlFor("app_ingest", "app_ingest"),
+    },
     async createEmptyDatabase(name) {
       await admin.query(`create database ${name}`);
       const pool = new pg.Pool({ connectionString: urlFor("postgres", "postgres", name) });

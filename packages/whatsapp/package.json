@@ -11,6 +11,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@app/config": "workspace:*"
+    "@app/config": "workspace:*",
+    "@types/node": "^26.6.5"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }

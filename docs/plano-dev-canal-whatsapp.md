@@ -1,6 +1,6 @@
 # Plano de desenvolvimento: canal WhatsApp (mensagem → lançamento)
 
-Atualizado em 27/10/2026. Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
+Atualizado em 28/10/2026. Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
 
 Legenda de confiança, usada em todo o documento:
 
@@ -18,7 +18,7 @@ Legenda de confiança, usada em todo o documento:
 |---|---|---|
 | E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
 | E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
-| E3 Gateway do WhatsApp (webhook) | A fazer | Túnel e app da Meta já existem |
+| E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026), falta só o teste real pelo túnel | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Pendente: mensagem do celular pelo túnel (precisa de `DATABASE_INGEST_URL` no `.env`) e conferir `redact`/logs do Pino |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
 | E5 Identificação e roteamento | A fazer | |
 | E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |

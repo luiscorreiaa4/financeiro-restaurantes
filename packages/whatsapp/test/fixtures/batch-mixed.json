@@ -1,0 +1,67 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "200000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15551234567",
+              "phone_number_id": "100000000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Dono Teste"
+                },
+                "wa_id": "551187654321",
+                "user_id": "BR.1234567890123456"
+              }
+            ],
+            "messages": [
+              {
+                "from": "551187654321",
+                "id": "wamid.LOTE1",
+                "timestamp": "1793152754",
+                "type": "text",
+                "text": {
+                  "body": "gastei 100 no mercado"
+                }
+              },
+              {
+                "from": "551187654321",
+                "id": "wamid.LOTE2",
+                "timestamp": "1793152754",
+                "type": "text",
+                "text": {
+                  "body": "vendi 300 no pix"
+                }
+              },
+              {
+                "from": "551187654321",
+                "id": "wamid.LOTE3",
+                "timestamp": "1793152754",
+                "type": "sticker",
+                "sticker": {
+                  "id": "900000000000003",
+                  "mime_type": "image/webp"
+                }
+              }
+            ],
+            "statuses": [
+              {
+                "id": "wamid.SAIDA3",
+                "status": "sent",
+                "timestamp": "1793152830",
+                "recipient_id": "551187654321"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

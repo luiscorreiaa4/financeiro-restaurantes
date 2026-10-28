@@ -1,0 +1,44 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "200000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15551234567",
+              "phone_number_id": "100000000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Dono Teste"
+                },
+                "wa_id": "551187654321",
+                "user_id": "BR.1234567890123456"
+              }
+            ],
+            "messages": [
+              {
+                "from": "551187654321",
+                "id": "wamid.NOVO1",
+                "timestamp": "1793152754",
+                "type": "text",
+                "text": {
+                  "body": "oi"
+                },
+                "campo_novo_da_meta": {
+                  "x": 1
+                }
+              }
+            ],
+            "campo_novo_no_value": true
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

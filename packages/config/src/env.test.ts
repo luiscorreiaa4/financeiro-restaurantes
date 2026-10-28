@@ -35,7 +35,12 @@ describe("loadEnv", () => {
       const variables = (error as EnvError).issues.map((i) => i.variable);
       expect(variables).toContain("ANTHROPIC_API_KEY");
       expect(variables).toContain("WHATSAPP_APP_SECRET");
+      expect(variables).toContain("DATABASE_INGEST_URL");
     }
+  });
+
+  it("a conexão de ingestão do webhook é opcional em desenvolvimento", () => {
+    expect(loadEnv(base).DATABASE_INGEST_URL).toBeUndefined();
   });
 
   it("não vaza valores na mensagem de erro", () => {

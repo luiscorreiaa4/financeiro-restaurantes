@@ -81,3 +81,47 @@ export interface JobQueue {
     options?: { singletonKey?: string; startAfterSeconds?: number },
   ): Promise<{ jobId: string | null }>;
 }
+
+export type InboundMessageType = "text" | "audio" | "image" | "unsupported";
+
+export interface NewInboundMessage {
+  readonly waMessageId: string;
+  /** Telefone do remetente como a Meta informa (`from`), sem normalizar. */
+  readonly waId: string | null;
+  readonly waUserId: string | null;
+  readonly type: InboundMessageType;
+  readonly text: string | null;
+  /** Fatia do payload que descreve só esta mensagem. */
+  readonly raw: unknown;
+}
+
+export interface NewStatusEvent {
+  /** Id da mensagem enviada por nós. */
+  readonly waMessageId: string;
+  readonly status: string;
+  readonly recipientId: string | null;
+  readonly errorCode: number | null;
+  readonly errorTitle: string | null;
+  readonly errorDetail: string | null;
+  readonly occurredAt: Date | null;
+  readonly raw: unknown;
+}
+
+export interface StoredInboundMessage {
+  readonly id: string;
+  readonly waMessageId: string;
+  /** `true` só na gravação que criou a linha; reentregas da Meta voltam como `false`. */
+  readonly isNew: boolean;
+  readonly status: string;
+}
+
+/** Gravação do webhook, antes de a mensagem ter tenant (papel `app_ingest`). */
+export interface InboundIngestRepo {
+  /**
+   * Grava as mensagens que ainda não existem (idempotente por `waMessageId`) e devolve uma
+   * entrada para cada `waMessageId` recebido, nova ou não.
+   */
+  saveMessages(messages: readonly NewInboundMessage[]): Promise<readonly StoredInboundMessage[]>;
+  /** Grava eventos de status ainda não vistos e devolve quantos eram novos. */
+  saveStatuses(events: readonly NewStatusEvent[]): Promise<number>;
+}
