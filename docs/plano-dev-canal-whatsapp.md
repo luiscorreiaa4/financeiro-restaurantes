@@ -17,7 +17,7 @@ Legenda de confiança, usada em todo o documento:
 | Etapa | Status | Observação |
 |---|---|---|
 | E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
-| E2 Banco e multi-tenancy (`db`) | Em andamento (27/10/2026) | Schema, 2 migrations, `withTenant`, papel `app_ingest`, seed e testes escritos; unitários passam. **Falta rodar `pnpm test:int` (Docker estava desligado)**; só então marcar "Feita". Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
+| E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
 | E3 Gateway do WhatsApp (webhook) | A fazer | Túnel e app da Meta já existem |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
 | E5 Identificação e roteamento | A fazer | |

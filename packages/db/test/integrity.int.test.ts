@@ -107,7 +107,10 @@ describe("referências nunca cruzam tenants", () => {
     ["mensagem de origem", "inbound_message_id", () => b.inboundMessageId],
     ["categoria", "category_id", () => b.categoryId],
   ])("lançamento do tenant A não aponta para %s do tenant B", async (_nome, column, value) => {
-    expect(await tryInsertEntry({ [column]: value() })).toEqual({ error: FOREIGN_KEY_VIOLATION });
+    // position 99: evita colidir com o lançamento existente do tenant B na unicidade
+    // (inbound_message_id, position), que o Postgres checa antes da chave estrangeira.
+    const result = await tryInsertEntry({ [column]: value(), position: 99 });
+    expect(result).toEqual({ error: FOREIGN_KEY_VIOLATION });
   });
 
   it("aceita as referências do próprio tenant e categoria do sistema", async () => {
