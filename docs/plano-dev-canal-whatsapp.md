@@ -188,6 +188,7 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 - **Sem mock de banco.** O banco de teste é um Postgres de verdade com o papel `app` (sem `BYPASSRLS`), como em produção.
 - **Relógio e IA injetados.** Nenhum teste depende de `Date.now()` nem de rede.
 - **Teste de isolamento por tabela é meta-teste:** um teste percorre `information_schema` e falha se existir tabela com `tenant_id` sem RLS ligado e sem política. Assim, tabela nova sem política quebra o CI.
+- **Onde ficam os testes:** testes unitários (`*.test.ts`) ficam **ao lado do arquivo que testam**, na mesma pasta de `src/`, sem subpasta `test` ou `__tests__` (é o que `core`, `db`, `config`, `whatsapp` e `api` já fazem). Testes de integração (`*.int.test.ts`, Postgres real) e fixtures ficam em `test/` na raiz do pacote. O Vitest não impõe local: o padrão é `**/*.{test,spec}.?(c|m)[jt]s?(x)` e o guia oficial coloca `sum.test.js` ao lado de `sum.js` (vitest.dev/config/include e vitest.dev/guide, conferido em 28/10/2026).
 - **Nomes de teste em português**, descrevendo o comportamento de negócio.
 - **Cobertura:** `core` sem metas numéricas frouxas: toda regra tem teste (regra do CLAUDE.md). Os demais, cobertura medida como alerta, não como meta.
 
@@ -268,6 +269,52 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - Real: mensagem do celular chega pelo túnel e vira linha em `inbound_messages`.
 
 **Pronto quando:** a mensagem "Teste" enviada do seu celular aparece no banco, e o mesmo POST reenviado não duplica.
+
+#### Resultado da E3 (28/10/2026)
+
+**Entregue:** `GET/POST /webhooks/whatsapp` (`apps/api/src/http/webhooks/whatsapp.ts`), caso de uso `IngestWebhook`, `PgBossQueue` mínimo (fila `process-inbound`, política `exclusive`, só enfileira), tabela `whatsapp_status_events` (migration 0002), `createInboundIngestRepo` (`packages/db`), parser, assinatura e handshake (`packages/whatsapp`), 11 fixtures sintéticas e `DATABASE_INGEST_URL`. Testes: 95 de integração no db e 12 na api passam (`pnpm test:int`).
+
+**Decisões desta etapa:** status em tabela própria; pg-boss instalado já na E3 com adaptador mínimo; D3 resolvida como fatia por mensagem (`raw` guarda metadata, contato e a mensagem, não o POST inteiro); fixtures sintéticas por ora.
+
+**Confirmado na doc do pg-boss (28/10/2026):** `singletonKey` só deduplica em filas `short`, `stately` ou `exclusive` (ou com `singletonSeconds`); `send()` pode devolver `null`; `createQueue` aceita `policy`, `deadLetter`, `retryLimit`, `retryBackoff`, `expireInSeconds`. A idempotência real é o `INSERT ... ON CONFLICT DO NOTHING ... RETURNING`. Falta confirmar para a E4: opções de `stop()` e de `work()`.
+
+**Padrões adotados (conferir):**
+- Sem `WHATSAPP_APP_SECRET` ou `WHATSAPP_VERIFY_TOKEN`, a rota responde 503 e nunca aceita sem checar.
+- Assinatura inválida: 401. JSON inválido: 400. Campo que não é `messages`: 200 sem gravar.
+- Tipos não tratados (reação, figurinha) viram `unsupported` e também são enfileirados; a E5 decide o que fazer.
+- Falha ao enfileirar depois de gravar: 500. Na reentrega, mensagem ainda em `received` volta para a fila.
+- Logs sem query string (o handshake leva `hub.verify_token`) e sem conteúdo de mensagem, nem em erro do banco (o Drizzle põe os parâmetros do SQL na mensagem de erro).
+- Convenção de testes: unitários ao lado do código em `src/`; integração e fixtures em `test/`.
+
+**Como testar à mão**
+1. `docker compose up -d`. Em banco antigo, crie o papel: `docker compose exec -T postgres psql -U postgres -d app < docker/postgres/init.sql`.
+2. `pnpm db:migrate`.
+3. No `.env`: `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5432/app`, e `WHATSAPP_APP_SECRET` e `WHATSAPP_VERIFY_TOKEN` com qualquer valor local.
+4. `pnpm dev`.
+5. Handshake no navegador: `http://localhost:4000/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=SEU_TOKEN&hub.challenge=123` deve mostrar `123`. Token errado: 403.
+6. POST assinado, na raiz do repositório (deve imprimir `200 {"ok":true}`; rodar duas vezes não duplica):
+   ```
+   node --env-file=.env -e "const c=require('crypto'),fs=require('fs');const b=fs.readFileSync('packages/whatsapp/test/fixtures/text-message.json');const s='sha256='+c.createHmac('sha256',process.env.WHATSAPP_APP_SECRET).update(b).digest('hex');fetch('http://localhost:4000/webhooks/whatsapp',{method:'POST',headers:{'content-type':'application/json','x-hub-signature-256':s},body:b}).then(async r=>console.log(r.status,await r.text()))"
+   ```
+7. Banco: `docker compose exec postgres psql -U postgres -d app -c "select wa_message_id, type, text, status from inbound_messages"` mostra 1 linha `Teste` com status `received`; `-c "select count(*) from pgboss.job"` mostra 1 job.
+8. Troque um caractere do comando do passo 6: deve voltar 401 e nada é gravado.
+
+**Pendências da E3**
+- [ ] Teste real pelo túnel (cloudflared ou ngrok): URL e `WHATSAPP_VERIFY_TOKEN` no app da Meta; a mensagem "Teste" do celular deve virar linha em `inbound_messages` e o reenvio não duplicar. É o "Pronto quando" da etapa.
+- [ ] Trocar/acrescentar as fixtures sintéticas pelos dois payloads reais anonimizados (texto recebido e `status: failed` 130497).
+- [ ] Conferir `redact` do Pino na doc (⚠️ item da seção 2); hoje o `req` é serializado só com método, caminho e id.
+- [ ] Script de carga do webhook (o teste de latência cobre uma requisição com folga; a carga em rajada fica para antes do piloto).
+- [ ] Formato do `user_id` (`BR.<número>`): confirmar na doc da Meta onde o campo vem (`contacts[].user_id` ou `messages[].from_user_id`); o parser aceita os dois.
+
+**Candidatos de contexto do Claude propostos (aguardam aprovação, nada foi criado):**
+1. Regra `.claude/rules/webhook.md` (`apps/api/src/http/**`, `packages/whatsapp/**`): assinatura sobre bytes brutos, `bodyLimit` ≥ 3 MB, idempotência, 200 em < 1 s, iterar todos os eventos, nunca logar query string nem conteúdo.
+2. Skill `novo-fixture-whatsapp`: capturar payload real, anonimizar, criar fixture e teste de contrato.
+3. Subagente `revisor-seguranca` (Read, Grep, Glob, Bash somente leitura): isolamento de tenant, PII em log, assinatura, segredos.
+4. Hook `PreToolUse` que bloqueia editar migration já commitada (a 0002 já está).
+5. Regra `.claude/rules/testes.md`: unitário em `src/`, integração em `test/`, fixtures em `test/fixtures/`.
+6. Erro que repetiu: heredoc grande no Bash do Windows falha; usar Write/Edit. Vale uma linha no `CLAUDE.md`.
+
+**Próxima etapa:** E4 (fila e workers). Antes, aprovar ou ajustar os candidatos acima e fazer o teste real pelo túnel.
 
 ### E4: Fila e workers (pg-boss) — M
 
