@@ -1,0 +1,1852 @@
+{
+  "id": "0c2c765b-1856-40ce-bd5d-fd52e5a4aebf",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.categories": {
+      "name": "categories",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nature": {
+          "name": "nature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dre_group": {
+          "name": "dre_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sensitive": {
+          "name": "is_sensitive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "categories_tenant_idx": {
+          "name": "categories_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "categories_tenant_id_tenants_id_fk": {
+          "name": "categories_tenant_id_tenants_id_fk",
+          "tableFrom": "categories",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "categories_scope_parent_name_unique": {
+          "name": "categories_scope_parent_name_unique",
+          "nullsNotDistinct": true,
+          "columns": ["tenant_id", "parent_id", "name"]
+        }
+      },
+      "policies": {
+        "categories_read": {
+          "name": "categories_read",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "tenant_id is null or tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "categories_tenant_isolation": {
+          "name": "categories_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "categories_kind_check": {
+          "name": "categories_kind_check",
+          "value": "kind in ('revenue', 'expense', 'investment', 'deduction')"
+        },
+        "categories_nature_check": {
+          "name": "categories_nature_check",
+          "value": "nature is null or nature in ('fixed', 'variable')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payment_methods": {
+      "name": "payment_methods",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee_percent_bp": {
+          "name": "fee_percent_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fee_fixed_cents": {
+          "name": "fee_fixed_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payment_methods_tenant_id_tenants_id_fk": {
+          "name": "payment_methods_tenant_id_tenants_id_fk",
+          "tableFrom": "payment_methods",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "payment_methods_tenant_id_id_unique": {
+          "name": "payment_methods_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        },
+        "payment_methods_tenant_name_unique": {
+          "name": "payment_methods_tenant_name_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "name"]
+        }
+      },
+      "policies": {
+        "payment_methods_tenant_isolation": {
+          "name": "payment_methods_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "payment_methods_fee_percent_check": {
+          "name": "payment_methods_fee_percent_check",
+          "value": "\"payment_methods\".\"fee_percent_bp\" between 0 and 10000"
+        },
+        "payment_methods_fee_fixed_check": {
+          "name": "payment_methods_fee_fixed_check",
+          "value": "\"payment_methods\".\"fee_fixed_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sales_channels": {
+      "name": "sales_channels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee_percent_bp": {
+          "name": "fee_percent_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sales_channels_tenant_id_tenants_id_fk": {
+          "name": "sales_channels_tenant_id_tenants_id_fk",
+          "tableFrom": "sales_channels",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sales_channels_tenant_id_id_unique": {
+          "name": "sales_channels_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        },
+        "sales_channels_tenant_name_unique": {
+          "name": "sales_channels_tenant_name_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "name"]
+        }
+      },
+      "policies": {
+        "sales_channels_tenant_isolation": {
+          "name": "sales_channels_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "sales_channels_fee_percent_check": {
+          "name": "sales_channels_fee_percent_check",
+          "value": "\"sales_channels\".\"fee_percent_bp\" between 0 and 10000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.suppliers": {
+      "name": "suppliers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document": {
+          "name": "document",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aliases": {
+          "name": "aliases",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "suppliers_tenant_name_idx": {
+          "name": "suppliers_tenant_name_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "suppliers_tenant_id_tenants_id_fk": {
+          "name": "suppliers_tenant_id_tenants_id_fk",
+          "tableFrom": "suppliers",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "suppliers_tenant_id_id_unique": {
+          "name": "suppliers_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "policies": {
+        "suppliers_tenant_isolation": {
+          "name": "suppliers_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.entries": {
+      "name": "entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_id": {
+          "name": "unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_on": {
+          "name": "occurred_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(14, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity_unit": {
+          "name": "quantity_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee_percent_bp": {
+          "name": "fee_percent_bp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fee_fixed_cents": {
+          "name": "fee_fixed_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fee_cents": {
+          "name": "fee_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "net_cents": {
+          "name": "net_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_method_id": {
+          "name": "payment_method_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sales_channel_id": {
+          "name": "sales_channel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inbound_message_id": {
+          "name": "inbound_message_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "confirmation_wa_message_id": {
+          "name": "confirmation_wa_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ai_confidence": {
+          "name": "ai_confidence",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "entries_unit_date_idx": {
+          "name": "entries_unit_date_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "entries_category_date_idx": {
+          "name": "entries_category_date_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "entries_confirmation_idx": {
+          "name": "entries_confirmation_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "confirmation_wa_message_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"entries\".\"confirmation_wa_message_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entries_tenant_id_tenants_id_fk": {
+          "name": "entries_tenant_id_tenants_id_fk",
+          "tableFrom": "entries",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_category_id_categories_id_fk": {
+          "name": "entries_category_id_categories_id_fk",
+          "tableFrom": "entries",
+          "tableTo": "categories",
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_created_by_users_id_fk": {
+          "name": "entries_created_by_users_id_fk",
+          "tableFrom": "entries",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_unit_fk": {
+          "name": "entries_unit_fk",
+          "tableFrom": "entries",
+          "tableTo": "units",
+          "columnsFrom": ["tenant_id", "unit_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_supplier_fk": {
+          "name": "entries_supplier_fk",
+          "tableFrom": "entries",
+          "tableTo": "suppliers",
+          "columnsFrom": ["tenant_id", "supplier_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_payment_method_fk": {
+          "name": "entries_payment_method_fk",
+          "tableFrom": "entries",
+          "tableTo": "payment_methods",
+          "columnsFrom": ["tenant_id", "payment_method_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_sales_channel_fk": {
+          "name": "entries_sales_channel_fk",
+          "tableFrom": "entries",
+          "tableTo": "sales_channels",
+          "columnsFrom": ["tenant_id", "sales_channel_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entries_inbound_message_fk": {
+          "name": "entries_inbound_message_fk",
+          "tableFrom": "entries",
+          "tableTo": "inbound_messages",
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "entries_tenant_id_id_unique": {
+          "name": "entries_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        },
+        "entries_inbound_position_unique": {
+          "name": "entries_inbound_position_unique",
+          "nullsNotDistinct": false,
+          "columns": ["inbound_message_id", "position"]
+        }
+      },
+      "policies": {
+        "entries_tenant_isolation": {
+          "name": "entries_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "entries_type_check": {
+          "name": "entries_type_check",
+          "value": "type in ('expense', 'revenue')"
+        },
+        "entries_amount_check": {
+          "name": "entries_amount_check",
+          "value": "\"entries\".\"amount_cents\" > 0"
+        },
+        "entries_fee_check": {
+          "name": "entries_fee_check",
+          "value": "\"entries\".\"fee_cents\" >= 0 and \"entries\".\"fee_cents\" <= \"entries\".\"amount_cents\""
+        },
+        "entries_net_check": {
+          "name": "entries_net_check",
+          "value": "\"entries\".\"net_cents\" = \"entries\".\"amount_cents\" - \"entries\".\"fee_cents\""
+        },
+        "entries_fee_percent_check": {
+          "name": "entries_fee_percent_check",
+          "value": "\"entries\".\"fee_percent_bp\" between 0 and 10000"
+        },
+        "entries_fee_fixed_check": {
+          "name": "entries_fee_fixed_check",
+          "value": "\"entries\".\"fee_fixed_cents\" >= 0"
+        },
+        "entries_quantity_check": {
+          "name": "entries_quantity_check",
+          "value": "\"entries\".\"quantity\" is null or \"entries\".\"quantity\" > 0"
+        },
+        "entries_confidence_check": {
+          "name": "entries_confidence_check",
+          "value": "\"entries\".\"ai_confidence\" is null or \"entries\".\"ai_confidence\" between 0 and 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.entry_versions": {
+      "name": "entry_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "before": {
+          "name": "before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after": {
+          "name": "after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "entry_versions_tenant_entry_idx": {
+          "name": "entry_versions_tenant_entry_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entry_versions_tenant_id_tenants_id_fk": {
+          "name": "entry_versions_tenant_id_tenants_id_fk",
+          "tableFrom": "entry_versions",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entry_versions_changed_by_users_id_fk": {
+          "name": "entry_versions_changed_by_users_id_fk",
+          "tableFrom": "entry_versions",
+          "tableTo": "users",
+          "columnsFrom": ["changed_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "entry_versions_entry_fk": {
+          "name": "entry_versions_entry_fk",
+          "tableFrom": "entry_versions",
+          "tableTo": "entries",
+          "columnsFrom": ["tenant_id", "entry_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "entry_versions_entry_version_unique": {
+          "name": "entry_versions_entry_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["entry_id", "version"]
+        }
+      },
+      "policies": {
+        "entry_versions_tenant_select": {
+          "name": "entry_versions_tenant_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "entry_versions_tenant_insert": {
+          "name": "entry_versions_tenant_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": ["app"],
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "entry_versions_action_check": {
+          "name": "entry_versions_action_check",
+          "value": "action in ('create', 'update', 'delete')"
+        },
+        "entry_versions_channel_check": {
+          "name": "entry_versions_channel_check",
+          "value": "channel in ('whatsapp', 'web', 'import', 'system')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.inbound_messages": {
+      "name": "inbound_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wa_message_id": {
+          "name": "wa_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wa_id": {
+          "name": "wa_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wa_user_id": {
+          "name": "wa_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_key": {
+          "name": "media_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transcription": {
+          "name": "transcription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raw": {
+          "name": "raw",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'received'"
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "inbound_messages_tenant_received_idx": {
+          "name": "inbound_messages_tenant_received_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "inbound_messages_status_idx": {
+          "name": "inbound_messages_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "inbound_messages_tenant_id_tenants_id_fk": {
+          "name": "inbound_messages_tenant_id_tenants_id_fk",
+          "tableFrom": "inbound_messages",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "inbound_messages_user_id_users_id_fk": {
+          "name": "inbound_messages_user_id_users_id_fk",
+          "tableFrom": "inbound_messages",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "inbound_messages_wa_message_id_unique": {
+          "name": "inbound_messages_wa_message_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["wa_message_id"]
+        },
+        "inbound_messages_tenant_id_id_unique": {
+          "name": "inbound_messages_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
+      "policies": {
+        "inbound_messages_tenant_isolation": {
+          "name": "inbound_messages_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "inbound_messages_ingest_select": {
+          "name": "inbound_messages_ingest_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app_ingest"],
+          "using": "true"
+        },
+        "inbound_messages_ingest_insert": {
+          "name": "inbound_messages_ingest_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": ["app_ingest"],
+          "withCheck": "true"
+        },
+        "inbound_messages_ingest_update": {
+          "name": "inbound_messages_ingest_update",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": ["app_ingest"],
+          "using": "true",
+          "withCheck": "true"
+        }
+      },
+      "checkConstraints": {
+        "inbound_messages_type_check": {
+          "name": "inbound_messages_type_check",
+          "value": "type in ('text', 'audio', 'image', 'unsupported')"
+        },
+        "inbound_messages_status_check": {
+          "name": "inbound_messages_status_check",
+          "value": "status in ('received', 'processing', 'needs_answer', 'processed', 'failed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.pending_questions": {
+      "name": "pending_questions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inbound_message_id": {
+          "name": "inbound_message_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draft": {
+          "name": "draft",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "question": {
+          "name": "question",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pending_questions_tenant_user_idx": {
+          "name": "pending_questions_tenant_user_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pending_questions_tenant_id_tenants_id_fk": {
+          "name": "pending_questions_tenant_id_tenants_id_fk",
+          "tableFrom": "pending_questions",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pending_questions_user_id_users_id_fk": {
+          "name": "pending_questions_user_id_users_id_fk",
+          "tableFrom": "pending_questions",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pending_questions_inbound_message_fk": {
+          "name": "pending_questions_inbound_message_fk",
+          "tableFrom": "pending_questions",
+          "tableTo": "inbound_messages",
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "pending_questions_tenant_isolation": {
+          "name": "pending_questions_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ai_usage": {
+      "name": "ai_usage",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inbound_message_id": {
+          "name": "inbound_message_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "audio_seconds": {
+          "name": "audio_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cost_usd_micros": {
+          "name": "cost_usd_micros",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "ai_usage_tenant_created_idx": {
+          "name": "ai_usage_tenant_created_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ai_usage_tenant_id_tenants_id_fk": {
+          "name": "ai_usage_tenant_id_tenants_id_fk",
+          "tableFrom": "ai_usage",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ai_usage_inbound_message_fk": {
+          "name": "ai_usage_inbound_message_fk",
+          "tableFrom": "ai_usage",
+          "tableTo": "inbound_messages",
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "ai_usage_tenant_select": {
+          "name": "ai_usage_tenant_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "ai_usage_tenant_insert": {
+          "name": "ai_usage_tenant_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": ["app"],
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.audit_log": {
+      "name": "audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_log_tenant_created_idx": {
+          "name": "audit_log_tenant_created_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_log_tenant_id_tenants_id_fk": {
+          "name": "audit_log_tenant_id_tenants_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "audit_log_actor_id_users_id_fk": {
+          "name": "audit_log_actor_id_users_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "users",
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "audit_log_tenant_select": {
+          "name": "audit_log_tenant_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "audit_log_tenant_insert": {
+          "name": "audit_log_tenant_insert",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": ["app"],
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.memberships": {
+      "name": "memberships",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_id": {
+          "name": "unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permissions": {
+          "name": "permissions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "memberships_tenant_id_tenants_id_fk": {
+          "name": "memberships_tenant_id_tenants_id_fk",
+          "tableFrom": "memberships",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "memberships_user_id_users_id_fk": {
+          "name": "memberships_user_id_users_id_fk",
+          "tableFrom": "memberships",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "memberships_unit_fk": {
+          "name": "memberships_unit_fk",
+          "tableFrom": "memberships",
+          "tableTo": "units",
+          "columnsFrom": ["tenant_id", "unit_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "memberships_tenant_user_unique": {
+          "name": "memberships_tenant_user_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "user_id"]
+        }
+      },
+      "policies": {
+        "memberships_tenant_isolation": {
+          "name": "memberships_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "memberships_ingest_select": {
+          "name": "memberships_ingest_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app_ingest"],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {
+        "memberships_role_check": {
+          "name": "memberships_role_check",
+          "value": "role in ('owner', 'manager', 'staff')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'trial'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "tenants_self_select": {
+          "name": "tenants_self_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "tenants_ingest_select": {
+          "name": "tenants_ingest_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app_ingest"],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.units": {
+      "name": "units",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'America/Sao_Paulo'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "units_tenant_id_tenants_id_fk": {
+          "name": "units_tenant_id_tenants_id_fk",
+          "tableFrom": "units",
+          "tableTo": "tenants",
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "units_tenant_id_id_unique": {
+          "name": "units_tenant_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        },
+        "units_tenant_name_unique": {
+          "name": "units_tenant_name_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "name"]
+        }
+      },
+      "policies": {
+        "units_tenant_isolation": {
+          "name": "units_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app"],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        },
+        "units_ingest_select": {
+          "name": "units_ingest_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app_ingest"],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_e164": {
+          "name": "phone_e164",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": ["email"]
+        },
+        "users_phone_e164_unique": {
+          "name": "users_phone_e164_unique",
+          "nullsNotDistinct": false,
+          "columns": ["phone_e164"]
+        }
+      },
+      "policies": {
+        "users_same_tenant_select": {
+          "name": "users_same_tenant_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app"],
+          "using": "exists (\n        select 1 from memberships m\n        where m.user_id = users.id and m.tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid\n      )"
+        },
+        "users_ingest_select": {
+          "name": "users_ingest_select",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": ["app_ingest"],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

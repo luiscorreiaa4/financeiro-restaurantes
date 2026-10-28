@@ -11,14 +11,17 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=../../.env src/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --exclude \"**/*.int.test.ts\"",
+    "test:int": "vitest run --passWithNoTests int.test.ts"
   },
   "dependencies": {
+    "@app/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@app/config": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.1",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",

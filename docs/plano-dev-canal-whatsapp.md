@@ -17,7 +17,7 @@ Legenda de confiança, usada em todo o documento:
 | Etapa | Status | Observação |
 |---|---|---|
 | E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
-| E2 Banco e multi-tenancy (`db`) | A fazer | |
+| E2 Banco e multi-tenancy (`db`) | Em andamento (27/10/2026) | Schema, 2 migrations, `withTenant`, papel `app_ingest`, seed e testes escritos; unitários passam. **Falta rodar `pnpm test:int` (Docker estava desligado)**; só então marcar "Feita". Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
 | E3 Gateway do WhatsApp (webhook) | A fazer | Túnel e app da Meta já existem |
 | E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
 | E5 Identificação e roteamento | A fazer | |
@@ -234,7 +234,7 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - Migrations SQL revisadas, com políticas RLS (`pgPolicy`) e `ENABLE`/`FORCE ROW LEVEL SECURITY` quando aplicável.
 - `withTenant(tenantId, fn)`: transação com `set_config('app.tenant_id', $1, true)` (parametrizado, nunca interpolado).
 - Papéis separados: `app` (sem BYPASSRLS) para a aplicação, `postgres` (admin) para migrations e jobs administrativos.
-- Seed com categorias provisórias.
+- Seed com categorias provisórias. ✅ **Decidido (27/10/2026):** a lista em `packages/db/src/system-categories.ts` é **provisória** e precisará ser ajustada depois, com validação do Matheus (nomes, subcategorias, natureza fixa/variável e grupo do DRE). Como o seed é idempotente e só cria o que falta, mudanças em categorias já gravadas exigem migration ou script de ajuste, não basta editar a lista.
 - Tabelas do pg-boss em esquema próprio, acessadas só pelo papel administrativo.
 
 **Testes (Testcontainers)**
