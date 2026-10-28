@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=../../.env src/seed.ts",
+    "db:seed:dev": "tsx --env-file=../../.env src/seed-dev.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests --exclude \"**/*.int.test.ts\"",
     "test:int": "vitest run --passWithNoTests int.test.ts"

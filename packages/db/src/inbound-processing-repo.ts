@@ -21,6 +21,8 @@ export function createInboundProcessingRepo(db: Database): InboundProcessingRepo
           waUserId: inboundMessages.waUserId,
           type: inboundMessages.type,
           text: inboundMessages.text,
+          // `context.id` do webhook: a mensagem que o usuário citou ao responder.
+          replyToWaMessageId: sql<string | null>`${inboundMessages.raw} #>> '{message,context,id}'`,
         });
       return row ? { ...row, type: row.type as InboundMessageType } : null;
     },

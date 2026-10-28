@@ -24,6 +24,7 @@ export const TABLES = [
   "entry_versions",
   "inbound_messages",
   "memberships",
+  "outbound_messages",
   "payment_methods",
   "pending_questions",
   "sales_channels",
@@ -31,6 +32,7 @@ export const TABLES = [
   "tenants",
   "units",
   "users",
+  "whatsapp_opt_ins",
   "whatsapp_status_events",
 ] as const;
 
@@ -119,6 +121,16 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
      values ($1, $2, $3, 'delivered', '{}')`,
     [uuidv7(), f.tenantId, `wamid.out.${uuidv7()}`],
   );
+  await run(
+    `insert into outbound_messages (id, tenant_id, inbound_message_id, wa_message_id, to_wa_id, purpose, text)
+     values ($1, $2, $3, $4, $5, 'confirmation', 'Registrado')`,
+    [uuidv7(), f.tenantId, f.inboundMessageId, `dev.out.${uuidv7()}`, f.phone.replace("+", "")],
+  );
+  await run(
+    `insert into whatsapp_opt_ins (id, tenant_id, user_id, source, inbound_message_id)
+     values ($1, $2, $3, 'first_message', $4)`,
+    [uuidv7(), f.tenantId, f.userId, f.inboundMessageId],
+  );
   return f;
 }
 
@@ -188,6 +200,15 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     whatsapp_status_events: {
       sql: "insert into whatsapp_status_events (id, tenant_id, wa_message_id, status, raw) values ($1, $2, $3, 'sent', '{}')",
       params: [id(), f.tenantId, `wamid.out.${id()}`],
+    },
+    outbound_messages: {
+      sql: "insert into outbound_messages (id, tenant_id, wa_message_id, to_wa_id, purpose, text) values ($1, $2, $3, '5511900000000', 'notice', 'Intruso')",
+      params: [id(), f.tenantId, `dev.out.${id()}`],
+    },
+    whatsapp_opt_ins: {
+      sql: `insert into whatsapp_opt_ins (id, tenant_id, user_id, source, inbound_message_id)
+            values ($1, $2, $3, 'first_message', $4)`,
+      params: [id(), f.tenantId, f.userId, f.inboundMessageId],
     },
   };
 }

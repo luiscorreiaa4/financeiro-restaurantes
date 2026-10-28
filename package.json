@@ -17,7 +17,9 @@
     "format": "biome check --write .",
     "db:generate": "pnpm --filter @app/db db:generate",
     "db:migrate": "pnpm --filter @app/db db:migrate",
-    "db:seed": "pnpm --filter @app/db db:seed"
+    "db:seed": "pnpm --filter @app/db db:seed",
+    "db:seed:dev": "pnpm --filter @app/db db:seed:dev",
+    "dev:chat": "pnpm --filter @app/api dev:chat"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",

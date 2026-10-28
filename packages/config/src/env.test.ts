@@ -43,6 +43,19 @@ describe("loadEnv", () => {
     expect(loadEnv(base).DATABASE_INGEST_URL).toBeUndefined();
   });
 
+  it("o canal é o de desenvolvimento por padrão e só aceita dev ou whatsapp", () => {
+    expect(loadEnv(base).CHANNEL_MODE).toBe("dev");
+    expect(loadEnv({ ...base, CHANNEL_MODE: "whatsapp" }).CHANNEL_MODE).toBe("whatsapp");
+    expect(() => loadEnv({ ...base, CHANNEL_MODE: "telegram" })).toThrow(EnvError);
+  });
+
+  it("o contato de suporte é opcional", () => {
+    expect(loadEnv(base).SUPPORT_CONTACT).toBeUndefined();
+    expect(loadEnv({ ...base, SUPPORT_CONTACT: "suporte@exemplo.com.br" }).SUPPORT_CONTACT).toBe(
+      "suporte@exemplo.com.br",
+    );
+  });
+
   it("não vaza valores na mensagem de erro", () => {
     const secret = "valor-secreto-123";
     try {

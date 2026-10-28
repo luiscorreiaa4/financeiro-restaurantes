@@ -1,6 +1,15 @@
 import { ROLES } from "@app/core";
 import { sql } from "drizzle-orm";
-import { foreignKey, jsonb, pgPolicy, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  foreignKey,
+  jsonb,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import {
   appRole,
   createdAt,
@@ -90,6 +99,8 @@ export const memberships = pgTable(
     unitId: uuid("unit_id"),
     role: text("role").notNull(),
     permissions: jsonb("permissions").notNull().default({}),
+    /** Preenchido = acesso retirado. Nada é apagado: o vínculo e o histórico continuam. */
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [

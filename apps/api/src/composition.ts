@@ -1,16 +1,23 @@
 import type { Env } from "@app/config/env";
+import type { MessageSender } from "@app/core";
 import {
   createDatabase,
   createInboundIngestRepo,
   createInboundProcessingRepo,
+  createInboundSenderRepo,
+  createOutboundMessageRepo,
   createPool,
+  createSenderDirectory,
+  createTenantConversationRepo,
 } from "@app/db";
 import type { AppDeps } from "./app";
+import { createDevMessageSender } from "./infra/dev-message-sender";
 import type { JobLogger } from "./infra/logger";
 import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
-import { createProcessInbound, routeNothing } from "./modules/inbound/process-inbound";
+import { createProcessInbound } from "./modules/inbound/process-inbound";
+import { createRouteInbound, defaultHandlers } from "./modules/inbound/route-inbound";
 
 export interface Composition {
   readonly deps: AppDeps;
@@ -45,8 +52,8 @@ export async function compose(
 }
 
 /**
- * Composição do worker (`worker.ts`). Na E4 o worker usa o papel `app_ingest`, porque a mensagem
- * ainda não tem tenant; a E5 acrescenta o trabalho por tenant com `withTenant` e o papel `app`.
+ * Composição do worker (`worker.ts`). Dois papéis de banco: `app_ingest` identifica o remetente
+ * (a mensagem ainda não tem tenant) e `app` trabalha por tenant com `withTenant`.
  */
 export async function composeWorker(
   env: Env,
@@ -57,8 +64,24 @@ export async function composeWorker(
     throw new Error("DATABASE_INGEST_URL é obrigatória para o worker do WhatsApp");
   }
   const ingestPool = createPool(env.DATABASE_INGEST_URL);
-  const repo = createInboundProcessingRepo(createDatabase(ingestPool));
-  const processInbound = createProcessInbound({ repo, route: routeNothing, logger });
+  const appPool = createPool(env.DATABASE_URL);
+  const ingestDb = createDatabase(ingestPool);
+
+  const route = createRouteInbound({
+    directory: createSenderDirectory(ingestDb),
+    senderRepo: createInboundSenderRepo(ingestDb),
+    conversation: createTenantConversationRepo(createDatabase(appPool)),
+    sender: createMessageSender(env, createOutboundMessageRepo(ingestDb)),
+    clock: { now: () => new Date() },
+    handlers: defaultHandlers(logger),
+    supportContact: env.SUPPORT_CONTACT,
+    logger,
+  });
+  const processInbound = createProcessInbound({
+    repo: createInboundProcessingRepo(ingestDb),
+    route,
+    logger,
+  });
 
   const worker = await startProcessInboundWorker({
     connectionString: env.DATABASE_ADMIN_URL,
@@ -71,7 +94,18 @@ export async function composeWorker(
     worker,
     async close() {
       await worker.stop();
-      await ingestPool.end();
+      await Promise.all([ingestPool.end(), appPool.end()]);
     },
   };
+}
+
+/** `CHANNEL_MODE` escolhe o adaptador de envio; o resto do código não sabe a diferença. */
+function createMessageSender(
+  env: Env,
+  outbound: ReturnType<typeof createOutboundMessageRepo>,
+): MessageSender {
+  if (env.CHANNEL_MODE === "whatsapp") {
+    throw new Error("CHANNEL_MODE=whatsapp depende do CloudMessageSender, que chega na E10");
+  }
+  return createDevMessageSender({ repo: outbound, nodeEnv: env.NODE_ENV });
 }

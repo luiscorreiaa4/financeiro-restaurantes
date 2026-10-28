@@ -1,3 +1,4 @@
+import { OUTBOUND_PURPOSES } from "@app/core";
 import { sql } from "drizzle-orm";
 import {
   foreignKey,
@@ -22,6 +23,8 @@ import {
 } from "./_shared";
 import { tenantId, tenants, users } from "./tenants";
 
+/** Como o opt-in foi obtido. Por ora só a primeira mensagem de um número cadastrado. */
+export const OPT_IN_SOURCES = ["first_message"] as const;
 export const INBOUND_TYPES = ["text", "audio", "image", "unsupported"] as const;
 export const INBOUND_STATUSES = [
   "received",
@@ -120,6 +123,77 @@ export const whatsappStatusEvents = pgTable(
       to: ingestRole,
       withCheck: sql`true`,
     }),
+  ],
+);
+
+/**
+ * Mensagens que nós enviamos. É por aqui que a correção por reply descobre se a mensagem
+ * citada é uma confirmação nossa. `tenant_id` é nulo nas respostas a número desconhecido: até
+ * o remetente ser identificado só o papel `app_ingest` enxerga a linha. Só acrescenta.
+ */
+export const outboundMessages = pgTable(
+  "outbound_messages",
+  {
+    id: primaryId(),
+    tenantId: uuid("tenant_id").references(() => tenants.id),
+    /** Mensagem do usuário que originou esta resposta. */
+    inboundMessageId: uuid("inbound_message_id").references(() => inboundMessages.id),
+    /** Id na Meta; no chat de desenvolvimento, `dev.out.<uuid>`. */
+    waMessageId: text("wa_message_id").notNull().unique(),
+    /** Destinatário como a Meta o identifica (E.164 sem o "+"). */
+    toWaId: text("to_wa_id").notNull(),
+    purpose: text("purpose").notNull(),
+    text: text("text").notNull(),
+    /** `wa_message_id` da mensagem do usuário que esta resposta cita. */
+    repliedToWaMessageId: text("replied_to_wa_message_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: "outbound_messages_tenant_inbound_fk",
+      columns: [t.tenantId, t.inboundMessageId],
+      foreignColumns: [inboundMessages.tenantId, inboundMessages.id],
+    }),
+    index("outbound_messages_tenant_created_idx").on(t.tenantId, t.createdAt),
+    index("outbound_messages_to_created_idx").on(t.toWaId, t.createdAt),
+    oneOf("outbound_messages_purpose_check", "purpose", OUTBOUND_PURPOSES),
+    tenantIsolation("outbound_messages"),
+    ingestCanRead("outbound_messages"),
+    pgPolicy("outbound_messages_ingest_insert", {
+      as: "permissive",
+      for: "insert",
+      to: ingestRole,
+      withCheck: sql`true`,
+    }),
+  ],
+);
+
+/**
+ * Permissão do usuário para receber mensagens nossas (opt-in, exigência da política da Meta).
+ * Registrada na primeira mensagem de um número cadastrado pelo responsável. Só acrescenta.
+ */
+export const whatsappOptIns = pgTable(
+  "whatsapp_opt_ins",
+  {
+    id: primaryId(),
+    tenantId: tenantId(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    source: text("source").notNull(),
+    /** Mensagem que serviu de prova. */
+    inboundMessageId: uuid("inbound_message_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("whatsapp_opt_ins_tenant_user_unique").on(t.tenantId, t.userId),
+    foreignKey({
+      name: "whatsapp_opt_ins_inbound_message_fk",
+      columns: [t.tenantId, t.inboundMessageId],
+      foreignColumns: [inboundMessages.tenantId, inboundMessages.id],
+    }),
+    oneOf("whatsapp_opt_ins_source_check", "source", OPT_IN_SOURCES),
+    ...appendOnly("whatsapp_opt_ins"),
   ],
 );
 

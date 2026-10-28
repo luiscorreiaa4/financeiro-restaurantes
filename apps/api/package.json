@@ -8,6 +8,7 @@
     "start": "tsx --env-file=../../.env src/server.ts",
     "dev:worker": "tsx watch --env-file=../../.env src/worker.ts",
     "start:worker": "tsx --env-file=../../.env src/worker.ts",
+    "dev:chat": "tsx --env-file=../../.env src/dev/chat.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude \"**/*.int.test.ts\"",
     "test:int": "vitest run int.test.ts"

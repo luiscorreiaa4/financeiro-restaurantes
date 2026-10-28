@@ -18,6 +18,12 @@ const baseSchema = z.object({
 
   AUTH_SECRET: optionalString,
 
+  // `dev`: respostas gravadas no banco e mostradas pelo chat de terminal (`pnpm dev:chat`).
+  // `whatsapp`: envio real pela Cloud API (E10). Os adaptadores `Dev*` não sobem em produção.
+  CHANNEL_MODE: z.enum(["dev", "whatsapp"]).default("dev"),
+  // Contato de suporte citado nas mensagens de ajuda (a saída para humano da política da Meta).
+  SUPPORT_CONTACT: optionalString,
+
   WHATSAPP_PHONE_NUMBER_ID: optionalString,
   WHATSAPP_BUSINESS_ACCOUNT_ID: optionalString,
   WHATSAPP_ACCESS_TOKEN: optionalString,

@@ -20,7 +20,7 @@ Legenda de confiança, usada em todo o documento:
 | E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
 | E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026) **com ressalva**: falta só o teste com mensagem real do celular, bloqueado por pendência da Meta (P1, ver "Pendências da Meta") | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Verificado em 28/10 pelo túnel: handshake, POST assinado, reenvio sem duplicar, assinatura inválida (401) e o botão **Teste** do painel da Meta (status gravado). Pendente: mensagem real do celular (P1) e conferir `redact`/logs do Pino |
 | E4 Fila e workers | Feita (28/10/2026) | `worker.ts` separado, fila `process-inbound` com 5 retentativas (backoff 10 s a 160 s) e DLQ `process-inbound-dlq`, caso de uso `ProcessInbound` com transições guardadas e porta de roteamento (no-op até a E5), shutdown limpo. 9 testes de integração do worker, 6 do repo no db e 9 unitários passam. Handler ainda não roteia nada (E5). Pendente: confirmar os números de retry com você e rodar o worker contra o Postgres do Compose |
-| E5 Identificação e roteamento | A fazer | Cria o **chat de desenvolvimento** no terminal (D7, seção 3.6) |
+| E5 Identificação e roteamento | Feita (28/10/2026) | `resolveSender` e `decideRoute` puros no `core`; roteador no worker (desconhecido, ajuda e desfazer provisório, tipo não suportado, reply, pergunta pendente, extração); migration 0003 (`outbound_messages`, `whatsapp_opt_ins`, `memberships.deactivated_at`); **`pnpm dev:chat`** e `pnpm db:seed:dev`. 159 unitários no core, 101 na api e 132+34 de integração passam; testado de verdade no terminal contra o Postgres do Compose. Os ramos de correção, pergunta pendente e extração só chamam handlers que não respondem nada (E6 e E7). Pendente: revisar os textos com o Matheus, `SUPPORT_CONTACT` real, revogação de opt-in (E10) |
 | E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |
 | E7 Fluxo de lançamento e confirmação | A fazer | Chat de dev ganha `/reply` e `/custo` |
 | E8 Evals e qualidade da IA | A fazer | Começa junto com a E6 |
@@ -440,6 +440,43 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 **Testes:** tabela de telefones com e sem 9º dígito; usuário de dois tenants; usuário desativado; comandos com variações; reply para a confirmação certa e para uma antiga; mensagem fora de escopo.
 
 **Pronto quando:** cada tipo de mensagem cai no ramo certo sem chamar a IA nos casos de comando e número desconhecido, e dá para ver isso conversando pelo `pnpm dev:chat`.
+
+#### Resultado da E5 (28/10/2026)
+
+**Entregue**
+- `core`: `resolveSender` (vínculo ativo mais antigo; desativado = desconhecido; unidade padrão) e `decideRoute` (ordem: remetente → tipo → comando → reply a confirmação → pergunta pendente → extração), ambos puros. Portas `SenderDirectory`, `InboundSenderRepo`, `TenantConversationRepo`; `MessageSender.sendText` ganhou `trace` opcional (tenant, mensagem de origem, finalidade).
+- `db`: migration `0003_conversation_routing` com `outbound_messages` (tenant opcional, só acrescenta), `whatsapp_opt_ins` (por tenant, só acrescenta, única por usuário) e `memberships.deactivated_at`; repositórios dos três adaptadores e do registro de saída; `claim` passa a devolver `replyToWaMessageId` (lido de `raw.message.context.id`); `seedDevData` (`pnpm db:seed:dev`).
+- `apps/api`: `route-inbound.ts` (troca o `routeNothing`), `messages.ts` (todos os textos pt-BR), `DevMessageSender` (recusa `NODE_ENV=production`), composição do worker com os papéis `app_ingest` e `app`, `CHANNEL_MODE` e `SUPPORT_CONTACT` no env.
+- `whatsapp`: `buildTextWebhookPayload`, no mesmo formato das fixtures (inclui `context` de reply e `from_user_id`).
+- Chat de desenvolvimento v1 (`apps/api/src/dev`): `/como`, `/sair`, texto livre; `/reply` e `/custo` (E7), `/audio` e `/foto` (E9) respondem que ainda não existem.
+
+**Decisões desta etapa (suas):** em 2 restaurantes vale o vínculo mais antigo (a confirmação da E7 deve citar o nome do restaurante); opt-in na primeira mensagem de número cadastrado, em tabela por tenant; `desfazer` provisório ("Ainda não há nada para desfazer.") e `ajuda` real; fora do escopo por conteúdo fica para a E6 (intent `out_of_scope`), a E5 só recusa tipo não suportado; desativação em `memberships.deactivated_at`; suporte como placeholder genérico até haver contato; textos do rascunho aprovados; seed de dev separado.
+
+**Padrões adotados (conferir):**
+- Desativado e desconhecido recebem exatamente a mesma resposta (não revela que o cadastro existe).
+- Texto vazio conta como tipo não suportado. Áudio e foto vão para o ramo de extração.
+- Comando vence reply: "desfazer" respondendo a uma confirmação continua sendo comando (a E7 decide se desfaz aquele lançamento).
+- Reply a mensagem nossa que não é confirmação (ajuda, aviso) não vira correção.
+- Reply a uma confirmação antiga aciona a correção **daquela** confirmação, não da última.
+- Resposta sempre para o número com o 9º dígito; o `wa_id` recebido pode vir sem.
+- Número de outro país: recebe a resposta de desconhecido.
+- Erro de envio sobe e o job é retentado. Como o envio acontece antes do `markProcessed`, um retry depois de enviar pode repetir a resposta; a E7 deve tornar o envio idempotente por (mensagem de origem, finalidade).
+- Opt-in: sem revogação por enquanto. `unique (tenant, user)` impede duplicar; opt-out e novo opt-in entram na E10.
+
+**Conferido na documentação da Meta (28/10/2026):** a política exige opt-in e deixa o método e a prova por conta da empresa; a automação exige saída para humano. A página **não** traz a regra de "IA de propósito geral proibida" que o plano cita (deve estar nos termos de soluções de negócio): tratamos a recusa fora do escopo como decisão nossa, não verificada.
+
+**Como testar à mão**
+1. `docker compose up -d`, `pnpm db:migrate` e `pnpm db:seed:dev` (com `DATABASE_ADMIN_URL` definida; o `db:migrate` não lê o `.env`).
+2. `.env` com `WHATSAPP_APP_SECRET` e `DATABASE_INGEST_URL`. Terminal 1: `pnpm dev`. Terminal 2: `pnpm dev:worker`. Terminal 3: `pnpm dev:chat`.
+3. No chat: `ajuda` (texto de ajuda), `desfazer` (provisório), `paguei 350 de carne` (nota "sem resposta, IA na E6"), `/como 11900000000` + `oi` (número desconhecido), `/como 551187650001` + `ajuda` (sem o 9º dígito), `/como 11987650005` + `ajuda` (desativado: mesma resposta do desconhecido), `/como 11987650004` (em 2 restaurantes).
+4. Conferir: `select status, tenant_id from inbound_messages order by received_at desc` e `select count(*) from whatsapp_opt_ins`.
+
+**Pendências da E5**
+- [ ] Revisar os textos de `messages.ts` com o Matheus e definir o `SUPPORT_CONTACT` real.
+- [ ] Confirmar a regra do "tenant mais antigo" quando o piloto tiver usuário em dois restaurantes.
+- [ ] Opt-out/revogação do opt-in e prova de consentimento no cadastro de usuários (E10 e F-etapa de usuários).
+- [ ] Idempotência do envio de resposta (E7).
+- [ ] Confirmar a regra de "IA de propósito geral" da Meta antes da E10.
 
 ### E6: Extração por IA (texto) — G
 

@@ -1,3 +1,4 @@
+import type { OutboundPurpose, ReplyTarget, SenderMembership } from "../conversation";
 import type { BusinessDate, ExtractionResult } from "../entry";
 import type { DomainError, Result } from "../errors";
 
@@ -5,12 +6,24 @@ import type { DomainError, Result } from "../errors";
 
 type ErrorOf<C extends DomainError["code"]> = Extract<DomainError, { code: C }>;
 
+/** De onde veio a resposta, para guardá-la ligada à mensagem e ao tenant (correção por reply). */
+export interface OutboundTrace {
+  /** Nulo quando o remetente é desconhecido. */
+  readonly tenantId: string | null;
+  readonly inboundMessageId: string;
+  readonly purpose: OutboundPurpose;
+}
+
 export interface MessageSender {
-  /** `to` em E.164 canônico (com o 9º dígito). `replyTo` é o wa_message_id citado. */
+  /**
+   * `to` em E.164 canônico (com o 9º dígito). `replyTo` é o wa_message_id citado. `trace` é
+   * ignorado pelo envio real e usado pelo adaptador de desenvolvimento, que grava a resposta.
+   */
   sendText(input: {
     to: string;
     text: string;
     replyTo?: string;
+    trace?: OutboundTrace;
   }): Promise<Result<{ waMessageId: string }, ErrorOf<"SendFailed">>>;
   markAsRead(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
   showTyping(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
@@ -123,6 +136,8 @@ export interface ClaimedInboundMessage {
   readonly waUserId: string | null;
   readonly type: InboundMessageType;
   readonly text: string | null;
+  /** `context.id` do webhook: a mensagem que o usuário citou ao responder. */
+  readonly replyToWaMessageId: string | null;
 }
 
 /**
@@ -154,4 +169,36 @@ export interface InboundIngestRepo {
   saveMessages(messages: readonly NewInboundMessage[]): Promise<readonly StoredInboundMessage[]>;
   /** Grava eventos de status ainda não vistos e devolve quantos eram novos. */
   saveStatuses(events: readonly NewStatusEvent[]): Promise<number>;
+}
+
+/** Cadastro de quem escreve (papel `app_ingest`: a mensagem ainda não tem tenant). */
+export interface SenderDirectory {
+  /** Vínculos dos telefones candidatos (`lookupCandidates` da normalização), ativos ou não. */
+  findMemberships(phoneCandidates: readonly string[]): Promise<readonly SenderMembership[]>;
+}
+
+/** Liga a mensagem recebida a quem a enviou (papel `app_ingest`). */
+export interface InboundSenderRepo {
+  /** Atribui tenant e usuário. Idempotente; `false` se a mensagem já tinha outro dono. */
+  assignSender(
+    inboundMessageId: string,
+    sender: { tenantId: string; userId: string },
+  ): Promise<boolean>;
+}
+
+/** Consultas e registros da conversa que sempre rodam dentro de `withTenant`. */
+export interface TenantConversationRepo {
+  /**
+   * Registra o opt-in (permissão de receber mensagens nossas) na primeira mensagem do usuário.
+   * `true` só quando criou o registro; repetir é inofensivo.
+   */
+  recordOptIn(input: {
+    tenantId: string;
+    userId: string;
+    inboundMessageId: string;
+  }): Promise<boolean>;
+  /** A mensagem citada é uma resposta nossa, deste tenant? Nulo se não. */
+  findReplyTarget(tenantId: string, waMessageId: string): Promise<ReplyTarget | null>;
+  /** O usuário tem pergunta nossa ainda sem resposta e não expirada? */
+  hasPendingQuestion(input: { tenantId: string; userId: string; now: Date }): Promise<boolean>;
 }
