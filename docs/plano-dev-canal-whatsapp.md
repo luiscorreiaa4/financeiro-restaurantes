@@ -272,6 +272,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 #### Resultado da E3 (28/10/2026)
 
+> **Passo a passo do que falta para fechar a E3 (túnel, Meta, conferências): `docs/e3-o-que-falta-para-fechar.md`.**
+
 **Entregue:** `GET/POST /webhooks/whatsapp` (`apps/api/src/http/webhooks/whatsapp.ts`), caso de uso `IngestWebhook`, `PgBossQueue` mínimo (fila `process-inbound`, política `exclusive`, só enfileira), tabela `whatsapp_status_events` (migration 0002), `createInboundIngestRepo` (`packages/db`), parser, assinatura e handshake (`packages/whatsapp`), 11 fixtures sintéticas e `DATABASE_INGEST_URL`. Testes: 95 de integração no db e 12 na api passam (`pnpm test:int`).
 
 **Decisões desta etapa:** status em tabela própria; pg-boss instalado já na E3 com adaptador mínimo; D3 resolvida como fatia por mensagem (`raw` guarda metadata, contato e a mensagem, não o POST inteiro); fixtures sintéticas por ora.
