@@ -89,6 +89,7 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm --filter @app/ai eval
+pnpm dev:worker     # worker da fila (pg-boss); rode em outro terminal junto de pnpm dev
 pnpm dev:chat       # (a criar na E5) chat de terminal que simula o WhatsApp, só para teste
 ```
 

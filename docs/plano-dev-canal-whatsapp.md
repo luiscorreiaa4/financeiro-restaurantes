@@ -420,6 +420,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - [ ] Alerta/monitoramento da DLQ (E10).
 - [ ] Teste real de queda do processo (`kill`) fica para o staging; o teste automatizado simula com `stop({ graceful: false })` + expiração.
 
+**Contexto do Claude criado após aprovação (28/10/2026):** `.claude/rules/pg-boss.md`, `.claude/rules/testes.md`, skill `.claude/skills/novo-worker-pgboss/` e a linha `pnpm dev:worker` no `CLAUDE.md`.
+
 **Próxima etapa:** E5 (identificação e roteamento). Ela troca `routeNothing`, passa a atribuir o tenant à mensagem e cria o `pnpm dev:chat`.
 
 ### E5: Identificação e roteamento da conversa — M
