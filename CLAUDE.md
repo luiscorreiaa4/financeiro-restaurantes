@@ -74,7 +74,7 @@ docs/
 - Antes de mudar schema: editar `packages/db/schema`, gerar migration com drizzle-kit, revisar o SQL gerado, incluir política RLS.
 - Mudou prompt ou schema de extração em `packages/ai`: rodar os evals (`pnpm --filter @app/ai eval`) e não deixar a taxa de acerto cair.
 - Toda regra nova em `packages/core` vem com teste.
-- Testar o canal e a IA sem WhatsApp: `pnpm dev:chat` (chat de terminal, só para desenvolvimento, criado na E5; ver seção 3.5 de `docs/plano-dev-canal-whatsapp.md`). O WhatsApp real só é ligado no fim, na E10 (`CHANNEL_MODE=whatsapp`).
+- Testar o canal e a IA sem WhatsApp: `pnpm dev:chat` (chat de terminal, só para desenvolvimento, criado na E5; ver seção 3.6 de `docs/plano-dev-canal-whatsapp.md`). O WhatsApp real só é ligado no fim, na E10 (`CHANNEL_MODE=whatsapp`).
 - Prefira mudanças pequenas e verificáveis. Rode `pnpm typecheck && pnpm lint && pnpm test` antes de concluir.
 
 ## Comandos

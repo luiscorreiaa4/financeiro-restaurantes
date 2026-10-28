@@ -24,7 +24,7 @@ Por que "canal WhatsApp" e não "chat IA", "API" ou "AI": a IA é só um passo d
 
 Etapas: `E1` a `E10` são do canal WhatsApp, `F0` a `F8` são do painel. Cada plano tem uma tabela de progresso no topo.
 
-**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, a criar na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.5.
+**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, a criar na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.6.
 
 ## Estrutura do repositório
 

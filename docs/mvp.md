@@ -34,7 +34,7 @@ Cada fase termina com algo testável de ponta a ponta.
 - [ ] Correção respondendo (reply) à confirmação
 - [ ] Registro de `ai_usage`
 - [ ] Evals: primeiro conjunto com 30+ mensagens de exemplo e resultado esperado
-- [ ] Chat de desenvolvimento no terminal (`pnpm dev:chat`), só para teste: simula o WhatsApp para testar o fluxo e a IA sem a Meta, sem interface visual. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.5
+- [ ] Chat de desenvolvimento no terminal (`pnpm dev:chat`), só para teste: simula o WhatsApp para testar o fluxo e a IA sem a Meta, sem interface visual. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.6
 
 ## Fase 3 — Áudio e foto
 
