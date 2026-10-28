@@ -19,7 +19,7 @@ Legenda de confiança, usada em todo o documento:
 | E1 Núcleo de domínio (`core`) | Feita (27/10/2026) | Arredondamento half-up, papéis owner/manager/staff, sensível = folha. Pendente: confirmar tolerância de 1 centavo e campos "essenciais" (D6); fast-check não adotado |
 | E2 Banco e multi-tenancy (`db`) | Feita (27/10/2026) | Schema (14 tabelas), 2 migrations, `withTenant`, papel `app_ingest`, seed; 84 testes de integração (`pnpm test:int`) e 20 unitários passam. Rodar `init.sql` em bancos locais antigos para criar o `app_ingest`. Lista de categorias é provisória por decisão sua; ajustar depois com o Matheus |
 | E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026) **com ressalva**: falta só o teste com mensagem real do celular, bloqueado por pendência da Meta (P1, ver "Pendências da Meta") | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Verificado em 28/10 pelo túnel: handshake, POST assinado, reenvio sem duplicar, assinatura inválida (401) e o botão **Teste** do painel da Meta (status gravado). Pendente: mensagem real do celular (P1) e conferir `redact`/logs do Pino |
-| E4 Fila e workers | A fazer | Conferir opções do pg-boss em pgboss.io/api antes |
+| E4 Fila e workers | Feita (28/10/2026) | `worker.ts` separado, fila `process-inbound` com 5 retentativas (backoff 10 s a 160 s) e DLQ `process-inbound-dlq`, caso de uso `ProcessInbound` com transições guardadas e porta de roteamento (no-op até a E5), shutdown limpo. 9 testes de integração do worker, 6 do repo no db e 9 unitários passam. Handler ainda não roteia nada (E5). Pendente: confirmar os números de retry com você e rodar o worker contra o Postgres do Compose |
 | E5 Identificação e roteamento | A fazer | Cria o **chat de desenvolvimento** no terminal (D7, seção 3.6) |
 | E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |
 | E7 Fluxo de lançamento e confirmação | A fazer | Chat de dev ganha `/reply` e `/custo` |
@@ -388,6 +388,39 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 **Testes (integração):** retry após erro transitório; esgotar tentativas leva à DLQ; reprocessar não duplica lançamento; dois workers não pegam a mesma mensagem; shutdown no meio de um job.
 
 **Pronto quando:** derrubar o worker no meio do processamento e subir de novo termina a mensagem sem duplicar nem perder.
+
+#### Resultado da E4 (28/10/2026)
+
+**Entregue:** `apps/api/src/worker.ts` (entrypoint separado do `server.ts`, mesma imagem), `infra/pg-boss-worker.ts` (consome `process-inbound` em lote, resposta por job com `perJobResults`), `infra/process-inbound-queue.ts` (`ensureProcessInboundQueues`: cria a DLQ e a fila, e converge com `updateQueue` a fila que a E3 criou só com `exclusive`), `modules/inbound/process-inbound.ts` (caso de uso, valida o job com Zod, porta `RouteInbound` com `routeNothing` como padrão), `infra/logger.ts` (pino com `redact`), `InboundProcessingRepo` em `core` e `createInboundProcessingRepo` em `db`. Scripts: `pnpm dev:worker` (raiz) e `start:worker` (api).
+
+**Decisões desta etapa (suas):** handler como esqueleto com porta de roteamento; worker com o papel `app_ingest` até a E5; 5 tentativas com backoff e DLQ de 14 dias; `pino` adicionado. **Adicionei por padrão:** `zod` em `apps/api` (a stack já o define; mesma versão do workspace).
+
+**Política da fila (constante em `process-inbound-queue.ts`):** `retryLimit 5` (6 execuções no total), `retryDelay 10` com backoff e teto de 300 s, `expireInSeconds 300`, DLQ com retenção de 14 dias. Mensagem fica `failed` com código curto (`Error`, `Error:40001`), nunca o texto nem a mensagem de erro (o Drizzle põe os parâmetros do SQL nela).
+
+**Confirmado na doc/tipos do pg-boss 12.38 (28/10/2026):** opções de `createQueue` (`retryDelayMax` só vale com `retryBackoff: true`, o pg-boss recusa sem isso: descoberto pelos testes); `work()` com `batchSize`, `pollingIntervalSeconds`, `localConcurrency` e `perJobResults` (resultado `completed`/`failed`/`deadletter` por job); `Job.retryCount`; `stop({ graceful, close, timeout })` com padrão `graceful: true`, `timeout: 30000`; DLQ precisa existir antes.
+
+**Padrões adotados (conferir):**
+- Retomada: `claim` aceita `received` e `processing`, porque o retry e o job expirado de um worker caído voltam com a mensagem em `processing`.
+- Mensagem já `processed`, `failed` ou `needs_answer` + job duplicado ou atrasado: ignorado (`skipped`), job completa.
+- Payload de job fora do contrato: vai direto para a DLQ (`deadletter`), sem retentar.
+- Lote de até 5 mensagens, processadas em sequência; um erro não derruba as outras.
+- Servidor e worker chamam `ensureProcessInboundQueues` ao subir (idempotente).
+- `pnpm dev` continua subindo só api e web: o worker é `pnpm dev:worker` em outro terminal.
+
+**Como testar à mão**
+1. `docker compose up -d` e `pnpm db:migrate`; `.env` com `DATABASE_INGEST_URL` e `DATABASE_ADMIN_URL` (porta 5434).
+2. Terminal 1: `pnpm dev`. Terminal 2: `pnpm dev:worker` (deve logar "worker iniciado").
+3. Mande o POST assinado do passo 6 da E3. No terminal do worker aparece "mensagem processada" (sem o texto).
+4. `docker compose exec postgres psql -U postgres -d app -c "select wa_message_id, status, error from inbound_messages"` mostra `processed`; `-c "select name, state from pgboss.job"` mostra o job `completed`.
+5. Parada limpa: Ctrl+C no worker loga "encerrando worker" e sai sem erro. Para ver a falha: derrube o worker, mande a mensagem, e confira que o job fica `created` e é consumido quando o worker volta.
+
+**Pendências da E4**
+- [ ] Confirmar a política de retry (números acima) e o lote de 5.
+- [ ] Rodar o worker uma vez contra o Postgres do Compose (os testes usam Testcontainers).
+- [ ] Alerta/monitoramento da DLQ (E10).
+- [ ] Teste real de queda do processo (`kill`) fica para o staging; o teste automatizado simula com `stop({ graceful: false })` + expiração.
+
+**Próxima etapa:** E5 (identificação e roteamento). Ela troca `routeNothing`, passa a atribuir o tenant à mensagem e cria o `pnpm dev:chat`.
 
 ### E5: Identificação e roteamento da conversa — M
 

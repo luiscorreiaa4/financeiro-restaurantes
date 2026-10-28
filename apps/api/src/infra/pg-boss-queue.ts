@@ -1,25 +1,28 @@
 import type { JobQueue } from "@app/core";
 import { PgBoss } from "pg-boss";
-import { PROCESS_INBOUND_QUEUE } from "../modules/inbound/ingest-webhook";
+import {
+  ensureProcessInboundQueues,
+  type ProcessInboundQueueConfig,
+} from "./process-inbound-queue";
 
 export interface PgBossQueue extends JobQueue {
   stop(): Promise<void>;
 }
 
 /**
- * Adaptador mínimo de `JobQueue` sobre o pg-boss (E3: só enfileirar). Conecta com o papel
- * administrativo, único com acesso ao esquema `pgboss`. Workers, retry e DLQ são da E4.
- *
- * `exclusive` + `singletonKey` = no máximo um job aguardando ou ativo por `wa_message_id`.
+ * Adaptador de `JobQueue` sobre o pg-boss, só para enfileirar (quem consome é o worker,
+ * `pg-boss-worker.ts`). Conecta com o papel administrativo, único com acesso ao esquema
+ * `pgboss`. As filas e a política de retry/DLQ vêm de `ensureProcessInboundQueues`.
  */
 export async function createPgBossQueue(
   connectionString: string,
   onError: (error: Error) => void,
+  queueConfig?: ProcessInboundQueueConfig,
 ): Promise<PgBossQueue> {
   const boss = new PgBoss({ connectionString });
   boss.on("error", onError);
   await boss.start();
-  await boss.createQueue(PROCESS_INBOUND_QUEUE, { policy: "exclusive" });
+  await ensureProcessInboundQueues(boss, queueConfig);
 
   return {
     async enqueue(queue, payload, options) {

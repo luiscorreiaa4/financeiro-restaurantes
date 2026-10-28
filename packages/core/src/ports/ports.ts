@@ -115,6 +115,36 @@ export interface StoredInboundMessage {
   readonly status: string;
 }
 
+/** Mensagem recebida que um worker acabou de assumir (estado `processing`). */
+export interface ClaimedInboundMessage {
+  readonly id: string;
+  readonly waMessageId: string;
+  readonly waId: string | null;
+  readonly waUserId: string | null;
+  readonly type: InboundMessageType;
+  readonly text: string | null;
+}
+
+/**
+ * Transições de estado da mensagem recebida (seção 3.4 do plano do canal). Cada uma é um
+ * `UPDATE` com guarda no estado de origem, então repetir a chamada ou rodar dois workers nunca
+ * duplica nem desfaz trabalho: quem perde a corrida recebe `null`/`false`.
+ */
+export interface InboundProcessingRepo {
+  /**
+   * `received` ou `processing` (retomada após erro ou queda) vira `processing`. Devolve `null`
+   * se a mensagem não existe ou já saiu desses estados (processada, falha, aguardando resposta).
+   */
+  claim(id: string): Promise<ClaimedInboundMessage | null>;
+  /** `processing` vira `processed`. `false` se a mensagem não estava em `processing`. */
+  markProcessed(id: string): Promise<boolean>;
+  /**
+   * `received` ou `processing` vira `failed`, guardando só um código curto do erro (nunca o
+   * conteúdo da mensagem nem a mensagem de erro do banco). `false` se já estava em outro estado.
+   */
+  markFailed(id: string, errorCode: string): Promise<boolean>;
+}
+
 /** Gravação do webhook, antes de a mensagem ter tenant (papel `app_ingest`). */
 export interface InboundIngestRepo {
   /**

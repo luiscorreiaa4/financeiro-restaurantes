@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:worker": "pnpm --filter @app/api dev:worker",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:int": "turbo run test:int",
