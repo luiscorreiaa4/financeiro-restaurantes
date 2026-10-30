@@ -10,7 +10,10 @@
       "Bash(pnpm --filter * typecheck)",
       "Bash(pnpm --filter * typecheck *)",
       "Bash(pnpm --filter * test)",
-      "Bash(pnpm --filter * test *)"
+      "Bash(pnpm --filter * test *)",
+      "Bash(pnpm test:int *)",
+      "Bash(pnpm --filter * test:int)",
+      "Bash(pnpm --filter * test:int *)"
     ],
     "deny": [
       "Read(./.env)",

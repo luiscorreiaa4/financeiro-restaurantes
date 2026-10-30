@@ -33,7 +33,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Telefone | `packages/core/src/phone/phone.test.ts` | `pnpm --filter @app/core test phone` |
 | Conversa: comandos, roteamento, remetente | `packages/core/src/conversation/*.test.ts` | `pnpm --filter @app/core test conversation` |
 | Erros de domínio tipados | `packages/core/src/errors/errors.test.ts` | `pnpm --filter @app/core test errors` |
-| Core não importa infra | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
+| Core não importa infra; sem ciclos (ArchUnitTS) | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
 
 ### Banco (`@app/db`)
 
@@ -46,12 +46,14 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Processamento de mensagem (idempotência) | `packages/db/test/inbound-processing.int.test.ts` | `pnpm --filter @app/db test:int inbound-processing` |
 | Conversa (estado/roteamento no banco) | `packages/db/test/conversation.int.test.ts` | `pnpm --filter @app/db test:int conversation` |
 | Seed de desenvolvimento | `packages/db/test/dev-seed.int.test.ts` | `pnpm --filter @app/db test:int dev-seed` |
+| Sem ciclos entre arquivos (ArchUnitTS, unitário) | `packages/db/src/architecture.test.ts` | `pnpm --filter @app/db test architecture` |
 
 ### API, webhook e workers (`@app/api`)
 
 | Assunto | Arquivos | Comando |
 |---|---|---|
 | App Fastify | `apps/api/src/app.test.ts` | `pnpm --filter @app/api test app` |
+| Camadas: modules não dependem de http/dev, http não depende de infra/dev, sem ciclos (ArchUnitTS) | `apps/api/src/architecture.test.ts` | `pnpm --filter @app/api test architecture` |
 | Webhook do WhatsApp (unitário) | `apps/api/src/http/webhooks/whatsapp.test.ts` | `pnpm --filter @app/api test webhooks` |
 | `process-inbound` e `route-inbound` (unitário) | `apps/api/src/modules/inbound/*.test.ts` | `pnpm --filter @app/api test inbound` |
 | Chat de desenvolvimento e sender fake | `apps/api/src/dev/chat-session.test.ts`, `apps/api/src/infra/dev-message-sender.test.ts` | `pnpm --filter @app/api test dev` |
@@ -72,7 +74,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 
 | Mudou | Rode |
 |---|---|
-| `packages/core/**` | `@app/core test` + `pnpm typecheck` + `pnpm lint` |
+| `packages/core/**` | `@app/core test` (inclui architecture) + `pnpm typecheck` + `pnpm lint` |
 | `packages/db/src/schema/**` ou migration | `@app/db test` + `@app/db test:int` (isolation e integrity no mínimo) + `pnpm typecheck` |
 | `packages/whatsapp/**` | `@app/whatsapp test` + `@app/api test:int whatsapp-webhook` |
 | `apps/api/src/**` | `@app/api test` + `typecheck`; `test:int` do arquivo afetado se tocar fila, webhook ou banco |
@@ -83,6 +85,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 
 ## Armadilhas conhecidas
 
+- Testes de arquitetura (ArchUnitTS) usam `check()` e exigem `globals: true` no `vitest.config.ts` do pacote (já ligado em core, db e api); lentos (10 s+) por analisar o projeto. Pacote novo com `architecture.test.ts` precisa do mesmo config.
 - Integração precisa do Docker ligado. Se falhar com erro de conexão ao Docker/Testcontainers, reporte como **ambiente**, não como falha de código.
 - Insert direto por SQL em teste precisa de `id` gerado com `uuidv7()` de `@app/db`; sem isso: `null value in column "id"`.
 - `pnpm test` não roda `*.int.test.ts`; passar no unitário não prova isolamento nem fila.
