@@ -1,4 +1,4 @@
-import { memberships, tenants, units, users } from "../schema";
+import { memberships, paymentMethods, salesChannels, tenants, units, users } from "../schema";
 import type { Database } from "./client";
 
 export class DevSeedInProductionError extends Error {
@@ -58,6 +58,31 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
       { id: id(25), name: "Ex-funcionário", phoneE164: DEV_PHONES.deactivated },
     ])
     .onConflictDoNothing();
+
+  // [PROVISÓRIO – P07] formas de pagamento e canais padrão, com taxas de exemplo para o chat.
+  const defaults = (tenant: string, base: number) => ({
+    payments: [
+      { name: "Dinheiro", feePercentBp: 0 },
+      { name: "Pix", feePercentBp: 0 },
+      { name: "Débito", feePercentBp: 150 },
+      { name: "Crédito", feePercentBp: 320 },
+      { name: "Voucher", feePercentBp: 0 },
+    ].map((method, index) => ({ id: id(base + index), tenantId: tenant, ...method })),
+    channels: [
+      { name: "Salão", feePercentBp: 0 },
+      { name: "Delivery próprio", feePercentBp: 0 },
+      { name: "iFood", feePercentBp: 2300 },
+      { name: "Retirada", feePercentBp: 0 },
+    ].map((channel, index) => ({ id: id(base + 10 + index), tenantId: tenant, ...channel })),
+  });
+  for (const [tenant, base] of [
+    [DEMO, 100],
+    [DEMO_2, 200],
+  ] as const) {
+    const { payments, channels } = defaults(tenant, base);
+    await db.insert(paymentMethods).values(payments).onConflictDoNothing();
+    await db.insert(salesChannels).values(channels).onConflictDoNothing();
+  }
 
   const earlier = new Date("2026-01-01T12:00:00Z");
   const later = new Date("2026-06-01T12:00:00Z");

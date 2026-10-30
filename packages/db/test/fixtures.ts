@@ -13,6 +13,8 @@ export interface TenantFixture {
   inboundMessageId: string;
   waMessageId: string;
   entryId: string;
+  /** Chave de acesso de 44 dígitos da nota fiscal do fixture (única por tenant). */
+  accessKey: string;
 }
 
 /** Todas as tabelas do schema public, em ordem alfabética. Tabela nova entra aqui e em `insertsFor`. */
@@ -22,6 +24,7 @@ export const TABLES = [
   "categories",
   "entries",
   "entry_versions",
+  "fiscal_documents",
   "inbound_messages",
   "memberships",
   "outbound_messages",
@@ -52,6 +55,7 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     inboundMessageId: uuidv7(),
     waMessageId: `wamid.${uuidv7()}`,
     entryId: uuidv7(),
+    accessKey: String(Math.floor(Math.random() * 1e15)).padStart(44, "1"),
   };
   const run = (sql: string, params: unknown[]) => admin.query(sql, params);
 
@@ -101,6 +105,11 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     `insert into entry_versions (id, tenant_id, entry_id, version, action, after, changed_by, channel)
      values ($1, $2, $3, 1, 'create', '{}', $4, 'whatsapp')`,
     [uuidv7(), f.tenantId, f.entryId, f.userId],
+  );
+  await run(
+    `insert into fiscal_documents (id, tenant_id, access_key, inbound_message_id, source, created_by)
+     values ($1, $2, $3, $4, 'ai_reading', $5)`,
+    [uuidv7(), f.tenantId, f.accessKey, f.inboundMessageId, f.userId],
   );
   await run(
     `insert into pending_questions (id, tenant_id, user_id, inbound_message_id, draft, question, expires_at)
@@ -204,6 +213,11 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     outbound_messages: {
       sql: "insert into outbound_messages (id, tenant_id, wa_message_id, to_wa_id, purpose, text) values ($1, $2, $3, '5511900000000', 'notice', 'Intruso')",
       params: [id(), f.tenantId, `dev.out.${id()}`],
+    },
+    fiscal_documents: {
+      sql: `insert into fiscal_documents (id, tenant_id, access_key, inbound_message_id, source, created_by)
+            values ($1, $2, '35261012345678000190650010000001231000001235', $3, 'ai_reading', $4)`,
+      params: [id(), f.tenantId, f.inboundMessageId, f.userId],
     },
     whatsapp_opt_ins: {
       sql: `insert into whatsapp_opt_ins (id, tenant_id, user_id, source, inbound_message_id)

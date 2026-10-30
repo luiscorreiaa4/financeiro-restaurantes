@@ -11,7 +11,6 @@ import {
   text,
   timestamp,
   unique,
-  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { appendOnly, cents, createdAt, oneOf, primaryId, tenantIsolation } from "./_shared";
@@ -21,7 +20,9 @@ import { tenantId, units, users } from "./tenants";
 
 export const ENTRY_TYPES = ["expense", "revenue"] as const;
 export const CHANNELS = ["whatsapp", "web", "import", "system"] as const;
-export const VERSION_ACTIONS = ["create", "update", "delete"] as const;
+export const VERSION_ACTIONS = ["create", "update", "delete", "restore"] as const;
+/** Sinais que não impedem a gravação (RF12.R13). */
+export const ENTRY_FLAGS = ["category_to_review", "possible_duplicate", "old_date"] as const;
 
 /**
  * Lançamento. Nunca é apagado: `deleted_at` marca o soft delete e cada mudança gera uma
@@ -54,6 +55,8 @@ export const entries = pgTable(
     /** Id da mensagem de confirmação enviada, usado para corrigir por reply. */
     confirmationWaMessageId: text("confirmation_wa_message_id"),
     aiConfidence: numeric("ai_confidence", { precision: 4, scale: 3, mode: "number" }),
+    /** Sinais de revisão (RF12.R13): `ENTRY_FLAGS`. */
+    flags: text("flags").array().notNull().default(sql`'{}'::text[]`),
     version: integer("version").notNull().default(1),
     createdBy: uuid("created_by")
       .notNull()
@@ -94,7 +97,8 @@ export const entries = pgTable(
     }),
     index("entries_unit_date_idx").on(t.tenantId, t.unitId, t.occurredOn),
     index("entries_category_date_idx").on(t.tenantId, t.categoryId, t.occurredOn),
-    uniqueIndex("entries_confirmation_idx")
+    // Não é único: uma confirmação cobre todos os lançamentos da mensagem (RF16.Obs2).
+    index("entries_confirmation_idx")
       .on(t.tenantId, t.confirmationWaMessageId)
       .where(sql`${t.confirmationWaMessageId} is not null`),
     oneOf("entries_type_check", "type", ENTRY_TYPES),

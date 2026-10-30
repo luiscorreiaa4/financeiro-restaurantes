@@ -5,11 +5,12 @@ import { ok } from "../errors/result";
 import { computeFee, type Money } from "../money";
 import type { BusinessDate } from "./business-date";
 import { isBusinessDate, isUuidV7 } from "./business-date";
+import type { EntryFlag } from "./interpret";
 import { quantityToMilli } from "./quantity";
 
 export type EntryType = "expense" | "revenue";
 export type Channel = "whatsapp" | "web" | "import" | "system";
-export type VersionAction = "create" | "update" | "delete";
+export type VersionAction = "create" | "update" | "delete" | "restore";
 
 /** Campos editáveis de um lançamento. A taxa é guardada como regra para poder recalcular. */
 export interface EntryFields {
@@ -32,6 +33,8 @@ export interface EntryFields {
 export interface EntryDraft extends EntryFields {
   /** Obrigatório quando o canal é `whatsapp` (regra 5: todo lançamento guarda a origem). */
   readonly inboundMessageId: string | null;
+  /** Sinais de revisão (RF12.R13); não impedem a gravação. */
+  readonly flags?: readonly EntryFlag[];
 }
 
 export interface Entry extends EntryFields {
@@ -40,6 +43,7 @@ export interface Entry extends EntryFields {
   readonly feeCents: Money;
   readonly netCents: Money;
   readonly inboundMessageId: string | null;
+  readonly flags: readonly EntryFlag[];
   readonly confirmationWaMessageId: string | null;
   readonly createdBy: string;
   readonly createdAt: Date;
@@ -136,6 +140,7 @@ export function createEntry(
 
   const entry: Entry = {
     ...draft,
+    flags: draft.flags ?? [],
     id: context.id,
     tenantId: context.tenantId,
     feeCents: calculated.value.feeCents,
@@ -188,6 +193,21 @@ export function softDeleteEntry(
     version: entry.version + 1,
   };
   return ok({ entry: next, version: toVersion("delete", entry, next, context) });
+}
+
+/** Tira da lixeira (RF25.R4): limpa `deletedAt` e registra a versão `restore`. */
+export function restoreEntry(
+  entry: Entry,
+  context: ChangeContext,
+): Result<EntryChange, EntryError | Extract<DomainError, { code: "EntryNotDeleted" }>> {
+  if (entry.deletedAt === null) return fail("EntryNotDeleted");
+  const next: Entry = {
+    ...entry,
+    deletedAt: null,
+    updatedAt: context.at,
+    version: entry.version + 1,
+  };
+  return ok({ entry: next, version: toVersion("restore", entry, next, context) });
 }
 
 function pickFields(entry: Entry): EntryFields {

@@ -14,6 +14,7 @@ const extracted = (overrides: Partial<ExtractedEntry> = {}): ExtractedEntry => (
   supplier_hint: null,
   payment_method_hint: null,
   sales_channel_hint: null,
+  missing_fields: [],
   ...overrides,
 });
 
@@ -21,7 +22,6 @@ const result = (overrides: Record<string, unknown> = {}) => ({
   intent: "register",
   entries: [extracted({ total_cents: 15000 })],
   question: null,
-  missing_fields: [],
   ...overrides,
 });
 
@@ -40,9 +40,18 @@ describe("schema ExtractionResult", () => {
   it("aceita registro com valor faltando quando traz pergunta e campo faltante", () => {
     const parsed = ExtractionResultSchema.safeParse(
       result({
-        entries: [extracted()],
+        entries: [extracted({ missing_fields: ["amount"] })],
         question: "Qual foi o valor?",
-        missing_fields: ["amount"],
+      }),
+    );
+    expect(parsed.success).toBe(true);
+  });
+
+  it("aceita lançamentos completos junto de um incompleto, com uma única pergunta", () => {
+    const parsed = ExtractionResultSchema.safeParse(
+      result({
+        entries: [extracted({ total_cents: 18000 }), extracted({ missing_fields: ["amount"] })],
+        question: "Qual foi o valor do camarão?",
       }),
     );
     expect(parsed.success).toBe(true);
@@ -81,9 +90,11 @@ describe("schema ExtractionResult", () => {
   });
 
   it("rejeita campos faltantes sem pergunta e pergunta sem campos faltantes", () => {
-    expect(ExtractionResultSchema.safeParse(result({ missing_fields: ["amount"] })).success).toBe(
-      false,
-    );
+    expect(
+      ExtractionResultSchema.safeParse(
+        result({ entries: [extracted({ total_cents: 1, missing_fields: ["amount"] })] }),
+      ).success,
+    ).toBe(false);
     expect(ExtractionResultSchema.safeParse(result({ question: "Qual valor?" })).success).toBe(
       false,
     );

@@ -203,18 +203,20 @@ describe("roteamento ponta a ponta (webhook → fila → banco → resposta)", (
       "select id from tenants where name = 'Restaurante Demo'",
     );
     const tenantId = tenant.rows[0]?.id ?? "";
-    const origin = await converse(digits(DEV_PHONES.owner), "ajuda");
-    const insertConfirmation = async (waMessageId: string) => {
+    // Uma mensagem de origem por confirmação: só pode haver uma confirmação por origem.
+    const originAntiga = await converse(digits(DEV_PHONES.owner), "ajuda");
+    const originAtual = await converse(digits(DEV_PHONES.owner), "ajuda");
+    const insertConfirmation = async (waMessageId: string, originId: string) => {
       const id = uuidv7();
       await db.admin.query(
         `insert into outbound_messages (id, tenant_id, inbound_message_id, wa_message_id, to_wa_id, purpose, text)
          values ($1, $2, $3, $4, $5, 'confirmation', 'Registrado')`,
-        [id, tenantId, origin.id, waMessageId, digits(DEV_PHONES.owner)],
+        [id, tenantId, originId, waMessageId, digits(DEV_PHONES.owner)],
       );
       return id;
     };
-    const antiga = await insertConfirmation("dev.out.antiga");
-    const atual = await insertConfirmation("dev.out.atual");
+    const antiga = await insertConfirmation("dev.out.antiga", originAntiga.id);
+    const atual = await insertConfirmation("dev.out.atual", originAtual.id);
 
     await converse(digits(DEV_PHONES.owner), "era 50", "dev.out.atual");
     await converse(digits(DEV_PHONES.owner), "era 60", "dev.out.antiga");

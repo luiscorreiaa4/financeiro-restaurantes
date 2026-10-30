@@ -24,12 +24,14 @@ export type DomainError =
   | { readonly code: "OriginMissing" }
   | { readonly code: "EntryDeleted" }
   | { readonly code: "EntryAlreadyDeleted" }
+  | { readonly code: "EntryNotDeleted" }
   | { readonly code: "NothingToChange" }
   | { readonly code: "PermissionDenied"; readonly role: string; readonly action: string }
   | { readonly code: "InvalidPhone"; readonly reason: "empty" | "length" | "area_code" | "number" }
   | { readonly code: "DuplicateMessage"; readonly waMessageId: string }
   | { readonly code: "ExtractionInvalid"; readonly detail: string }
   | { readonly code: "LlmRefused" }
+  | { readonly code: "MediaUnavailable"; readonly detail: string }
   | { readonly code: "SendFailed"; readonly detail: string };
 
 export type DomainErrorCode = DomainError["code"];

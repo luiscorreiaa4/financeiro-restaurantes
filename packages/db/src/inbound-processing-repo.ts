@@ -23,8 +23,23 @@ export function createInboundProcessingRepo(db: Database): InboundProcessingRepo
           text: inboundMessages.text,
           // `context.id` do webhook: a mensagem que o usuário citou ao responder.
           replyToWaMessageId: sql<string | null>`${inboundMessages.raw} #>> '{message,context,id}'`,
+          // Áudio e imagem: o id da mídia e a legenda vêm no pedaço `message` do payload.
+          mediaId: sql<
+            string | null
+          >`coalesce(${inboundMessages.raw} #>> '{message,audio,id}', ${inboundMessages.raw} #>> '{message,image,id}')`,
+          mediaMimeType: sql<
+            string | null
+          >`coalesce(${inboundMessages.raw} #>> '{message,audio,mime_type}', ${inboundMessages.raw} #>> '{message,image,mime_type}')`,
+          mediaCaption: sql<string | null>`${inboundMessages.raw} #>> '{message,image,caption}'`,
         });
-      return row ? { ...row, type: row.type as InboundMessageType } : null;
+      if (!row) return null;
+      const { mediaId, mediaMimeType, mediaCaption, ...rest } = row;
+      return {
+        ...rest,
+        type: row.type as InboundMessageType,
+        media:
+          mediaId === null ? null : { id: mediaId, mimeType: mediaMimeType, caption: mediaCaption },
+      };
     },
 
     async markProcessed(id) {

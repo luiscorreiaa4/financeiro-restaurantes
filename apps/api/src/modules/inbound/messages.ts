@@ -35,5 +35,26 @@ export function helpText(supportContact: string | undefined): string {
   ].join("\n");
 }
 
-/** Provisório até a E7 (lançamentos): ainda não existe nada para desfazer. */
+/** Comando `suporte` (RF19). */
+export function supportText(supportContact: string | undefined): string {
+  return supportContact
+    ? `Fale com o nosso suporte: ${supportContact}.`
+    : "Fale com o suporte do seu restaurante.";
+}
+
+/** Provisório da E5; o fluxo real (RF18.R4) usa `NOTHING_TO_UNDO_24H_TEXT`. */
 export const NOTHING_TO_UNDO_TEXT = "Ainda não há nada para desfazer.";
+export const NOTHING_TO_CANCEL_TEXT = "Não há nenhuma pergunta aberta para cancelar.";
+
+/** Falha definitiva (RF19.R4): avisa que NÃO foi registrado e pede nova tentativa. */
+export function failureText(supportContact: string | undefined): string {
+  return `Tive um problema e NÃO registrei essa mensagem. Pode enviar de novo? ${
+    supportContact
+      ? `Se continuar, fale com o suporte: ${supportContact}.`
+      : "Se continuar, fale com o suporte."
+  }`;
+}
+
+/** Limite de mensagens por usuário ou empresa (RF21.R2); o aviso sai no máximo uma vez por hora. */
+export const RATE_LIMITED_TEXT =
+  "Recebi muitas mensagens seguidas. Aguarde alguns minutos e tente de novo.";

@@ -44,6 +44,8 @@ export function createProcessInbound(deps: {
   repo: InboundProcessingRepo;
   route: RouteInbound;
   logger: JobLogger;
+  /** Chamado na falha definitiva, para avisar o usuário (RF19.R4). Erros aqui são ignorados. */
+  onFinalFailure?: (message: ClaimedInboundMessage) => Promise<void>;
 }): ProcessInbound {
   return async (data, attempt) => {
     const parsed = processInboundJobSchema.safeParse(data);
@@ -67,7 +69,10 @@ export function createProcessInbound(deps: {
     } catch (error) {
       const errorCode = describeError(error);
       const lastAttempt = attempt.retryCount >= attempt.retryLimit;
-      if (lastAttempt) await deps.repo.markFailed(inboundMessageId, errorCode);
+      if (lastAttempt) {
+        await deps.repo.markFailed(inboundMessageId, errorCode);
+        await deps.onFinalFailure?.(message).catch(() => undefined);
+      }
       deps.logger.warn(
         { ...fields, errorCode, lastAttempt, durationMs: elapsed(startedAt) },
         lastAttempt

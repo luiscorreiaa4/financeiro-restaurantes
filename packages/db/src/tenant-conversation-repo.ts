@@ -47,6 +47,7 @@ export function createTenantConversationRepo(db: Database): TenantConversationRe
             and(
               eq(pendingQuestions.tenantId, tenantId),
               eq(pendingQuestions.userId, userId),
+              eq(pendingQuestions.status, "open"),
               gt(pendingQuestions.expiresAt, now),
             ),
           )

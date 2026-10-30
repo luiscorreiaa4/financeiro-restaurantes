@@ -63,3 +63,47 @@ export function buildTextWebhookPayload(input: SimulatedTextMessage): unknown {
     ],
   };
 }
+
+export interface SimulatedMediaMessage {
+  readonly waId: string;
+  readonly waMessageId: string;
+  readonly kind: "audio" | "image";
+  /** Id da mídia na Meta; no chat de desenvolvimento, o nome do arquivo guardado. */
+  readonly mediaId: string;
+  readonly mimeType: string;
+  /** Legenda da imagem (a Meta só a envia em imagem). */
+  readonly caption?: string;
+  readonly profileName?: string;
+  readonly sentAt: Date;
+}
+
+type SimulatedEnvelope = {
+  entry: [{ changes: [{ value: { messages: [Record<string, unknown>] } }] }];
+};
+
+/**
+ * Payload de áudio ou imagem no formato real da Cloud API (mesmo das fixtures `audio-message` e
+ * `image-message`). Só para o chat de desenvolvimento e os testes.
+ */
+export function buildMediaWebhookPayload(input: SimulatedMediaMessage): unknown {
+  const payload = buildTextWebhookPayload({
+    waId: input.waId,
+    waMessageId: input.waMessageId,
+    text: "",
+    ...(input.profileName === undefined ? {} : { profileName: input.profileName }),
+    sentAt: input.sentAt,
+  }) as SimulatedEnvelope;
+  const message = payload.entry[0].changes[0].value.messages[0];
+  message.type = input.kind;
+  delete message.text;
+  message[input.kind] =
+    input.kind === "audio"
+      ? { mime_type: input.mimeType, sha256: "dev", id: input.mediaId, voice: true }
+      : {
+          mime_type: input.mimeType,
+          sha256: "dev",
+          id: input.mediaId,
+          ...(input.caption === undefined ? {} : { caption: input.caption }),
+        };
+  return payload;
+}

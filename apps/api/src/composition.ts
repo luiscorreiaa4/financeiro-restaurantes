@@ -1,21 +1,44 @@
+import {
+  createAnthropicLlmClient,
+  createClaudeCorrectionExtractor,
+  createClaudeEntryExtractor,
+  createOpenAiTranscriber,
+} from "@app/ai";
 import type { Env } from "@app/config/env";
-import type { MessageSender } from "@app/core";
+import {
+  DEFAULT_USAGE_LIMITS,
+  fail,
+  type MediaDownloader,
+  type MessageSender,
+  type Transcriber,
+} from "@app/core";
 import {
   createDatabase,
+  createEntryStore,
   createInboundIngestRepo,
+  createInboundMediaRepo,
   createInboundProcessingRepo,
   createInboundSenderRepo,
   createOutboundMessageRepo,
   createPool,
   createSenderDirectory,
   createTenantConversationRepo,
+  createUsageGuardStore,
+  uuidv7,
 } from "@app/db";
 import type { AppDeps } from "./app";
+import { createSystemClock } from "./infra/clock";
 import { createDevMessageSender } from "./infra/dev-message-sender";
 import type { JobLogger } from "./infra/logger";
+import { createDevFileMediaDownloader } from "./infra/media/dev-file-media-downloader";
+import { createFfmpegAudioConverter } from "./infra/media/ffmpeg-audio-converter";
+import { createLocalMediaStore } from "./infra/media/local-media-store";
+import { createQrReader } from "./infra/media/qr-reader";
 import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
+import { createEntryHandlers } from "./modules/entries/entry-handlers";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
+import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
 import { createRouteInbound, defaultHandlers } from "./modules/inbound/route-inbound";
 
@@ -66,21 +89,56 @@ export async function composeWorker(
   const ingestPool = createPool(env.DATABASE_INGEST_URL);
   const appPool = createPool(env.DATABASE_URL);
   const ingestDb = createDatabase(ingestPool);
+  const appDb = createDatabase(appPool);
+  if (env.ANTHROPIC_API_KEY === undefined) {
+    throw new Error("ANTHROPIC_API_KEY é obrigatória para o worker interpretar as mensagens");
+  }
+
+  const clock = createSystemClock();
+  const llm = createAnthropicLlmClient(env.ANTHROPIC_API_KEY);
+  const models = { default: env.AI_MODEL_DEFAULT, advanced: env.AI_MODEL_ADVANCED };
+  const sender = createMessageSender(env, createOutboundMessageRepo(ingestDb));
+  const handlers = {
+    ...defaultHandlers(logger),
+    ...createEntryHandlers({
+      store: createEntryStore(appDb),
+      extractor: createClaudeEntryExtractor({ llm, models }),
+      correctionExtractor: createClaudeCorrectionExtractor({ llm, models }),
+      clock,
+      media: {
+        downloader: createMediaDownloader(env),
+        store: createMediaStore(env),
+        inbound: createInboundMediaRepo(ingestDb),
+        audioConverter: createFfmpegAudioConverter(),
+        transcriber: createTranscriber(env),
+        qrReader: createQrReader(),
+        limits: DEFAULT_USAGE_LIMITS,
+      },
+      newId: uuidv7,
+      logger,
+    }),
+  };
 
   const route = createRouteInbound({
     directory: createSenderDirectory(ingestDb),
     senderRepo: createInboundSenderRepo(ingestDb),
-    conversation: createTenantConversationRepo(createDatabase(appPool)),
-    sender: createMessageSender(env, createOutboundMessageRepo(ingestDb)),
-    clock: { now: () => new Date() },
-    handlers: defaultHandlers(logger),
+    conversation: createTenantConversationRepo(appDb),
+    sender,
+    clock,
+    handlers,
     supportContact: env.SUPPORT_CONTACT,
     logger,
+    usageGuard: { store: createUsageGuardStore(appDb), limits: DEFAULT_USAGE_LIMITS },
   });
   const processInbound = createProcessInbound({
     repo: createInboundProcessingRepo(ingestDb),
     route,
     logger,
+    onFinalFailure: createFailureNotifier({
+      sender,
+      supportContact: env.SUPPORT_CONTACT,
+      logger,
+    }),
   });
 
   const worker = await startProcessInboundWorker({
@@ -108,4 +166,28 @@ function createMessageSender(
     throw new Error("CHANNEL_MODE=whatsapp depende do CloudMessageSender, que chega na E10");
   }
   return createDevMessageSender({ repo: outbound, nodeEnv: env.NODE_ENV });
+}
+
+/** Mídia recebida: em desenvolvimento lê o arquivo que o chat guardou; no real, baixa da Meta. */
+function createMediaDownloader(env: Env): MediaDownloader {
+  if (env.CHANNEL_MODE === "whatsapp") {
+    throw new Error("CHANNEL_MODE=whatsapp depende do MetaMediaDownloader, ligado na E10");
+  }
+  return createDevFileMediaDownloader({ directory: env.DEV_MEDIA_DIR, nodeEnv: env.NODE_ENV });
+}
+
+/** Guarda a mídia. O S3 (com a regra de ciclo de vida de 90 dias do áudio) chega na E10. */
+function createMediaStore(env: Env) {
+  if (env.CHANNEL_MODE === "whatsapp") {
+    throw new Error("CHANNEL_MODE=whatsapp depende do S3MediaStore, que chega na E10");
+  }
+  return createLocalMediaStore({ directory: env.DEV_MEDIA_DIR, nodeEnv: env.NODE_ENV });
+}
+
+/** Sem chave da OpenAI o áudio falha com erro claro (o job é retentado e depois avisa o usuário). */
+function createTranscriber(env: Env): Transcriber {
+  if (env.OPENAI_API_KEY === undefined) {
+    return { transcribe: async () => fail("MediaUnavailable", { detail: "sem_chave_openai" }) };
+  }
+  return createOpenAiTranscriber({ apiKey: env.OPENAI_API_KEY, model: env.TRANSCRIPTION_MODEL });
 }

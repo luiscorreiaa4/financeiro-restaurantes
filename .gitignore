@@ -33,3 +33,9 @@ next-env.d.ts
 # Claude Code: configuracao pessoal, fora do git
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Resultado da última rodada de evals (local)
+packages/ai/src/evals/last-run.json
+
+# Mídia do chat de desenvolvimento
+.dev-media/

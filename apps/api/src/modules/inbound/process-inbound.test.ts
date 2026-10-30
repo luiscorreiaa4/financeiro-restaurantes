@@ -26,6 +26,7 @@ class MemoryRepo implements InboundProcessingRepo {
       type: "text",
       text: SECRET_TEXT,
       replyToWaMessageId: null,
+      media: null,
     };
   }
   async markProcessed() {

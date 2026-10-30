@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do canal WhatsApp. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](decisoes.md) e a técnica em [`arquitetura.md`](arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 29/10/2026 (alinhado ao Documento de Requisitos v1.0). Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
+Atualizado em 30/10/2026 (E6 a E9 feitas; alinhado ao Documento de Requisitos v1.0). Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde um requisito traz `[PROVISÓRIO – Pxx]`, a implementação isola o valor em configuração ou constante única, para trocar depois sem retrabalho (ver DN-11 em `decisoes.md`). A única pendência que já bloqueava, e continua, é a da Meta (P15), só para o teste real e a E10.
 
@@ -25,10 +25,10 @@ Legenda de confiança, usada em todo o documento:
 | E3 Gateway do WhatsApp (webhook) | Feita (28/10/2026) **com ressalva**: falta só o teste com mensagem real do celular, bloqueado por pendência da Meta (P1, ver "Pendências da Meta") | GET/POST `/webhooks/whatsapp`, assinatura sobre bytes brutos, tabela `whatsapp_status_events` (migration 0002), fila `process-inbound` no pg-boss (política `exclusive`, só enfileira; worker é a E4). 95 testes de integração no db e 12 na api passam. Fixtures são sintéticas: trocar/acrescentar as reais anonimizadas. Verificado em 28/10 pelo túnel: handshake, POST assinado, reenvio sem duplicar, assinatura inválida (401) e o botão **Teste** do painel da Meta (status gravado). Pendente: mensagem real do celular (P1) e conferir `redact`/logs do Pino |
 | E4 Fila e workers | Feita (28/10/2026) | `worker.ts` separado, fila `process-inbound` com 5 retentativas (backoff 10 s a 160 s) e DLQ `process-inbound-dlq`, caso de uso `ProcessInbound` com transições guardadas e porta de roteamento (no-op até a E5), shutdown limpo. 9 testes de integração do worker, 6 do repo no db e 9 unitários passam. Handler ainda não roteia nada (E5). Pendente: confirmar os números de retry com você e rodar o worker contra o Postgres do Compose |
 | E5 Identificação e roteamento | Feita (28/10/2026) | `resolveSender` e `decideRoute` puros no `core`; roteador no worker (desconhecido, ajuda e desfazer provisório, tipo não suportado, reply, pergunta pendente, extração); migration 0003 (`outbound_messages`, `whatsapp_opt_ins`, `memberships.deactivated_at`); **`pnpm dev:chat`** e `pnpm db:seed:dev`. 159 unitários no core, 101 na api e 132+34 de integração passam; testado de verdade no terminal contra o Postgres do Compose. Os ramos de correção, pergunta pendente e extração só chamam handlers que não respondem nada (E6 e E7). Pendente: revisar os textos com o Matheus, `SUPPORT_CONTACT` real, revogação de opt-in (E10) |
-| E6 Extração por IA (texto) | A fazer | Precisa do crédito da Anthropic para o teste ao vivo |
-| E7 Fluxo de lançamento e confirmação | A fazer | Chat de dev ganha `/reply` e `/custo` |
-| E8 Evals e qualidade da IA | A fazer | Começa junto com a E6 |
-| E9 Áudio e foto | A fazer | Chat de dev ganha `/audio` e `/foto` |
+| E6 Extração por IA (texto) | Feita (30/10/2026) | `ExtractionResult` com `missing_fields` por lançamento; `ClaudeEntryExtractor` (Haiku 5.5, saída estruturada, `effort` baixo, cache de prompt confirmado ao vivo, Sonnet 5.5 por sinais objetivos); `interpretExtraction` e `buildDrafts` puros no `core`; `ai_usage` por chamada com `pricing.ts` versionado; `pnpm --filter @app/ai extract`. Custo medido: cerca de US$ 0,0004 por mensagem. Pendente: lista de quantidade essencial (P04) e preço do cache do Haiku 5.5 a conferir |
+| E7 Fluxo de lançamento e confirmação | Feita (30/10/2026) | Migration 0004 (`flags`, `status` da pergunta, cache em `ai_usage`, `restore`, envio único por origem); `EntryStore`; handlers de extração, resposta à pergunta, correção por reply, `desfazer` (24 h ou por reply), `cancelar`, `suporte`; aviso de falha definitiva; chat com `/reply` e `/custo`. 80 testes de integração da API cobrem o fluxo. Pendente: `trocar unidade`, `trocar empresa` e empresa citada no texto (E11); textos a revisar (P08) |
+| E8 Evals e qualidade da IA | Feita (30/10/2026) | 39 casos inventados em JSONL, runner por campo e por lançamento, precisão e revocação da pergunta, custo e latência, baseline em `baseline.json` (100% nos casos atuais), `pnpm --filter @app/ai eval` com trava de orçamento. Rodada completa: cerca de US$ 0,015. Pendente: casos reais anonimizados do Matheus (o 100% é otimista: os casos são meus e o prompt foi ajustado olhando para eles) e rodar o eval no CI (precisa do segredo) |
+| E9 Áudio e foto | Feita (30/10/2026) **com ressalva**: áudio e foto só foram testados com fakes; falta teste com áudio e foto reais | Download da Meta (2 passos, conferido na doc), conversão com ffmpeg, transcrição `gpt-transcribe` por `fetch`, limite de 180 s, QR da NFC-e, chave única por empresa (`fiscal_documents`, migration 0005), itens agrupados por categoria, limites de uso (RF21), lida/digitando, chat com `/audio` e `/foto`. Pendente: S3 e retenção de 90 dias (E10), consulta à SEFAZ, preço do `gpt-transcribe`, ffmpeg no servidor |
 | E10 Envio real e operação | A fazer | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
 | E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026) | Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm. Pode andar junto da E6 |
 | E12 Relatórios pelo WhatsApp (RF20) | A fazer (v1.1; nova) | Resumos predefinidos podem vir antes (P10) |
@@ -603,6 +603,17 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 **Testes:** áudios de exemplo com transcrição esperada (tolerância a erro de palavra); QR com fixtures gravadas da SEFAZ (contrato, sem bater no site em CI); imagem sem QR no dataset de evals; rate limit excedido responde de forma padronizada.
 
 **Pronto quando:** um áudio de 20 s e uma foto de NFC-e, enviados pelo `/audio` e `/foto` do chat de dev, viram lançamentos confirmados.
+
+#### Resultado das E6 a E9 (30/10/2026)
+
+**Entregue.** Veja as decisões DE-14 a DE-21 em [`decisoes.md`](decisoes.md) e o guia de testes manuais em [`guia-testes-e6-e9.md`](guia-testes-e6-e9.md).
+- `core`: `interpretExtraction`, `buildDrafts`, `planCorrection`, `groupReceiptEntries`, chave de acesso da NFC-e, limites de uso, comandos `cancelar` e `suporte`, portas de mídia e de lançamento. 236 testes.
+- `ai`: extrator e corretor Claude, prompts, `pricing.ts`, transcritor OpenAI, fakes, evals. 43 testes.
+- `db`: migrations 0004 (fluxo de lançamento) e 0005 (`fiscal_documents`), `EntryStore`, `UsageGuardStore`, `InboundMediaRepo`. 149 testes de integração.
+- `whatsapp`: payload simulado de mídia e `MetaMediaDownloader`.
+- `apps/api`: handlers de lançamento, correção, desfazer, áudio e foto; limites de uso; aviso de falha definitiva; chat com `/reply`, `/custo`, `/audio`, `/foto`. 124 testes unitários e 80 de integração.
+
+**Pendências (E10 em diante).** S3 e ciclo de vida de 90 dias do áudio; consulta real à SEFAZ (estado do piloto); `trocar unidade`, `trocar empresa` e empresa citada no texto (E11); eval no CI; casos reais para o eval; preço do `gpt-transcribe`; textos a revisar com o Matheus (P08); lista de quantidade essencial (P04); revogação do opt-in (E10).
 
 ### E10: Envio real, operação e produção do canal — M
 

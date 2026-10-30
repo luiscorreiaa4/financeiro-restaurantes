@@ -1,6 +1,6 @@
 import { normalizeBrazilianPhone, toWaId } from "@app/core";
 import type { OutboundMessageRepo } from "@app/db";
-import { buildTextWebhookPayload, signBody } from "@app/whatsapp";
+import { buildMediaWebhookPayload, buildTextWebhookPayload, signBody } from "@app/whatsapp";
 
 /** Linha digitada no chat, já interpretada. */
 export type ChatInput =
@@ -8,16 +8,13 @@ export type ChatInput =
   | { kind: "exit" }
   | { kind: "message"; text: string }
   | { kind: "switch_user"; phone: string }
-  /** Comando previsto no plano (seção 3.6) que ainda não existe. */
-  | { kind: "planned"; command: string; stage: string }
+  /** Responde à última confirmação recebida (preenche `context.message_id`). */
+  | { kind: "reply"; text: string }
+  /** Mostra o custo de IA acumulado do usuário atual. */
+  | { kind: "cost" }
+  /** `/audio arquivo.ogg` ou `/foto nota.jpg [legenda]`: manda a mídia de um arquivo local. */
+  | { kind: "media"; media: "audio" | "image"; path: string; caption: string }
   | { kind: "unknown_command"; command: string };
-
-const PLANNED: Record<string, string> = {
-  "/reply": "E7",
-  "/custo": "E7",
-  "/audio": "E9",
-  "/foto": "E9",
-};
 
 export function parseChatInput(line: string): ChatInput {
   const trimmed = line.trim();
@@ -28,8 +25,17 @@ export function parseChatInput(line: string): ChatInput {
   const name = command.toLowerCase();
   if (name === "/sair") return { kind: "exit" };
   if (name === "/como") return { kind: "switch_user", phone: rest.join(" ") };
-  const stage = PLANNED[name];
-  if (stage !== undefined) return { kind: "planned", command: name, stage };
+  if (name === "/reply") return { kind: "reply", text: rest.join(" ") };
+  if (name === "/custo") return { kind: "cost" };
+  if (name === "/audio" || name === "/foto") {
+    const [path = "", ...caption] = rest;
+    return {
+      kind: "media",
+      media: name === "/audio" ? "audio" : "image",
+      path,
+      caption: caption.join(" "),
+    };
+  }
   return { kind: "unknown_command", command: name };
 }
 
@@ -73,6 +79,13 @@ export interface ChatDeps {
   /** POST no webhook local; devolve o status HTTP. */
   postWebhook(input: { body: string; signature: string }): Promise<number>;
   outbound: Pick<OutboundMessageRepo, "listSince">;
+  /**
+   * Copia o arquivo para a pasta de mídia de desenvolvimento e devolve o id e o tipo; nulo se o
+   * arquivo não existe ou o tipo não é áudio nem imagem conhecidos.
+   */
+  stageMedia(path: string): Promise<{ mediaId: string; mimeType: string } | null>;
+  /** Chamadas e custo de IA do usuário do telefone informado, ou nulo se não é conhecido. */
+  usageSummary(waId: string): Promise<{ calls: number; costUsdMicros: number } | null>;
   /** Estado da mensagem recebida (`received`, `processing`, `processed`, `failed`…), ou nulo. */
   inboundStatus(waMessageId: string): Promise<string | null>;
   appSecret: string;
@@ -95,6 +108,7 @@ export class ChatSession {
   private waId: string;
   private since: Date;
   private readonly seen = new Set<string>();
+  private lastConfirmation: string | null = null;
 
   constructor(
     private readonly deps: ChatDeps,
@@ -113,12 +127,63 @@ export class ChatSession {
     this.waId = waId;
   }
 
-  async send(text: string): Promise<string[]> {
-    const { deps } = this;
-    const waMessageId = `dev.wamid.${deps.newId()}`;
-    const body = JSON.stringify(
-      buildTextWebhookPayload({ waId: this.waId, waMessageId, text, sentAt: deps.now() }),
+  /** Responde à última confirmação recebida, como o "responder" do WhatsApp (RF17, RF18.R2). */
+  async reply(text: string): Promise<string[]> {
+    if (this.lastConfirmation === null) {
+      return ["(ainda não recebi nenhuma confirmação para responder)"];
+    }
+    if (text === "") return ["(use: /reply <texto>, por exemplo /reply foi 400)"];
+    return this.send(text, this.lastConfirmation);
+  }
+
+  async cost(): Promise<string[]> {
+    const summary = await this.deps.usageSummary(this.waId);
+    if (summary === null) return ["(esse telefone não é de um usuário conhecido)"];
+    const usd = (summary.costUsdMicros / 1_000_000).toFixed(5);
+    return [`(custo de IA: US$ ${usd} em ${summary.calls} chamada(s))`];
+  }
+
+  /** Manda um áudio ou uma foto de um arquivo local, pelo mesmo caminho do webhook real. */
+  async sendMedia(media: "audio" | "image", path: string, caption: string): Promise<string[]> {
+    if (path === "") return ["(use: /audio <arquivo> ou /foto <arquivo> [legenda])"];
+    const staged = await this.deps.stageMedia(path);
+    if (staged === null) {
+      return [
+        `(não achei um arquivo de ${media === "audio" ? "áudio" : "imagem"} válido em ${path})`,
+      ];
+    }
+    const waMessageId = `dev.wamid.${this.deps.newId()}`;
+    return this.deliver(
+      buildMediaWebhookPayload({
+        waId: this.waId,
+        waMessageId,
+        kind: media,
+        mediaId: staged.mediaId,
+        mimeType: staged.mimeType,
+        ...(caption === "" || media === "audio" ? {} : { caption }),
+        sentAt: this.deps.now(),
+      }),
+      waMessageId,
     );
+  }
+
+  async send(text: string, replyToWaMessageId?: string): Promise<string[]> {
+    const waMessageId = `dev.wamid.${this.deps.newId()}`;
+    return this.deliver(
+      buildTextWebhookPayload({
+        waId: this.waId,
+        waMessageId,
+        text,
+        replyToWaMessageId,
+        sentAt: this.deps.now(),
+      }),
+      waMessageId,
+    );
+  }
+
+  private async deliver(payload: unknown, waMessageId: string): Promise<string[]> {
+    const { deps } = this;
+    const body = JSON.stringify(payload);
     const status = await deps.postWebhook({
       body,
       signature: signBody(new TextEncoder().encode(body), deps.appSecret),
@@ -154,6 +219,7 @@ export class ChatSession {
       if (this.seen.has(row.waMessageId)) continue;
       this.seen.add(row.waMessageId);
       if (row.createdAt > this.since) this.since = row.createdAt;
+      if (row.purpose === "confirmation") this.lastConfirmation = row.waMessageId;
       lines.push(
         ...row.text.split("\n").map((line, i) => (i === 0 ? `Bot: ${line}` : `     ${line}`)),
       );
@@ -165,5 +231,5 @@ export class ChatSession {
 function noAnswerNote(state: string): string {
   return state === "needs_answer"
     ? "(a mensagem aguarda uma resposta sua)"
-    : "(sem resposta: este ramo ainda não está implementado; a extração por IA chega na E6)";
+    : "(sem resposta para essa mensagem)";
 }

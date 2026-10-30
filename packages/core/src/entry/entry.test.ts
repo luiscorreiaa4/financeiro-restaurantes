@@ -6,6 +6,7 @@ import {
   type Entry,
   type EntryDraft,
   editEntry,
+  restoreEntry,
   softDeleteEntry,
 } from "./entry";
 
@@ -236,5 +237,29 @@ describe("soft delete (desfazer)", () => {
     if (!first.ok) throw new Error("primeira exclusão falhou");
     const second = softDeleteEntry(first.value.entry, whatsapp(t3));
     expect(second).toEqual({ ok: false, error: { code: "EntryAlreadyDeleted" } });
+  });
+});
+
+describe("restaurar lançamento da lixeira (RF25.R4)", () => {
+  it("limpa a exclusão e registra a versão de restauração", () => {
+    const deleted = softDeleteEntry(created(), whatsapp(t2));
+    if (!deleted.ok) throw new Error("exclusão falhou");
+    const restored = restoreEntry(deleted.value.entry, {
+      actorId: USER_ID,
+      channel: "web",
+      at: t3,
+    });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.value.entry.deletedAt).toBeNull();
+    expect(restored.value.entry.version).toBe(3);
+    expect(restored.value.version).toMatchObject({ action: "restore", channel: "web", version: 3 });
+  });
+
+  it("recusa restaurar lançamento que não está na lixeira", () => {
+    expect(restoreEntry(created(), whatsapp(t2))).toEqual({
+      ok: false,
+      error: { code: "EntryNotDeleted" },
+    });
   });
 });

@@ -264,7 +264,7 @@ describe("integração com o núcleo de domínio (@app/core)", () => {
     expect(isUuidV7(entry.id)).toBe(true);
 
     await withTenant(database, a.tenantId, async (tx) => {
-      await tx.insert(entries).values({ ...entry });
+      await tx.insert(entries).values({ ...entry, flags: [...entry.flags] });
       await tx.insert(entryVersions).values({
         tenantId: version.tenantId,
         entryId: version.entryId,

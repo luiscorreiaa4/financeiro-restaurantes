@@ -1,0 +1,16 @@
+# Frases do script de extração da E6 (uma por linha; # é comentário).
+# Cobrem: simples, quantidade, vários lançamentos, receita com canal, data, falta de valor,
+# conta que não bate, data futura e fora de escopo.
+camarão 5kg 450 no pix
+paguei 350 de carne no débito
+gás 80
+comprei 3 kg de tomate a 45 reais, total 140
+vendi 2300 hoje, 1500 no cartão e o resto no pix
+vendi 800 no ifood ontem
+óleo 180, camarão
+paguei a conta de luz amanhã, 420
+comprei 12 caixas de cerveja na Ambev, 960 no crédito
+recebi 1200 de um evento
+qual o meu lucro do mês?
+oi, tudo bem?
+fornecedor Ceasa, 10 kg de cebola, 60 reais, pago em dinheiro dia 28

@@ -1,6 +1,17 @@
+import { copyFile, mkdir } from "node:fs/promises";
+import { extname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { loadEnv } from "@app/config/env";
-import { createDatabase, createOutboundMessageRepo, createPool, DEV_PHONES, uuidv7 } from "@app/db";
+import { normalizeBrazilianPhone } from "@app/core";
+import {
+  createDatabase,
+  createEntryStore,
+  createOutboundMessageRepo,
+  createPool,
+  DEV_PHONES,
+  uuidv7,
+} from "@app/db";
+import { mediaTypeOfFile } from "../infra/media/dev-file-media-downloader";
 import {
   ChatSession,
   chatBlockReason,
@@ -24,6 +35,9 @@ const appSecret = env.WHATSAPP_APP_SECRET;
 
 const pool = createPool(env.DATABASE_INGEST_URL);
 const db = createDatabase(pool);
+// O custo de IA é dado do tenant (RLS): lê pelo papel `app`, com o tenant da última mensagem.
+const appPool = createPool(env.DATABASE_URL);
+const entryStore = createEntryStore(createDatabase(appPool));
 const webhookUrl = new URL("/webhooks/whatsapp", env.API_URL);
 
 // Largada pelo relógio do banco: o horário da máquina pode diferir do container.
@@ -41,6 +55,34 @@ const session = new ChatSession(
       return response.status;
     },
     outbound: createOutboundMessageRepo(db),
+    async stageMedia(path) {
+      const mimeType = mediaTypeOfFile(path);
+      if (mimeType === null) return null;
+      const mediaId = `dev.media.${uuidv7()}`;
+      try {
+        await mkdir(env.DEV_MEDIA_DIR, { recursive: true });
+        await copyFile(resolve(path), resolve(env.DEV_MEDIA_DIR, `${mediaId}${extname(path)}`));
+      } catch {
+        return null;
+      }
+      return { mediaId, mimeType };
+    },
+    async usageSummary(waId) {
+      const phone = normalizeBrazilianPhone(waId);
+      const candidates = phone.ok ? phone.value.lookupCandidates : [];
+      const owner = await pool.query<{ tenant_id: string; user_id: string }>(
+        `select tenant_id, user_id from inbound_messages
+          where wa_id = $1 and tenant_id is not null order by received_at desc limit 1`,
+        [waId],
+      );
+      const row = owner.rows[0];
+      if (row === undefined || candidates.length === 0) return null;
+      const summary = await entryStore.sumAiUsageForUser({
+        tenantId: row.tenant_id,
+        userId: row.user_id,
+      });
+      return summary;
+    },
     async inboundStatus(waMessageId) {
       const result = await pool.query<{ status: string }>(
         "select status from inbound_messages where wa_message_id = $1",
@@ -61,7 +103,7 @@ const session = new ChatSession(
 
 console.log("Chat de desenvolvimento (simula o WhatsApp). Só para testes.");
 console.log(
-  "Comandos: /como <telefone>  /sair   (previstos: /reply, /custo na E7; /audio, /foto na E9)",
+  "Comandos: /como <telefone>  /reply <texto> (responde à última confirmação)  /audio <arquivo>  /foto <arquivo> [legenda]  /custo  /sair",
 );
 console.log(`Telefones do seed (pnpm db:seed:dev): ${Object.values(DEV_PHONES).join(", ")}`);
 console.log(`Você é ${session.currentWaId}.\n`);
@@ -87,8 +129,14 @@ try {
         session.switchUser(waId);
         console.log(`(agora você é ${waId}; as respostas chegam em ${replyAddress(waId)})`);
       }
-    } else if (input.kind === "planned") {
-      console.log(`(${input.command} ainda não existe: chega na ${input.stage})`);
+    } else if (input.kind === "reply") {
+      for (const out of await session.reply(input.text)) console.log(out);
+    } else if (input.kind === "cost") {
+      for (const out of await session.cost()) console.log(out);
+    } else if (input.kind === "media") {
+      for (const out of await session.sendMedia(input.media, input.path, input.caption)) {
+        console.log(out);
+      }
     } else if (input.kind === "unknown_command") {
       console.log(`(comando desconhecido: ${input.command})`);
     }
@@ -96,5 +144,5 @@ try {
   }
 } finally {
   rl.close();
-  await pool.end();
+  await Promise.all([pool.end(), appPool.end()]);
 }

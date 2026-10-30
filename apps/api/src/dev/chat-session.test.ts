@@ -32,13 +32,24 @@ describe("parseChatInput", () => {
     expect(parseChatInput("/SAIR")).toEqual({ kind: "exit" });
   });
 
-  it.each([
-    ["/reply", "E7"],
-    ["/custo", "E7"],
-    ["/audio nota.ogg", "E9"],
-    ["/foto nota.jpg", "E9"],
-  ])("%s é um comando previsto para a %s", (line, stage) => {
-    expect(parseChatInput(line)).toMatchObject({ kind: "planned", stage });
+  it("/audio e /foto levam o arquivo e, na foto, a legenda", () => {
+    expect(parseChatInput("/audio nota.ogg")).toEqual({
+      kind: "media",
+      media: "audio",
+      path: "nota.ogg",
+      caption: "",
+    });
+    expect(parseChatInput("/foto cupom.jpg nota do mercado")).toEqual({
+      kind: "media",
+      media: "image",
+      path: "cupom.jpg",
+      caption: "nota do mercado",
+    });
+  });
+
+  it("/reply leva o texto que vem depois e /custo não leva nada", () => {
+    expect(parseChatInput("/reply foi 400")).toEqual({ kind: "reply", text: "foi 400" });
+    expect(parseChatInput("/custo")).toEqual({ kind: "cost" });
   });
 
   it("comando que não existe é apontado", () => {
@@ -120,7 +131,16 @@ describe("ChatSession", () => {
     /** Estados da mensagem a cada consulta; o último se repete. */
     states?: (string | null)[];
     /** Respostas que aparecem a partir da N-ésima consulta de respostas. */
-    answers?: { afterPoll: number; waMessageId: string; text: string; createdAt: Date }[];
+    answers?: {
+      afterPoll: number;
+      waMessageId: string;
+      text: string;
+      createdAt: Date;
+      purpose?: "confirmation" | "question" | "help" | "notice";
+    }[];
+    usage?: { calls: number; costUsdMicros: number } | null;
+    /** Arquivos que o chat consegue guardar, por caminho digitado. */
+    files?: Record<string, { mediaId: string; mimeType: string }>;
   }
 
   function setup(scenario: Scenario = {}) {
@@ -143,10 +163,16 @@ describe("ChatSession", () => {
             .map((a) => ({
               waMessageId: a.waMessageId,
               text: a.text,
-              purpose: "notice" as const,
+              purpose: a.purpose ?? ("notice" as const),
               createdAt: a.createdAt,
             }));
         },
+      },
+      async stageMedia(path) {
+        return scenario.files?.[path] ?? null;
+      },
+      async usageSummary() {
+        return scenario.usage ?? null;
       },
       async inboundStatus() {
         const states = scenario.states ?? ["processed"];
@@ -234,11 +260,89 @@ describe("ChatSession", () => {
     expect(await session.send("b")).toEqual([expect.stringContaining("sem resposta")]);
   });
 
-  it("avisa que o ramo não responde quando termina sem resposta", async () => {
+  it("avisa quando termina sem nenhuma resposta", async () => {
     const { session } = setup();
     const lines = await session.send("paguei 350 de carne");
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain("extração por IA chega na E6");
+    expect(lines).toEqual(["(sem resposta para essa mensagem)"]);
+  });
+
+  it("/reply cita a última confirmação recebida e não as outras mensagens", async () => {
+    const { session, posted } = setup({
+      answers: [
+        {
+          afterPoll: 1,
+          waMessageId: "dev.out.confirmacao",
+          text: "✅ Registrado",
+          createdAt: new Date("2026-10-28T15:00:01Z"),
+          purpose: "confirmation",
+        },
+        {
+          afterPoll: 1,
+          waMessageId: "dev.out.aviso",
+          text: "Aviso",
+          createdAt: new Date("2026-10-28T15:00:02Z"),
+          purpose: "notice",
+        },
+      ],
+    });
+    await session.send("camarão 450");
+    await session.reply("foi 400");
+    const message = JSON.parse(posted[1]?.body ?? "{}").entry[0].changes[0].value.messages[0];
+    expect(message.context).toMatchObject({ id: "dev.out.confirmacao" });
+    expect(message.text.body).toBe("foi 400");
+  });
+
+  it("/reply sem confirmação anterior avisa em vez de enviar", async () => {
+    const { session, posted } = setup();
+    expect(await session.reply("foi 400")).toEqual([
+      expect.stringContaining("nenhuma confirmação"),
+    ]);
+    expect(posted).toHaveLength(0);
+  });
+
+  it("/foto monta o payload de imagem com a legenda e o id do arquivo guardado", async () => {
+    const { session, posted } = setup({
+      files: { "cupom.jpg": { mediaId: "dev.media.9", mimeType: "image/jpeg" } },
+    });
+    await session.sendMedia("image", "cupom.jpg", "nota do mercado");
+    const message = JSON.parse(posted[0]?.body ?? "{}").entry[0].changes[0].value.messages[0];
+    expect(message).toMatchObject({
+      type: "image",
+      image: { id: "dev.media.9", mime_type: "image/jpeg", caption: "nota do mercado" },
+    });
+  });
+
+  it("/audio monta o payload de áudio, assinado como o webhook real, sem legenda", async () => {
+    const { session, posted } = setup({
+      files: { "nota.ogg": { mediaId: "dev.media.8", mimeType: "audio/ogg; codecs=opus" } },
+    });
+    await session.sendMedia("audio", "nota.ogg", "ignorada");
+    const { body, signature } = posted[0] ?? { body: "", signature: "" };
+    expect(
+      isValidSignature({
+        rawBody: new TextEncoder().encode(body),
+        header: signature,
+        appSecret: SECRET,
+      }),
+    ).toBe(true);
+    const message = JSON.parse(body).entry[0].changes[0].value.messages[0];
+    expect(message.type).toBe("audio");
+    expect(message.audio).toMatchObject({ id: "dev.media.8" });
+    expect(message.audio.caption).toBeUndefined();
+  });
+
+  it("/audio com arquivo que não existe avisa em vez de enviar", async () => {
+    const { session, posted } = setup();
+    expect(await session.sendMedia("audio", "sumiu.ogg", "")).toEqual([
+      expect.stringContaining("não achei um arquivo de áudio"),
+    ]);
+    expect(await session.sendMedia("image", "", "")).toEqual([expect.stringContaining("use:")]);
+    expect(posted).toHaveLength(0);
+  });
+
+  it("/custo mostra o gasto de IA do usuário atual", async () => {
+    const { session } = setup({ usage: { calls: 3, costUsdMicros: 1234 } });
+    expect(await session.cost()).toEqual(["(custo de IA: US$ 0.00123 em 3 chamada(s))"]);
   });
 
   it("avisa quando o processamento falha", async () => {

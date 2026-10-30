@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import {
@@ -157,6 +158,10 @@ export const outboundMessages = pgTable(
     index("outbound_messages_tenant_created_idx").on(t.tenantId, t.createdAt),
     index("outbound_messages_to_created_idx").on(t.toWaId, t.createdAt),
     oneOf("outbound_messages_purpose_check", "purpose", OUTBOUND_PURPOSES),
+    // Envio idempotente (RF16.Obs1): uma confirmação e uma pergunta por mensagem de origem.
+    uniqueIndex("outbound_messages_once_per_inbound_idx")
+      .on(t.inboundMessageId, t.purpose)
+      .where(sql`${t.purpose} in ('confirmation', 'question')`),
     tenantIsolation("outbound_messages"),
     ingestCanRead("outbound_messages"),
     pgPolicy("outbound_messages_ingest_insert", {
@@ -197,6 +202,9 @@ export const whatsappOptIns = pgTable(
   ],
 );
 
+/** Estados da pergunta de volta (RF15.R4). */
+export const PENDING_QUESTION_STATUSES = ["open", "answered", "cancelled", "expired"] as const;
+
 export const pendingQuestions = pgTable(
   "pending_questions",
   {
@@ -208,10 +216,16 @@ export const pendingQuestions = pgTable(
     inboundMessageId: uuid("inbound_message_id").notNull(),
     draft: jsonb("draft").notNull(),
     question: text("question").notNull(),
+    status: text("status").notNull().default("open"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
   (t) => [
+    // Uma pergunta aberta por colaborador (RF15.R8).
+    uniqueIndex("pending_questions_one_open_idx")
+      .on(t.tenantId, t.userId)
+      .where(sql`${t.status} = 'open'`),
+    oneOf("pending_questions_status_check", "status", PENDING_QUESTION_STATUSES),
     foreignKey({
       name: "pending_questions_inbound_message_fk",
       columns: [t.tenantId, t.inboundMessageId],

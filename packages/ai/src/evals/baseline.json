@@ -1,0 +1,21 @@
+{
+  "cases": 39,
+  "invalidRate": 0,
+  "intentAccuracy": 1,
+  "entryExactRate": 1,
+  "typeAccuracy": 1,
+  "amountAccuracy": 1,
+  "valueAndTypeAccuracy": 1,
+  "dateAccuracy": 1,
+  "quantityAccuracy": 1,
+  "categoryAccuracy": 1,
+  "supplierAccuracy": 1,
+  "paymentAccuracy": 1,
+  "channelAccuracy": 1,
+  "askPrecision": 1,
+  "askRecall": 1,
+  "outOfScopeRefusalRate": 1,
+  "avgCostUsdMicros": 219,
+  "latencyP50Ms": 1423,
+  "latencyP95Ms": 4473
+}

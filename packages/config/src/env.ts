@@ -34,7 +34,11 @@ const baseSchema = z.object({
   AI_MODEL_DEFAULT: z.string().min(1).default("claude-haiku-5-5"),
   AI_MODEL_ADVANCED: z.string().min(1).default("claude-sonnet-5-5"),
   OPENAI_API_KEY: optionalString,
-  TRANSCRIPTION_MODEL: z.string().min(1).default("gpt-4o-transcribe"),
+  TRANSCRIPTION_MODEL: z.string().min(1).default("gpt-transcribe"),
+  // Só desenvolvimento: pasta onde o chat guarda áudios e fotos (`/audio`, `/foto`).
+  DEV_MEDIA_DIR: z.string().min(1).default(".dev-media"),
+  // Versão da Graph API usada no download de mídia da Meta.
+  WHATSAPP_API_VERSION: z.string().min(1).default("v21.0"),
 
   S3_ENDPOINT: optionalString,
   S3_REGION: z.string().min(1).default("sa-east-1"),

@@ -45,7 +45,7 @@ Regra de manutenção:
 | Web | Next.js (App Router), Tailwind, shadcn/ui, Recharts; responsivo/PWA |
 | Auth | Better Auth, acesso por senha ou por código (OTP) no e-mail, mais autocadastro do dono (RF01 a RF03); código por WhatsApp e segundo fator na v1.1 |
 | Arquivos | Armazenamento compatível com S3 (áudios, fotos, exportações) |
-| IA | Claude (Haiku para extração, Sonnet para casos difíceis e relatórios) via saída estruturada (`output_config.format`) na extração, tool use só para consultas e relatórios; transcrição com gpt-4o-transcribe |
+| IA | Claude (Haiku para extração, Sonnet para casos difíceis e relatórios) via saída estruturada (`output_config.format`) na extração, tool use só para consultas e relatórios; transcrição com gpt-transcribe (o gpt-4o-transcribe será desligado em 26/02/2027) |
 | Testes | Vitest (unitário/integração), Testcontainers para Postgres, Playwright (e2e web, depois) |
 | Lint/format | Biome |
 | Observabilidade | pino (logs estruturados) + Sentry |
@@ -121,4 +121,4 @@ pnpm dev:chat       # chat de terminal que simula o WhatsApp, só para teste (pr
 
 ## Estado atual
 
-Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E5 feitas** (núcleo de domínio, banco com RLS, webhook, fila e workers, identificação e roteamento com o `pnpm dev:chat`); a E3 tem a ressalva do teste com mensagem real (P1 da Meta). Próxima etapa do canal: **E6** (extração por IA, texto), seguida de E7 a E10. Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) pedem ajustes nas etapas já feitas e etapas novas (E11 a E13, F9 e F10); veja as notas "Ajustes pelos requisitos v1.0" nos planos e a seção de divergências em `docs/arquitetura.md`.
+Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. Próxima etapa do canal: **E10** (envio real e operação; bloqueada pela Meta), com **E11** (modelo de dados dos requisitos) podendo andar antes. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) pedem ajustes nas etapas já feitas e etapas novas (E11 a E13, F9 e F10); veja as notas "Ajustes pelos requisitos v1.0" nos planos e a seção de divergências em `docs/arquitetura.md`.

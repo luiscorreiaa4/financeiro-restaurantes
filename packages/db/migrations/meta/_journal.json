@@ -29,6 +29,20 @@
       "when": 1793208823285,
       "tag": "0003_conversation_routing",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793369980093,
+      "tag": "0004_entries_flow",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793371129449,
+      "tag": "0005_fiscal_documents",
+      "breakpoints": true
     }
   ]
 }

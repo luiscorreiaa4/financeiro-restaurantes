@@ -49,6 +49,7 @@ function inbound(overrides: Partial<ClaimedInboundMessage> = {}): ClaimedInbound
     type: "text",
     text: SECRET_TEXT,
     replyToWaMessageId: null,
+    media: null,
     ...overrides,
   };
 }

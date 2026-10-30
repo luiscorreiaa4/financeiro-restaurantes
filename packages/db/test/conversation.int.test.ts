@@ -188,25 +188,34 @@ describe("TenantConversationRepo", () => {
   });
 
   describe("resposta a uma mensagem nossa", () => {
-    const saveOutbound = (
+    /** Uma mensagem de origem nova por resposta: só pode haver uma confirmação por origem. */
+    const saveOutbound = async (
       f: TenantFixture,
       waMessageId: string,
       purpose: "confirmation" | "help",
-    ) =>
-      createOutboundMessageRepo(ingestDb()).save({
+    ): Promise<string> => {
+      const inboundMessageId = uuidv7();
+      await db.admin.query(
+        `insert into inbound_messages (id, tenant_id, user_id, wa_message_id, type, text, raw, status)
+         values ($1, $2, $3, $4, 'text', 'x', '{}', 'processed')`,
+        [inboundMessageId, f.tenantId, f.userId, `wamid.${uuidv7()}`],
+      );
+      await createOutboundMessageRepo(ingestDb()).save({
         waMessageId,
         toWaId: f.phone.replace("+", ""),
         text: "Registrado",
         purpose,
         tenantId: f.tenantId,
-        inboundMessageId: f.inboundMessageId,
+        inboundMessageId,
         repliedToWaMessageId: null,
       });
+      return inboundMessageId;
+    };
 
     it("reconhece a confirmação do próprio tenant, com a mensagem que a originou", async () => {
-      await saveOutbound(a, "dev.out.confirmacao-a", "confirmation");
+      const origin = await saveOutbound(a, "dev.out.confirmacao-a", "confirmation");
       expect(await repo().findReplyTarget(a.tenantId, "dev.out.confirmacao-a")).toMatchObject({
-        inboundMessageId: a.inboundMessageId,
+        inboundMessageId: origin,
         purpose: "confirmation",
       });
     });

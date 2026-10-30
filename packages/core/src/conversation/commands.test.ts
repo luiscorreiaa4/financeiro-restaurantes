@@ -23,6 +23,21 @@ describe("comando ajuda", () => {
   );
 });
 
+describe("comandos cancelar e suporte (RF19)", () => {
+  it.each(["cancelar", "Cancelar!", " CANCELAR "])("reconhece %j como cancelar", (text) => {
+    expect(parseCommand(text)).toBe("cancel");
+  });
+
+  it.each(["suporte", "Suporte?", "SUPORTE"])("reconhece %j como suporte", (text) => {
+    expect(parseCommand(text)).toBe("support");
+  });
+
+  it("não confunde frase com comando", () => {
+    expect(parseCommand("cancelar o pedido do camarão")).toBeNull();
+    expect(parseCommand("preciso de suporte")).toBeNull();
+  });
+});
+
 describe("o que não é comando", () => {
   it.each([
     "",
