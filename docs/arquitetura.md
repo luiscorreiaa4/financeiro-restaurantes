@@ -1,5 +1,7 @@
 # Arquitetura
 
+> **Papel deste documento:** diz **como** o sistema é construído (parte técnica). O que o produto faz e as regras de negócio estão em [`requisitos.md`](requisitos.md); o porquê das escolhas, em [`decisoes.md`](decisoes.md). Em conflito, valem os requisitos. A seção "Divergências entre o modelo de dados atual e os requisitos" lista o que o código ainda não reflete.
+
 ## Decisões e porquês
 
 ### Backend em TypeScript (Node), não em outra linguagem
@@ -37,9 +39,9 @@ Todas as tabelas de cliente têm `tenant_id`. Políticas RLS garantem no banco q
 
 ### IA: extração estruturada, cálculo no banco
 
-- O LLM recebe a mensagem (texto ou transcrição), o contexto do tenant (categorias, fornecedores frequentes, unidades, data de hoje) e responde **chamando uma ferramenta** cujo input é o schema Zod de lançamentos. Nada de parsing de texto livre.
-- Saída validada; se inválida, uma nova tentativa com o erro; se persistir, pergunta ao usuário.
-- Roteamento: Haiku por padrão; Sonnet para fotos difíceis, mensagens longas ou baixa confiança.
+- O LLM recebe a mensagem (texto ou transcrição), o contexto do tenant (categorias, fornecedores frequentes, unidades, formas de pagamento, data de hoje) e responde com **saída estruturada** (`output_config.format`, decisão D1) validada pelo schema Zod de lançamentos. Nada de parsing de texto livre. Tool use fica para consultas e relatórios (RF20, RF30).
+- Saída validada; se inválida, uma nova tentativa com o erro; se persistir, pergunta ao usuário (RF12.R18).
+- Roteamento: Haiku por padrão; Sonnet só por **sinais objetivos** (saída inválida, mensagem longa, foto difícil), nunca pela "confiança" declarada pelo modelo (RNF08.R3).
 - Camada de provedor em `packages/ai` para trocar modelos sem tocar no domínio.
 - **Evals:** conjunto versionado de mensagens reais anonimizadas com o resultado esperado. Rodam em CI quando `packages/ai` muda.
 
@@ -77,6 +79,8 @@ Durante o desenvolvimento, o canal é testado por um **chat de terminal** (`pnpm
 
 ## Modelo de dados (rascunho)
 
+> Este desenho é o da E2. Os requisitos v1.0 acrescentam campos e tabelas: veja a seção "Divergências entre o modelo de dados atual e os requisitos", logo depois.
+
 ```
 tenants              id, name, plan, created_at
 units                id, tenant_id, name, timezone
@@ -104,7 +108,68 @@ Notas:
 - `fee_percent_bp` em pontos-base (320 = 3,20%) para evitar decimal.
 - `net_cents = amount_cents - fee_cents` calculado no domínio, não pelo LLM.
 - Índices principais: `entries (tenant_id, unit_id, occurred_on)`, `entries (tenant_id, category_id, occurred_on)`.
-- Folha de pagamento: categorias do grupo Pessoal ficam marcadas como sensíveis; a API filtra por permissão.
+- Folha de pagamento: categorias do grupo Pessoal ficam marcadas como sensíveis; a API filtra por permissão (RF06.R3).
+
+## Divergências entre o modelo de dados atual e os requisitos
+
+Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026. **Nenhuma destas divergências foi corrigida nesta rodada** (só documentação). Cada linha diz o que falta, o RF que exige e a etapa que resolve. Etapas E11 a E13 e F9, F10 são novas (ver os planos). Valores marcados `[PROVISÓRIO – Pxx]` em `requisitos.md` ficam em configuração ou constante única.
+
+### Papéis e permissões (`packages/core`)
+
+| Onde | O que falta | RF | Etapa |
+|---|---|---|---|
+| `ROLES = ["owner", "manager", "staff"]` | Quarto papel `accountant` (CONTADOR, Fase 2); registrar `staff` = LANCADOR. | RF06, RF36 | Mapeamento: já em `decisoes.md` (DN-04). Papel novo: E11 / Fase 2 |
+| `can()` e `categoryIsSensitive` (só `owner` age sobre folha) | Permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP; gerente e contador com VER_FOLHA veem folha. | RF05.R7, RF06.R3 | E11 |
+| Testes de permissão | A matriz da seção 2.3 de `requisitos.md` como teste (todas as ações × papéis). | RF06.CA06 | E11 |
+
+### Conta, unidade e colaborador
+
+| Tabela | O que falta | RF | Etapa |
+|---|---|---|---|
+| `tenants` (só `name`, `plan` default `trial`) | Razão social; CNPJ (único se situação ≠ ENCERRADA); segmento; regime tributário; faixa de faturamento; código de indicação; plano TESTE/ESSENCIAL/PROFISSIONAL/FUNDADOR; início e fim do teste; situação ATIVA/SOMENTE_LEITURA/CANCELADA/ENCERRADA; aceite dos termos (data e versões). | RF01, RF37 | F1 (autocadastro), F9 (assinatura) |
+| `users` (`email` opcional, sem senha) | Senha (hash forte com sal), e-mail verificado, bloqueio por tentativas, sessões ativas. | RF01.R10 a R12, RF02 | F1 |
+| Autenticação | Códigos de uso único, tentativas de senha, sessões e limites de envio; endpoint próprio de autocadastro (o Better Auth não cria usuário no login comum). | RF01 a RF03, RNF01 | F1 |
+| `units` (nome, fuso) | Apelidos (até 5, únicos na empresa); CNPJ da unidade; município e UF; status ATIVA/INATIVA; regra "não inativar a última ativa". | RF04 | F6 (tela), E11 (dados) |
+| `memberships` (`unit_id` nulo = todas; `permissions jsonb`) | Lista de unidades de acesso (tabela colaborador × unidade, mantendo "TODAS"); unidade padrão; situação CONVIDADO/ATIVO/DESATIVADO (hoje só `deactivated_at`); `invited_by`, data do convite; acesso ao painel; as 4 permissões adicionais validadas por enum. Pendência P13. | RF05.R5 a R8 | E11 |
+| `whatsapp_opt_ins` | Revogação do consentimento (`parar`) e novo opt-in (`voltar`); hoje só acrescenta. Pendência P14. | RF05.R9, RF19 | E10 |
+
+### Cadastros de apoio
+
+| Tabela | O que falta | RF | Etapa |
+|---|---|---|---|
+| `categories` (tem `kind` com investment/deduction, `nature`, `dre_group`, `is_sensitive`) | Exige Quantidade; palavras de apoio (até 30); status ATIVA/INATIVA; origem SISTEMA/EMPRESA (hoje `tenant_id` nulo); herança de tipo, grupo e sensível pela subcategoria; no máximo dois níveis; categoria própria sempre filha de uma padrão. A lista do seed é provisória (P01, P02, P05). | RF07 | E6 (palavras de apoio e Exige Quantidade para a IA), F6 (edição) |
+| `payment_methods` | Tipo (DINHEIRO, PIX, DEBITO, CREDITO, VOUCHER, BOLETO, TRANSFERENCIA, OUTRO); apelidos (até 10); status; "forma de cartão padrão" da empresa (usada por "cartão" sem especificar); forma "Não informada". | RF08, RF12.R8 | E6 (padrão e apelidos), F6 |
+| `sales_channels` | Tipo (SALAO, DELIVERY_PROPRIO, APLICATIVO, RETIRADA, OUTRO); apelidos; status; regra: canal APLICATIVO com comissão substitui a taxa da forma de pagamento (P06); canal "Não informado". | RF09 | E7 (cálculo), F6 |
+| `suppliers` (tem `aliases`) | Categoria habitual; origem MENSAGEM/NOTA_FISCAL/PAINEL/IMPORTACAO; status; CPF mascarado; mesclagem; unicidade do documento na empresa. | RF10 | E7 (criação automática), F6 (mesclagem) |
+
+### Lançamento e histórico
+
+| Tabela | O que falta | RF | Etapa |
+|---|---|---|---|
+| `entries` | Sinais de revisão (CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e ação "marcar como revisado"; canal de origem `EMAIL`; motivo da exclusão, quem excluiu e restaurável até (hoje só `deleted_at`); documento fiscal com chave de acesso (44 dígitos, única por empresa) e itens agrupados por categoria; o id da confirmação enviada já existe (`confirmation_wa_message_id`) e a posição na mensagem de origem também (`position`). | RF12.R12, R13, RF14, RF24 | E7, E9, F3 |
+| `entry_versions` (`action`: create, update, delete; `channel`: whatsapp, web, import, system) | Ação `restore` (RESTAURACAO); canal `email`. O documento chama os canais de WHATSAPP, PAINEL, IMPORTACAO, EMAIL, SISTEMA (mapeamento em `requisitos.md`). | RF25.R4 | E7, F3 |
+| `entries.ai_confidence` | RNF08.R3 proíbe rotear por "confiança" declarada pelo modelo; a coluna pode ficar só informativa (revisar na E6). | RNF08.R3 | E6 |
+| `pending_questions` (tem `expires_at`) | Situação ABERTA/RESPONDIDA/CANCELADA/EXPIRADA; no máximo uma aberta por colaborador; validade de 24 h aplicada; cancelamento por mensagem nova de lançamento. | RF15 | E7 |
+| `inbound_messages` (status received, processing, needs_answer, processed, failed; tipo text, audio, image, unsupported) | Já equivale às situações e aos tipos do RF11. Falta retenção de áudio em 90 dias (só a transcrição permanece) e atribuição à empresa citada no texto. | RF11.R5, RF13.R4, RNF03 | E7, E9, E10 |
+| `outbound_messages` | Envio idempotente da confirmação por (mensagem de origem, finalidade). Pendência P14. | RF16.Obs1 | E7 |
+| `ai_usage` | Tokens de leitura e escrita de cache; limite de custo por empresa e alerta; consulta por empresa e por mensagem no painel interno. | RNF08.R1, RF21.R4, RF38 | E6 (cache), E10, F10 |
+| `audit_log` (`tenant_id` obrigatório) | Cobrir login, bloqueios, troca de senha ou e-mail, papel e permissões, exportações, taxas, importações e ações do painel interno; ações sem empresa (login, painel interno) exigem `tenant_id` opcional ou trilha própria. | RNF04.R4, RF38 | F1, F2, F10 |
+
+### Tabelas novas
+
+| Tabela (proposta) | Para quê | RF | Etapa |
+|---|---|---|---|
+| `recurring_rules` (já no rascunho acima) | Lançamentos recorrentes e valor variável sem lançamento no mês. | RF33 | E13 (v1.1) |
+| `imports` e linhas importadas | Importação de planilhas, extratos OFX/CSV e relatórios de vendas, desfazer em 30 dias. | RF35 | E13 (v1.1) |
+| `exports` | Pedido de exportação, situação, link assinado de 1 hora, arquivo apagado em 7 dias. | RF29 | F5 |
+| `received_invoices` (notas por e-mail) | Endereço exclusivo da empresa, notas recebidas, quarentena, deduplicação pela chave de acesso. | RF31 | E13 (v1.1) |
+| `notification_preferences` e histórico de envios | Resumo semanal, alertas por exceção e preferências por colaborador. | RF34 | E13 (v1.1) |
+| `subscriptions` e cobranças | Plano, ciclo, situação do pagamento, encerramento e eliminação de dados. | RF37 | F9 |
+| `admin_actions` e autorizações temporárias | Ações do painel interno e acesso do suporte limitado a 24 horas. | RF38 | F10 |
+| `ask_history` | Histórico de perguntas do usuário em linguagem natural (90 dias). | RF30 | v1.1 |
+| Limites e cotas por plano | Mensagens por hora e por dia, cota mensal de consultas, duração de áudio e tamanho de imagem como configuração por plano. | RF21 | E9, E10 |
+
+Toda tabela nova segue a regra `.claude/rules/tabela-nova.md` (`tenant_id`, RLS, política, atualização do `schema.test.ts` e do `fixtures.ts`).
 
 ## Infraestrutura
 

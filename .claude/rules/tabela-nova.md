@@ -7,6 +7,8 @@ paths:
 
 # Tabela nova ou coluna nova no banco
 
+Regra de negócio por trás: isolamento entre empresas (RNF02, em especial R1 a R5) e auditoria imutável (RNF04). Antes de criar a tabela, confira em `docs/arquitetura.md` ("Divergências entre o modelo de dados atual e os requisitos") se o campo ou a tabela já está previsto, com o RF e a etapa.
+
 Checklist (na E5 a contagem do `schema.test.ts` foi esquecida e quebrou o `pnpm test`):
 
 1. Edite `packages/db/schema`, rode `pnpm db:generate` (com um nome: `drizzle-kit generate --name ...`) e **revise o SQL gerado**.

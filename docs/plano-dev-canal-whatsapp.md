@@ -1,6 +1,10 @@
 # Plano de desenvolvimento: canal WhatsApp (mensagem → lançamento)
 
-Atualizado em 28/10/2026. Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
+> **Papel deste documento:** **ordem de execução** do canal WhatsApp. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](decisoes.md) e a técnica em [`arquitetura.md`](arquitetura.md). Em conflito, vale `requisitos.md`.
+
+Atualizado em 29/10/2026 (alinhado ao Documento de Requisitos v1.0). Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
+
+**Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde um requisito traz `[PROVISÓRIO – Pxx]`, a implementação isola o valor em configuração ou constante única, para trocar depois sem retrabalho (ver DN-11 em `decisoes.md`). A única pendência que já bloqueava, e continua, é a da Meta (P15), só para o teste real e a E10.
 
 Legenda de confiança, usada em todo o documento:
 
@@ -26,6 +30,29 @@ Legenda de confiança, usada em todo o documento:
 | E8 Evals e qualidade da IA | A fazer | Começa junto com a E6 |
 | E9 Áudio e foto | A fazer | Chat de dev ganha `/audio` e `/foto` |
 | E10 Envio real e operação | A fazer | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
+| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026) | Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm. Pode andar junto da E6 |
+| E12 Relatórios pelo WhatsApp (RF20) | A fazer (v1.1; nova) | Resumos predefinidos podem vir antes (P10) |
+| E13 Automações da v1.1 (RF31, RF33, RF34, RF35) | A fazer (v1.1; nova) | Só depois do piloto |
+
+### Requisitos por etapa
+
+Cada etapa lista os RFs que entrega; as regras ficam em `requisitos.md`. Etapas já feitas ganham a nota "Ajustes pelos requisitos v1.0" no corpo da etapa (o histórico não foi reescrito).
+
+| Etapa | RFs e RNFs que entrega | Ajuste pendente depois dos requisitos v1.0 |
+|---|---|---|
+| E1 | RF06 (papéis e `can()`), RF08.R3 e RNF13 (dinheiro e taxa), RF01.R11 (telefone) | Sim (nota na etapa) |
+| E2 | RNF02 (isolamento), RNF04 (versões e trilha), base de RF12, RF24, RF25 | Sim (E11) |
+| E3 | RF11.R1 e R2 (recebimento idempotente), RNF01.R5, RNF05.R1 | Só o teste real (P15) |
+| E4 | RNF05.R5 e R6 (retry, DLQ, idempotência) | Não |
+| E5 | RF11.R5, R7 a R9, RF05.R8 e R9, RF19 (`ajuda`, tipo não suportado), RF11.R8 | Sim (nota na etapa) |
+| E6 | RF12 (R1 a R20, extração), RF15.R1 e R2 (rascunho), RF21.R2 (parte), RNF07, RNF08 | n/a |
+| E7 | RF12 (gravação), RF10, RF15, RF16, RF17, RF18, RF19 (comandos), RF09.R4 e RF12.R13 | n/a |
+| E8 | RNF07 | n/a |
+| E9 | RF13, RF14, RF21 (limites de mídia e taxa por usuário), RF11.Obs3 | n/a |
+| E10 | RF11.R10, RF19 (`parar` e `voltar`), RF21 (cotas), RNF05, RNF06, RNF11, RNF12 | n/a |
+| E11 | RF04, RF05.R5 a R8, RF06 (permissões adicionais), RF07, RF08, RF09 (campos) | n/a |
+| E12 | RF20 | n/a |
+| E13 | RF31, RF33, RF34, RF35 (v1.1); RF32 e RF36 (Fase 2) só listados | n/a |
 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
@@ -33,7 +60,7 @@ Legenda de confiança, usada em todo o documento:
 3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.** Ver os candidatos previstos por etapa em `docs/pesquisa-ecossistema-claude-code.md`, seção 12 (arquivo local, fora do git).
 4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
 
-**Decisões já tomadas (27/10/2026):** D1 (structured outputs na extração), D2 (Drizzle 0.45.x estável, sem API relacional). As demais (D3 a D6) seguem como recomendação até você confirmar.
+**Decisões:** D1 a D7 e as decisões das etapas estão em [`decisoes.md`](decisoes.md) (seções 1 e 3). Este plano cita o ID em vez de repetir a explicação.
 
 **Estado do repositório:** fase 0 pronta (monorepo, Biome, Vitest, validação de env, Postgres no Compose). Faltava só rodar o CI no GitHub.
 
@@ -41,15 +68,15 @@ Legenda de confiança, usada em todo o documento:
 
 Uma mensagem de WhatsApp (texto, depois áudio e foto) vira um ou mais lançamentos gravados, auditáveis e confirmados ao usuário, com custo de IA medido e sem nunca deixar a IA fazer conta.
 
-**Dentro:** webhook, fila, identificação de usuário, extração por IA, gravação com versão e origem, confirmação, comandos (`desfazer`, `ajuda`), correção por reply, áudio, foto, evals, custo por tenant.
+**Dentro (MVP):** webhook, fila, identificação de usuário, extração por IA, gravação com versão e origem, confirmação, comandos (RF19), correção por reply, áudio, foto, evals, custo por tenant, limites de uso (RF21). Requisitos: RF11 a RF19 e RF21, mais RNF05, RNF07, RNF08, RNF11 e RNF12.
 
-**Fora (pós-MVP):** perguntas em linguagem natural sobre os dados, resumo semanal e alertas, importação de planilhas, Open Finance.
+**v1.1 (etapas E12 e E13):** relatórios pelo WhatsApp por hierarquia (RF20), captura de NF-e por e-mail (RF31), recorrentes (RF33), resumo semanal e alertas (RF34), importação (RF35). **Fase 2:** RF32 (certificado A1) e RF36 (contador). Open Finance fica fora.
 
 **Premissa atual:** dois bloqueios na Meta, ambos fora do código (detalhe em "Pendências da Meta", logo abaixo): **P1** mensagens reais não chegam ao nosso webhook (app em modo desenvolvimento) e **P2** o envio real está bloqueado (erro 130497). Tudo é construído com o envio atrás de uma interface e com fixtures no lugar do recebimento real; liga quando a Meta liberar. As etapas E4 a E9 não dependem de P1 nem de P2: durante todo o desenvolvimento o canal é testado pelo **chat de desenvolvimento no terminal** (D7, seção 3.6), e o WhatsApp real só é configurado no fim (E10).
 
 ### Pendências da Meta (P1 e P2), atualizado em 28/10/2026
 
-Não são tarefas de código. São duas coisas diferentes e não devem ser confundidas. Antes de 28/10 achávamos que o recebimento "funcionava"; o que funcionava era o **console de teste da própria Meta**, que não passa pelo nosso webhook.
+No documento de requisitos as duas aparecem juntas como a pendência **P15** (desbloqueios da Meta). Não são tarefas de código. São duas coisas diferentes e não devem ser confundidas. Antes de 28/10 achávamos que o recebimento "funcionava"; o que funcionava era o **console de teste da própria Meta**, que não passa pelo nosso webhook.
 
 | | P1: recebimento real | P2: envio real |
 |---|---|---|
@@ -212,17 +239,19 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 4. `CHANNEL_MODE=whatsapp`: entram `CloudMessageSender` e `MetaMediaDownloader` no lugar dos `Dev*` (só a composição em `apps/api` muda; o `core` e a IA não sabem a diferença).
 5. Rodar o mesmo roteiro do chat de dev, agora pelo celular, em staging.
 
-## 4. Decisões que precisam do seu OK
+## 4. Decisões
 
-| # | Decisão | Recomendação | Por quê |
-|---|---|---|---|
-| D1 ✅ **Decidido** | O CLAUDE.md falava em "tool use com saída estruturada". Usar tool use forçado ou structured outputs (`output_config.format`)? | **Structured outputs** para a extração. Tool use fica para a v1.1 (perguntas sobre os dados). | `tool_choice` forçado retorna 400 nos modelos mais novos, e prefill não existe mais. Structured outputs entrega o mesmo resultado (JSON validado pelo schema) sem depender disso. Confirmar na doc se o Haiku 5.5 aceita forçar tool ⚠️, mas o desenho não deveria depender disso. |
-| D2 ✅ **Decidido** | Drizzle estável (0.45) ou RC do v1? | 0.45.x, sem API relacional. Reavaliar quando o 1.0 sair estável. | RC ainda muda (rc.5 em 21/10). |
-| D3 | Onde mora o corpo bruto do webhook? | 🧭 Gravar o payload bruto inteiro em `inbound_messages` (coluna `raw jsonb`) e validar a assinatura sobre os bytes. | Não há API de histórico na Meta e a doc manda tratar duplicatas. |
-| D4 | Build de produção da API e dos workers | 🧭 Decidir na E10: bundle (tsup/esbuild) ou rodar TypeScript direto no Node 24. | Hoje usamos `tsx` só em desenvolvimento. ⚠️ Não verifiquei o suporte do Node a TS em pacotes do workspace. |
-| D5 | Modelo para o primeiro passe: Haiku 5.5 ou Sonnet 5.5? | 🧭 Começar com Haiku 5.5 e **medir nos evals** antes de decidir. | CLAUDE.md já define Haiku para extração. Custo é ~20x menor, mas só o eval diz se a precisão chega a 90%. |
-| D6 | Pergunta de volta vs. salvar com presunção | Regra do CLAUDE.md (salvar direto, perguntar só se faltar informação essencial). Definir com o Matheus **o que é essencial**. | É uma regra de negócio, não técnica. |
-| D7 🧭 | Como testar o canal e a IA sem WhatsApp durante o desenvolvimento? | **Chat de desenvolvimento no terminal** (`pnpm dev:chat`), que simula o WhatsApp assinando e enviando payloads reais ao nosso webhook, com `DevMessageSender` e `DevFileMediaDownloader`. Detalhe na seção 3.6. | Permite desenvolver e testar tudo antes do CNPJ e da liberação da Meta; o WhatsApp real é ligado só no fim (E10). Não é produto nem precisa de interface bonita. |
+A explicação de cada decisão (motivo, onde vale e situação) está em [`decisoes.md`](decisoes.md). Aqui fica só o índice, para os trechos deste plano que citam o ID.
+
+| ID | Tema | Situação |
+|---|---|---|
+| D1 | Extração com saída estruturada; tool use só para consultas (v1.1) | Decidida |
+| D2 | Drizzle 0.45.x estável, sem API relacional | Decidida |
+| D3 | Corpo bruto do webhook guardado por mensagem; assinatura sobre os bytes | Decidida (E3) |
+| D4 | Build de produção da API e dos workers | Aberta, decidir na E10 |
+| D5 | Haiku primeiro, medir nos evals | Recomendação |
+| D6 | O que é "informação essencial" para perguntar de volta | Provisória: RF12.R17 `[PROVISÓRIO – P04]` |
+| D7 | Chat de desenvolvimento no terminal (seção 3.6) | Decidida |
 
 ## 5. Estratégia de testes
 
@@ -280,6 +309,13 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Pronto quando:** `pnpm test` cobre cada regra e `core` não tem dependência de infra.
 
+**Ajustes pelos requisitos v1.0** (29/10/2026; o histórico acima não foi alterado):
+- Papéis: `owner`, `manager` e `staff` equivalem a DONO, GERENTE e LANCADOR (DN-04). Faltam o papel `accountant` (Fase 2, RF36) e as permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL e CONSULTAR_RELATORIOS_WHATSAPP (RF05.R7, RF06). A regra de categoria sensível deixa de ser "só o `owner`" (RF06.R3). A matriz da seção 2.3 vira teste (RF06.CA06). Fica na **E11**.
+- Taxa e líquido: confirmados o arredondamento meio-para-cima (RF08.CA02) e a tolerância de R$ 0,01 (RF12.R5). Falta aplicar taxa **só em receitas** (RF08.R3, RF12.R11) e a regra do canal APLICATIVO que substitui a taxa da forma de pagamento (RF09.R4, `[PROVISÓRIO – P06]`): E7.
+- Comandos: o parser cobre `desfazer` e `ajuda`; faltam `cancelar`, `trocar unidade`, `trocar empresa`, `suporte` (E7) e `parar` e `voltar` (E10), todos do RF19.
+- Telefone: a normalização do 9º dígito já cumpre RF01.R11 e RF01.CA09.
+- D6 (o que é "essencial") passa a ser RF12.R17, `[PROVISÓRIO – P04]`.
+
 ### E2: Banco e multi-tenancy (`packages/db`) — M/G
 
 **Objetivo:** modelo de dados do `docs/arquitetura.md` com isolamento garantido no banco.
@@ -302,6 +338,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - Migration aplicada em banco vazio e reaplicada sem erro.
 
 **Pronto quando:** o meta-teste passa e nenhuma query do app roda fora de `withTenant`.
+
+**Ajustes pelos requisitos v1.0** (29/10/2026): o isolamento cumpre RNF02. Os requisitos pedem campos e tabelas que o schema não tem (empresa com plano e situação, unidade com apelidos e status, lista de unidades por colaborador, categoria com Exige Quantidade e palavras de apoio, lançamento com sinais de revisão, motivo da exclusão e documento fiscal, `pending_questions` com situação, `ai_usage` com cache, `audit_log` sem empresa). A lista completa, com RF e etapa, está em `arquitetura.md`, seção "Divergências entre o modelo de dados atual e os requisitos". A lista de categorias do seed segue provisória (DE-02, P01, P02, P05). Nenhuma migration nova nesta rodada; entram na **E11** e nas etapas de cada RF, sempre pela regra `.claude/rules/tabela-nova.md`.
 
 ### E3: Gateway do WhatsApp (webhook) — M
 
@@ -373,6 +411,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Próxima etapa:** E4 (fila e workers). Antes, aprovar ou ajustar os candidatos acima e fazer o teste real pelo túnel.
 
+**Ajustes pelos requisitos v1.0** (29/10/2026): o webhook cumpre RF11.R1 e R2 (idempotência pelo identificador da mensagem), RF11.CA01 e CA06 (duplicata e assinatura inválida), RNF01.R5 e RNF05.R1. Nada a mudar no código. O teste real com mensagem do celular segue bloqueado pela Meta, hoje a pendência **P15** (antes P1 e P2 do plano). Documento em PDF de nota fiscal recebe a resposta de tipo não suportado até o RF31 (RF11.R3).
+
 ### E4: Fila e workers (pg-boss) — M
 
 **Objetivo:** processamento assíncrono, idempotente e resiliente.
@@ -423,6 +463,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 **Contexto do Claude criado após aprovação (28/10/2026):** `.claude/rules/pg-boss.md`, `.claude/rules/testes.md`, skill `.claude/skills/novo-worker-pgboss/` e a linha `pnpm dev:worker` no `CLAUDE.md`.
 
 **Próxima etapa:** E5 (identificação e roteamento). Ela troca `routeNothing`, passa a atribuir o tenant à mensagem e cria o `pnpm dev:chat`.
+
+**Ajustes pelos requisitos v1.0** (29/10/2026): a política de 5 retentativas com backoff, a DLQ e a idempotência cumprem RNF05.R5 e R6 e RNF05.CA02 (DE-06). A falha definitiva ainda precisa avisar o colaborador com o contato do suporte (RF19.R4, RF19.CA05): entra na E7/E10. O alerta da DLQ vira o painel interno (RF38, F10).
 
 ### E5: Identificação e roteamento da conversa — M
 
@@ -478,9 +520,18 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 - [ ] Idempotência do envio de resposta (E7).
 - [ ] Confirmar a regra de "IA de propósito geral" da Meta antes da E10.
 
+**Ajustes pelos requisitos v1.0** (29/10/2026):
+- Entregou parte de RF11 (R5 a R9), RF19 (`ajuda`, tipo não suportado) e RF05.R8 e R9. Os textos do `messages.ts` são os rascunhos de RF11.R8 e RF19; a revisão é do Matheus (`[PROVISÓRIO – P08]`).
+- `desfazer` provisório ("Ainda não há nada para desfazer.") **não** é o RF18; o comportamento real (últimas 24 h, reply, ordem inversa) entra na E7 (DE-09).
+- O reply a confirmação antiga já aciona a confirmação certa (RF17.R1); a correção em si é E7.
+- Faltam: atribuição à empresa citada no texto (RF11.R5), comandos `cancelar`, `trocar unidade`, `trocar empresa`, `suporte` (E7), `parar` e `voltar` com revogação do opt-in (E10, P14).
+- O ramo de pergunta pendente só roteia (o handler responde nada até a E7). Cancelar a pergunta quando chega um lançamento novo, com aviso, é RF15.R6: E7.
+
 ### E6: Extração por IA (texto) — G
 
 **Objetivo:** texto livre → `ExtractionResult` validado, barato e medido.
+
+**Entrega os requisitos:** RF12 (R1 a R20: interpretação, campos, datas, valores, vários lançamentos, essenciais `[PROVISÓRIO – P04]`), RF15.R1 e R2 (rascunho e pergunta única), RF21.R2 (parte), RNF07 e RNF08. Regras acrescentadas pelos requisitos v1.0 que esta etapa precisa cumprir: datas futuras recusadas pelo WhatsApp (RF12.R2), "cartão" sem especificar usa a forma de cartão padrão (RF12.R8), conferência de quantidade × preço × total com diferença acima de R$ 0,01 gerando pergunta (RF12.R5), sinais de revisão CATEGORIA_A_REVISAR e DATA_ANTIGA (RF12.R6 e R13), descrição sem CPF nem número de cartão (RF12.R3), contexto só da empresa da mensagem (RF12.R18). Critérios: RF12.CA01 a CA10.
 
 **Entregas**
 - **Schema `ExtractionResult`** (em `core`): intenção (`register` | `out_of_scope` | `unclear`), lista de lançamentos, e, quando faltar algo essencial, a pergunta e os campos faltantes. A IA **extrai**, não calcula: o schema aceita `quantity`, `unit_price_cents` e `total_cents`, e o sistema valida a consistência e recalcula.
@@ -505,6 +556,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Objetivo:** do `ExtractionResult` ao lançamento gravado e confirmado.
 
+**Entrega os requisitos:** RF12 (gravação: R11 a R15, canal de origem e sinais), RF10 (fornecedores criados a partir dos lançamentos), RF15 (pergunta única, validade de 24 h, mensagem nova cancela a pergunta com aviso, uma aberta por colaborador), RF16 (confirmação, **envio idempotente**, ver RF16.Obs1 e P14), RF17 (correção por reply), RF18 (**desfazer**: última mensagem nas últimas 24 h, como reply desfaz aquela confirmação, de novo desfaz o anterior; ver RF18.R1 a R6), RF19 (`cancelar`, `trocar unidade`, `trocar empresa`, `suporte`; aviso de falha definitiva, RF19.R4), RF09.R4 (canal APLICATIVO substitui a taxa da forma, `[PROVISÓRIO – P06]`), RF11.R5 (empresa citada no texto). Taxa só em receitas (RF08.R3). `entry_versions` ganha a ação de restauração (RF25.R4). Textos de confirmação são provisórios até a revisão do Matheus (`[PROVISÓRIO – P08]`). Critérios: RF15.CA01 a CA04, RF16.CA01 a CA04, RF17.CA01 a CA05, RF18.CA01 a CA05, RF19.CA01 a CA05.
+
 **Entregas**
 - Caso de uso `RegisterEntries`: valida, calcula taxa e líquido no `core`, grava `entries`, `entry_versions` e `ai_usage` **na mesma transação**, guarda `inbound_message_id` como origem.
 - Mensagem de confirmação no formato padrão (textos do Matheus), com o que foi registrado e como corrigir. Guarda o `wa_message_id` da resposta para permitir correção por reply.
@@ -520,6 +573,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 **Objetivo:** saber, com número, se a IA está melhorando ou piorando.
 
+**Entrega os requisitos:** RNF07 (conjunto de avaliação, métricas por campo e por lançamento, meta do piloto de 90% sem correção e 98% de valor e tipo corretos, bloqueio de mudança que piora; ver RNF07.R1 a R5 e CA01), mais RF13.CA05 (áudios de cozinha) quando a E9 existir.
+
 **Entregas**
 - Dataset em JSONL versionado: mensagem de entrada, contexto do tenant, resultado esperado, categoria do caso (fácil, ambíguo, fora de escopo, erro de digitação, vários lançamentos).
 - Começa com 30+ casos próprios inventados e troca pelos reais coletados pelo Matheus. Mensagens reais são anonimizadas antes de entrar no repositório.
@@ -534,14 +589,16 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 ### E9: Áudio e foto (fase 3) — G
 
+**Entrega os requisitos:** RF13 (áudio: limite de 180 s, transcrição, trecho entendido na confirmação, retenção de 90 dias; RF13.R1 a R4), RF14 (foto: QR Code da NFC-e primeiro, leitura por IA como reserva, chave de acesso sem duplicar, itens agrupados por categoria, imagem até 5 MB; RF14.R1 a R6), RF21 (limites de mídia e de mensagens por usuário por hora, RF21.R1 e R2), RF11.Obs3 (marcar como lida e indicador de digitação). Critérios: RF13.CA01 a CA05, RF14.CA01 a CA06.
+
 **Entregas**
 - Download de mídia da Meta (obter a URL e baixar com o token; a URL é temporária) e envio ao S3 com chave por tenant. Páginas: `.../business-phone-numbers/media.md`.
-- `Transcriber` com `OpenAITranscriber`; limite de ~3 min; teste com **áudios reais de cozinha** (ruído, gíria). Conversão com ffmpeg se o OGG/Opus não for aceito ⚠️.
+- `Transcriber` com `OpenAITranscriber` (RF13.R2 e R3); teste com **áudios reais de cozinha** (ruído, gíria). Conversão com ffmpeg se o OGG/Opus não for aceito ⚠️.
 - Reaproveitamento do fluxo de texto: a transcrição entra como texto em `inbound_messages` e segue a E6.
-- Foto: leitura do QR da NFC-e e consulta à SEFAZ (estados dos pilotos primeiro); fallback para extração multimodal.
-- Limite de taxa por usuário e por IP.
+- Foto: leitura do QR da NFC-e e consulta à SEFAZ (estados dos pilotos primeiro, RF14.R5); fallback para extração multimodal.
+- Limites de uso (RF21): mensagens por usuário por hora e por empresa por dia, configuráveis por plano.
 - Indicador de digitação e confirmação de leitura enquanto processa (páginas "Typing indicators" e "Read receipts" da doc da Meta).
-- Retenção de áudio de 90 dias (regra de ciclo de vida no bucket).
+- Retenção de áudio de 90 dias (RF13.R4, RNF03.R4), por regra de ciclo de vida no bucket.
 
 **Testes:** áudios de exemplo com transcrição esperada (tolerância a erro de palavra); QR com fixtures gravadas da SEFAZ (contrato, sem bater no site em CI); imagem sem QR no dataset de evals; rate limit excedido responde de forma padronizada.
 
@@ -549,28 +606,67 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), nã
 
 ### E10: Envio real, operação e produção do canal — M
 
-Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, número definitivo). **É a etapa que liga o WhatsApp real, no fim do desenvolvimento**; até aqui tudo foi testado pelo chat de desenvolvimento (seção 3.6). Siga o checklist "Ligar o WhatsApp real" da seção 3.6.
+Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, número definitivo; pendência P15). **É a etapa que liga o WhatsApp real, no fim do desenvolvimento**; até aqui tudo foi testado pelo chat de desenvolvimento (seção 3.6). Siga o checklist "Ligar o WhatsApp real" da seção 3.6.
+
+**Entrega os requisitos:** RF11.R10 (resposta dentro da janela de 24 h, modelos aprovados fora dela), RF19 (`parar` e `voltar`, revogação do opt-in; RF05.R9, P14), RF21 (cota mensal de consultas por plano, aviso a 80% do Dono, limite de custo de IA por empresa com alerta à equipe; RF21.R3 e R4), RNF05 (latência medida e carga), RNF06 (disponibilidade, backup, teste de restauração, ambientes separados), RNF11 (logs sem conteúdo, Sentry, métricas), RNF12 (conformidade com a política da Meta). O painel interno de custo e de saúde da fila é o RF38, na etapa F10 do plano do painel.
 
 **Entregas**
-- `CloudMessageSender`: texto dentro da janela de 24 h; templates aprovados para o que inicia conversa (resumo, alertas, OTP por WhatsApp).
+- `CloudMessageSender`: texto dentro da janela de 24 h; templates aprovados para o que inicia conversa (resumo, alertas; código de acesso por WhatsApp é v1.1, RF02.R4).
 - Rastreio da janela de 24 h por usuário, para saber quando só template é permitido.
 - Tratamento de `statuses` (falha, entregue, lido) e de códigos de erro conhecidos (130497, 131030, janela expirada).
 - Observabilidade: Pino com `redact` (nunca texto de mensagem, CPF, salário), Sentry, métricas de latência do webhook, profundidade da fila, latência e custo do LLM.
-- Painel interno de custo por tenant (`ai_usage`).
-- Decisão D4 (build de produção), backup com teste de restauração, staging e produção com números separados.
+- Custo por tenant (`ai_usage`) exposto para o painel interno (RF38, F10).
+- Decisão D4 (build de produção), backup com teste de restauração, staging e produção com números separados (RNF06).
 - Ferramenta interna do "mágico de Oz" (ver mensagens e responder à mão), se for adiantar o piloto.
 
 **Testes:** contrato do `CloudMessageSender` contra respostas gravadas da Graph API; teste de falha de envio (a mensagem fica registrada, o job não perde o lançamento); teste de que nenhum log contém conteúdo de mensagem.
 
 **Pronto quando:** do seu celular ao lançamento confirmado de volta no WhatsApp, em staging, com o número da empresa.
 
+### E11: Modelo de dados dos requisitos (papéis, unidades de acesso e campos) — M/G
+
+**Etapa nova (29/10/2026).** Fecha, no `core` e no `db`, as divergências listadas em `arquitetura.md` ("Divergências entre o modelo de dados atual e os requisitos") que o canal precisa para cumprir as regras. Pode andar junto da E6; as partes de tela ficam em F2 e F6 do plano do painel.
+
+**Entrega os requisitos:**
+- RF06 e RF05.R7: quarto papel `accountant` reservado, permissões adicionais (VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP) em `memberships.permissions`, categoria sensível visível para quem tem VER_FOLHA, e a **matriz da seção 2.3 como teste** (RF06.CA06).
+- RF05.R5, R6 e R8 (pendência P13): lista de unidades de acesso por colaborador (tabela de vínculo, mantendo "TODAS"), unidade padrão dentro da lista, situação CONVIDADO, ATIVO ou DESATIVADO.
+- RF04: apelidos, CNPJ, município, UF e status da unidade.
+- RF07, RF08, RF09: campos de apoio da IA (Exige Quantidade, palavras de apoio, apelidos), status, tipo da forma de pagamento e do canal, forma de cartão padrão da empresa.
+- RF12.R12 e R13, RF24: sinais de revisão, motivo da exclusão, canal de origem EMAIL e ação de restauração em `entry_versions`.
+
+**Testes:** matriz de permissões (papel × ação); isolamento da tabela de vínculo (regra `tabela-nova.md`); migração dos vínculos existentes (`unit_id` único ou nulo) para a nova lista sem perder acesso.
+
+**Pronto quando:** a matriz da seção 2.3 passa como teste no `core` e a migration roda em banco com dados do seed de desenvolvimento. Valores `[PROVISÓRIO – Pxx]` (P01, P02, P05, P06, P07) ficam em seed e constantes únicas.
+
+### E12: Relatórios pelo WhatsApp por hierarquia (RF20) — M (v1.1)
+
+**Etapa nova.** Resumos predefinidos ("resumo de hoje", "da semana", "do mês") podem ser antecipados para o MVP por decisão dos sócios (P10), sem a interpretação livre.
+
+**Entrega os requisitos:** RF20 (consultas RESUMO, POR_CATEGORIA, POR_FORNECEDOR, POR_FORMA_PAGAMENTO, POR_CANAL, EVOLUCAO, PRECO_INSUMO e MEUS_LANCAMENTOS; permissões por papel, RF20.R4 a R7; período e unidades padrão; resposta de até 12 linhas), RF21.R3 (cota mensal de consultas), RF06.CA01, CA03 e CA05. A IA só escolhe a consulta e os parâmetros; o banco calcula (RNF13.R3). É também a base do RF30 (perguntas no painel).
+
+**Testes:** RF20.CA01 a CA05, com comparação dos números da resposta com uma consulta independente ao banco; Gerente sem VER_FOLHA nunca vê folha; Lançador só vê os próprios lançamentos.
+
+**Pronto quando:** cada papel recebe só o que a matriz permite, pelo `pnpm dev:chat`.
+
+### E13: Automações da v1.1 (RF31, RF33, RF34, RF35) — G (v1.1)
+
+**Etapa nova, só listada.** Depois do piloto. Cada requisito vira uma sub-etapa quando for priorizado:
+- RF31 captura de NF-e por e-mail (endereço exclusivo, XML, chave de acesso, quarentena); depende do RF14 (itens por categoria) e de CNPJ cadastrado.
+- RF33 lançamentos recorrentes (valor fixo lança sozinho; variável só aparece como "sem lançamento").
+- RF34 resumo semanal e alertas por exceção (modelos aprovados pela Meta, consentimento e `parar`).
+- RF35 importação de planilhas, extratos e relatórios de vendas, com desfazer em 30 dias.
+
+Fora desta etapa, na **Fase 2**: RF32 (SEFAZ com certificado A1, só após validar P11) e RF36 (acesso do contador).
+
 ## 7. Qualidade transversal
 
-- **Segurança:** assinatura sempre validada; comparação de segredos em tempo constante; rate limit por telefone e por IP; segredos só em variáveis de ambiente validadas; `pnpm audit` e atualização automática de dependências.
-- **LGPD:** retenção definida (áudio 90 dias, 90 dias de acesso após cancelamento); folha de pagamento marcada como sensível e filtrada por permissão; DPA com o restaurante como controlador. O texto jurídico vem do advogado.
-- **Política da Meta:** bot de função específica; sem treino de modelo com dados da plataforma; saída para humano; opt-in registrado; templates para iniciar conversa. Ver `docs/politica-meta-whatsapp.md`.
-- **Custo:** `ai_usage` desde a E6; planilha de custo atualizada com o custo real medido; alerta quando o custo por mensagem passar de um limite.
-- **Observabilidade mínima desde a E3:** log estruturado com `wa_message_id`, tenant e duração, nunca o conteúdo.
+Os requisitos transversais estão em `requisitos.md`; aqui só a relação com as etapas.
+
+- **Segurança:** RNF01 (assinatura sempre validada sobre os bytes, segredos em tempo constante e só em variáveis de ambiente, auditoria de dependências).
+- **LGPD:** RNF03 (retenção, minimização, portabilidade) e RF37 (encerramento). O texto jurídico vem do advogado.
+- **Política da Meta:** RNF12. Ver `docs/politica-meta-whatsapp.md`.
+- **Custo:** RNF08 (`ai_usage` desde a E6, custo por mensagem acompanhado, alerta acima do valor de referência).
+- **Observabilidade mínima desde a E3:** RNF11 (log estruturado com `wa_message_id`, tenant e duração, nunca o conteúdo).
 
 ## 8. Riscos
 
@@ -589,9 +685,14 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 
 ```
 E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6 ─► E7 ─► E8 (contínuo)
-                                  └──────────► E9 ─► E10
+                            │     └──────────► E9 ─► E10
+                            └─► E11 (junto da E6, antes da E7)
+                                         E10 ─► (piloto) ─► E12, E13 (v1.1)
 ```
 
+- E11 precisa estar pronta antes de a E7 gravar lançamentos com unidade de acesso, sinais de revisão e permissões novas.
+- E12 e E13 são da v1.1; os resumos predefinidos da E12 podem ser antecipados (P10).
+- Pendências P01 a P11 não bloqueiam nenhuma etapa (DN-11).
 - E1 e E2 não dependem de nada externo.
 - E3 e E4 dependem só do túnel e do app da Meta, que já existem. O teste com mensagem real da E3 depende de P1 (app publicado) e não bloqueia a E4.
 - E6 precisa do crédito da Anthropic. A parte de contrato e do orquestrador com `FakeEntryExtractor` pode ser feita antes.
@@ -606,6 +707,8 @@ E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6 ─► E7 ─► E8 (contí
 | M4 (fim da E8) | Taxa de acerto de referência medida e protegida no CI |
 | M5 (fim da E9) | Áudio e foto viram lançamentos |
 | M6 (fim da E10) | Fluxo completo com confirmação no WhatsApp, em staging |
+| M7 (fim da E11) | Matriz de permissões da seção 2.3 passa como teste e o vínculo aceita lista de unidades |
+| M8 (fim da E12) | Cada papel recebe pelo WhatsApp só os relatórios que a hierarquia permite |
 
 ## 10. Fontes consultadas (27/10/2026)
 

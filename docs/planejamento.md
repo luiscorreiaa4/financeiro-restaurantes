@@ -1,7 +1,8 @@
 # Planejamento do produto
 
-Documento vivo. Consolida as decisões de produto tomadas na fase de planejamento.
-Itens marcados com **[PENDENTE]** ainda precisam de definição.
+> **Papel deste documento:** visão de **produto e de negócio**: problema, público, negócio, custos, validação e riscos. As regras detalhadas moram em [`requisitos.md`](requisitos.md) (o quê), as decisões em [`decisoes.md`](decisoes.md) (por quê) e a técnica em [`arquitetura.md`](arquitetura.md) (como). Aqui só há referências a elas.
+
+Documento vivo. Itens marcados com **[PENDENTE]** apontam para uma pendência (P01 a P15) da seção 5 de `requisitos.md`; a lista das que cabem aos sócios está em `TODOLIST.md`.
 
 ## 1. Problema e proposta
 
@@ -15,167 +16,58 @@ Itens marcados com **[PENDENTE]** ainda precisam de definição.
 - Suporte próximo.
 - Feito para colaborar com o contador, não substituí-lo.
 
-**Cliente-alvo.** Restaurantes, bares e lanchonetes de pequeno e médio porte, com ou sem várias unidades. Familiaridade tecnológica baixa a média.
+**Escopo.** Controle **gerencial**. Não emite nem concilia notas fiscais, não apura impostos. O que fica fora está em `requisitos.md`, seção 1.3.
 
-**Escopo.** Controle **gerencial**. Não emite nem concilia notas fiscais, não apura impostos.
+## 2. Público
 
-## 2. Usuários e permissões
+**Cliente-alvo.** Restaurantes, bares e lanchonetes de pequeno e médio porte, com ou sem várias unidades. Familiaridade tecnológica baixa a média (usabilidade: RNF09).
 
-Uma **conta** (tenant) pode ter várias **unidades** (restaurantes). Um usuário pode participar de várias contas e unidades, com papel por unidade.
+**Quem usa.** Dono, gerente, lançador (compras, caixa, cozinha) e, na Fase 2, o contador. Uma conta (empresa) pode ter várias unidades e um usuário pode participar de várias contas. Papéis, permissões adicionais e a matriz de acesso: RF05, RF06 e `requisitos.md` seção 2.3. O perfil Contador pode cobrir vários clientes e virar canal de vendas por indicação (RF36, código de indicação no RF01).
 
-| Papel | Lança | Vê relatórios e totais | Vê folha de pagamento | Edita lançamentos de outros | Configura |
-|---|---|---|---|---|---|
-| Dono | sim | sim | sim | sim | sim |
-| Gerente | sim | sim | não (padrão) | sim | parcial |
-| Lançador | sim | só os próprios lançamentos | não | não | não |
-| Contador | não | sim (leitura e exportação) | configurável | não | não |
+## 3. O produto em linhas gerais
 
-- O dono ajusta as permissões.
-- O vínculo WhatsApp ↔ usuário é pelo número de telefone, cadastrado pelo dono ou gerente.
-- Se o usuário tem acesso a mais de uma unidade e não diz qual, a IA usa a unidade padrão dele ou pergunta.
-- O perfil Contador pode cobrir vários clientes. Isso pode virar canal de vendas (contadores indicando a carteira).
+Cada item abaixo tem o seu requisito. Nada aqui define regra.
 
-## 3. Entrada de dados pelo WhatsApp (núcleo do produto)
+- **Entrada pelo WhatsApp** (núcleo do produto): texto, áudio e foto de nota, vários lançamentos por mensagem, salvando direto e confirmando sempre. RF11 a RF19, RF21.
+- **Categorias** no formato de DRE gerencial simplificado, com subcategorias do dono e lista padrão: RF07. **[PENDENTE: P01, P02, P05, com o sócio contador.]**
+- **Receitas**, canal de venda, forma de pagamento e taxas (bruto, taxa e líquido): RF08 e RF09. **[PENDENTE: P06, P07.]**
+- **Fornecedores**, cadastro automático a partir dos lançamentos: RF10.
+- **Recorrentes**: valor fixo lança sozinho, valor variável só aparece no fechamento como "ainda sem lançamento": RF33.
+- **Painel** (PWA, sem modo offline): lista, edição, lixeira, origem e histórico, dashboard e exportação. RF22 a RF27, RF29, RNF10. Cadastro da empresa pelo próprio dono, com período de teste: RF01 e RF37.
+- **Relatórios e IA**: dashboard e relatórios fixos no MVP; perguntas em linguagem natural (RF30, v1.1) e relatórios pelo WhatsApp por hierarquia (RF20, v1.1; resumos predefinidos podem vir antes, P10); resumo semanal e alertas por exceção (RF34); DRE e fechamento mensal em PDF (RF28). A IA escolhe consultas parametrizadas e o banco calcula (RNF13.R3).
+- **Estoque** fora do escopo; futuro: precificação sugerida por prato.
 
-**Canais de entrada:** texto, áudio e foto (NFC-e via QR Code, com OCR como reserva para notas sem QR e recibos manuscritos).
+Exemplos de mensagens esperadas **[PENDENTE: coletar 20 a 50 reais no teste piloto, para os evals; ver `TODOLIST.md`]**: ver os critérios de aceite do RF12 a RF14.
 
-**Regras:**
-- Uma mensagem pode conter **vários lançamentos** (ex.: insumo recorrente e um investimento na mesma nota).
-- **Obrigatório:** valor sempre; quantidade apenas para insumos.
-- **Presumido pela IA e exibido na confirmação:** data (hoje, se não dita), categoria, fornecedor, forma de pagamento, unidade.
-- **Salva direto**, com correção posterior fácil.
-- Na dúvida sobre algo essencial (valor ilegível, unidade ambígua), **pergunta antes** de salvar.
-- Ambiente barulhento é esperado: transcrição precisa ser testada com áudios reais de cozinha.
-- Limites de uso: áudio de até ~3 minutos (acima disso, pedir para dividir), limite de mensagens por hora por usuário.
+## 4. Integrações por fase
 
-**Confirmação padrão:**
-```
-✅ Registrado (Restaurante Centro):
-1. Camarão 5 kg — R$ 450,00 — Insumos — hoje — Pix
-2. Freezer horizontal — R$ 3.200,00 — Investimento — hoje — Cartão crédito
-
-Para ajustar, responda esta mensagem dizendo o que mudar.
-"desfazer" apaga o último registro.
-```
-
-**Correção:**
-- Responder (reply) à confirmação com a correção em linguagem natural: "o camarão foi 400".
-- "desfazer" remove o último lançamento daquele usuário (vai para a lixeira, recuperável).
-- No painel: edição completa, com "ver origem" mostrando o áudio, a foto ou o texto original.
-
-**Exemplos de mensagens esperadas** **[PENDENTE: coletar 20 a 50 reais no teste piloto]**:
-- "camarão 1kg 80 reais"
-- "paguei a luz 1.230 no pix"
-- "vendas de hoje 3.450, 1.200 no cartão, resto pix"
-- (áudio) "comprei no atacadão 2 caixas de óleo 180, 10 kg de arroz 62 e detergente 25"
-- (foto) cupom fiscal de supermercado
-
-## 4. Categorias e tipos de gasto
-
-**[PENDENTE: plano de categorias com o sócio contador.]** Proposta inicial, baseada em DRE gerencial simplificada:
-
-- **Receitas:** vendas (por canal), outras receitas.
-- **Deduções:** impostos sobre faturamento, taxas de cartão, comissões de apps de delivery.
-- **CMV / Insumos:** alimentos, bebidas, embalagens, descartáveis.
-- **Pessoal:** salários, encargos, benefícios, pró-labore, extras/freelas.
-- **Ocupação:** aluguel, condomínio, IPTU.
-- **Utilidades:** energia, água, gás, internet, telefone.
-- **Operacionais:** limpeza, manutenção, sistemas e assinaturas, contabilidade.
-- **Marketing.**
-- **Financeiras:** juros, tarifas bancárias.
-- **Investimentos (não entram como despesa no resultado):** equipamentos, reformas.
-
-O dono pode criar **subcategorias** dentro das padrão, mas não alterar a estrutura principal (para os relatórios continuarem comparáveis).
-
-**Classificação:** fixo, variável e investimento são atributos da categoria. A IA classifica e pergunta quando estiver em dúvida.
-
-**Recorrentes:**
-- Valor idêntico todo mês (aluguel, assinatura de sistema): lançamento automático, opcional.
-- Valor variável (luz, água, gás): não lança e não lembra ativamente; aparece no fechamento como "ainda sem lançamento neste mês".
-
-**Estoque:** fora do escopo atual (apenas valor financeiro). Futuro: precificação sugerida por prato.
-
-**Fornecedores:** cadastro automático a partir dos lançamentos; análise de histórico de preços sob pedido à IA.
-
-## 5. Receitas
-
-- Lançadas por WhatsApp ou importadas (relatórios de PDV, iFood, extrato).
-- **Canal de venda** (opcional): salão, delivery próprio, apps de delivery, retirada. Padrão "não informado".
-- **Forma de pagamento** (opcional): dinheiro, Pix, débito, crédito, voucher/VR.
-- **Taxas:** configuradas uma vez por forma de pagamento e app (ex.: crédito 3,2%, iFood 23%). O sistema guarda **bruto, taxa e líquido**.
-
-## 6. Relatórios e IA
-
-**Relatórios fixos do MVP:** receita × despesa, despesas por categoria, evolução mensal, resultado do mês.
-
-**Perguntas em linguagem natural (v1.1):** "quanto gastei com bebidas em setembro comparado com agosto?". A IA escolhe ferramentas de consulta parametrizadas; o banco calcula. A IA nunca soma de cabeça.
-
-**Insights proativos (pós-MVP):** poucos e relevantes.
-- Resumo semanal no WhatsApp (segunda de manhã): faturamento, gastos, resultado e comparação, em 5 ou 6 linhas.
-- Alertas por exceção: insumo com alta forte de preço, categoria muito acima do padrão, queda de margem, peso crescente dos apps de delivery.
-- Fechamento mensal em PDF para dono e contador.
-- Configurável por usuário.
-
-**Canais de relatório:** painel, WhatsApp, e-mail e PDF, conforme solicitado.
-
-**Precisão:** todo registro tem feedback claro; erros devem ser fáceis de achar e corrigir.
-
-## 7. Plataformas
-
-- **WhatsApp** (Cloud API oficial da Meta): canal principal de lançamento.
-- **Painel web** responsivo (desktop e celular), instalável como PWA.
-- Sem modo offline.
-- App nativo: só se houver demanda clara depois.
-
-## 8. Integrações
-
-| Fase | Integração |
-|---|---|
-| MVP | WhatsApp; QR Code da NFC-e; OCR; exportação Excel/CSV |
-| v1.x | Importação de planilhas existentes (IA mapeia colunas); extrato OFX/CSV; relatórios de PDV e iFood |
-| Fase 2 | Captura automática de NF-e emitidas contra o CNPJ (certificado A1) **[validar com contador]**; Open Finance via agregador (Pluggy, Belvo); API do iFood |
-| Fase 3 | PDVs mais usados pelos clientes; exportação no formato de sistemas contábeis |
+| Fase | Integração | Requisito |
+|---|---|---|
+| MVP | WhatsApp (Cloud API oficial); QR Code da NFC-e com leitura por IA como reserva; exportação Excel/CSV; e-mail transacional | RF11 a RF19, RF14, RF29, RNF10 |
+| v1.1 | Captura de NF-e por e-mail (XML); importação de planilhas, extrato OFX/CSV e relatórios de PDV e iFood; resumo semanal e alertas; DRE em PDF | RF31, RF35, RF34, RF28 |
+| Fase 2 | Captura de NF-e pela SEFAZ com certificado A1 **[validar com o contador: P11]**; perfil Contador multicliente; Open Finance via agregador (Pluggy, Belvo); API do iFood | RF32, RF36 |
+| Fase 3 | PDVs mais usados pelos clientes; exportação no formato de sistemas contábeis | a detalhar |
 
 Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual. Essa é a dor central.
 
-## 9. Fiscal, legal e segurança
+## 5. Fiscal, legal e segurança
 
-**Fiscal:** apenas controle gerencial.
+- **Fiscal:** apenas controle gerencial.
+- **Contador do cliente:** perfil Contador (leitura e exportação, Fase 2) e exportações padrão: Excel/CSV com todos os lançamentos (RF29), DRE gerencial mensal em PDF (RF28) e pacote mensal com as notas organizadas (RF29.Obs2).
+- **LGPD e propriedade dos dados:** o restaurante é o **controlador**; nós somos **operadores**, o que consta nos Termos de Uso e no DPA aceitos no cadastro (RF01.R13). O cliente exporta tudo a qualquer momento, e depois do cancelamento os dados ficam disponíveis por 90 dias antes de serem eliminados (RF37, RNF03). Benchmarks anonimizados só com consentimento explícito. Dados pessoais tratados: telefones de colaboradores, CPFs em notas, salários (o mais sensível, só o dono por padrão). Detalhe: RNF03.
+- **Segurança, auditoria e backup:** RNF01 (acesso e credenciais), RNF02 (isolamento entre empresas), RNF04 (auditoria e lixeira), RNF06 (backup, recuperação e ambientes). O texto jurídico (Termos, Política, DPA) vem do advogado.
+- **Política do WhatsApp:** RNF12 e [`politica-meta-whatsapp.md`](politica-meta-whatsapp.md).
 
-**Contador do cliente:** perfil Contador (leitura e exportação) e exportações padrão: Excel/CSV com todos os lançamentos, DRE gerencial mensal em PDF, pacote mensal com as notas organizadas.
-
-**LGPD e propriedade dos dados:**
-- O restaurante é o **controlador**; nós somos **operadores**. Isso consta nos Termos de Uso e no DPA.
-- O cliente exporta tudo a qualquer momento. Após cancelamento, dados disponíveis por 90 dias e depois apagados.
-- Não usamos dados do cliente para outros fins sem autorização. Benchmarks anonimizados só com consentimento explícito.
-- Dados pessoais tratados: telefones de colaboradores, CPFs em notas, salários (o mais sensível, visível só ao Dono por padrão).
-
-**Segurança (padrão adotado):**
-- Criptografia em trânsito e em repouso.
-- Isolamento por tenant garantido no banco (RLS).
-- Login por código (OTP), segundo fator opcional para o dono.
-- Mínimo privilégio via papéis.
-- Fornecedores de IA configurados para não treinar com nossos dados.
-- Hospedagem preferencialmente no Brasil (região São Paulo).
-- Retenção: áudio original por 90 dias; depois, só a transcrição.
-- Plano de resposta a incidentes (inclui comunicação à ANPD e aos clientes).
-- Encarregado (DPO): um dos sócios inicialmente.
-
-**Auditoria e backup:**
-- Cada lançamento guarda quem lançou, quando, por qual canal e o material original.
-- Edições geram versões; nada é sobrescrito.
-- Exclusão vai para lixeira (30 dias).
-- Backup diário com recuperação point-in-time e teste de restauração periódico.
-
-## 10. Negócio
+## 6. Negócio
 
 **Monetização:** assinatura por restaurante, com custo de IA embutido.
-- Planos por porte (ex.: Essencial e Profissional), desconto por unidade adicional. **[PENDENTE: preços, faixa estimada R$ 99 a 199/mês]**
-- Limites técnicos discretos contra abuso (duração de áudio, mensagens por hora, cota generosa de perguntas de relatório com aviso).
-- Roteamento de modelos: o mais barato para lançamentos simples, o mais capaz só quando necessário.
+- Planos por porte (ex.: Essencial e Profissional), desconto por unidade adicional. **[PENDENTE: P03, preços e limites; faixa estimada R$ 99 a 199/mês]**
+- Limites técnicos discretos contra abuso e cota generosa de consultas de relatório com aviso: RF21.
+- Roteamento de modelos: o mais barato para lançamentos simples, o mais capaz só quando necessário (RNF08.R3).
+- Ciclo de vida da conta (teste, plano, encerramento): RF37.
 
 **Custos estimados (outubro de 2026):**
-- Variável: ~US$ 3 a 5 por restaurante/mês (WhatsApp de serviço é gratuito dentro da janela de 24 h; utilidade ~R$ 0,035 por mensagem; transcrição US$ 0,003–0,006/min; modelos pequenos custam centavos).
+- Variável: ~US$ 3 a 5 por restaurante/mês (WhatsApp de serviço é gratuito dentro da janela de 24 h; utilidade ~R$ 0,035 por mensagem; transcrição US$ 0,003–0,006/min; modelos pequenos custam centavos). Referência de acompanhamento: RNF08.R2.
 - Fixo inicial: ~R$ 200 a 950/mês (infra, provedor, domínio, monitoramento).
 - Abertura: CNPJ, termos e política de privacidade com advogado, identidade visual: R$ 3 a 10 mil.
 - Desenvolvimento: feito pelos sócios.
@@ -183,29 +75,27 @@ Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual
 **Responsáveis:** produto, testes com usuários, suporte, vendas e marketing: os dois sócios.
 
 **Métricas de sucesso (iniciais):**
-- Precisão: % de lançamentos sem correção (meta > 90%).
+- Precisão: % de lançamentos sem correção (meta > 90%; RNF07.R3).
 - Uso: restaurantes que lançam em pelo menos 4 dias por semana.
 - Retenção em 30, 60 e 90 dias.
 - Valor percebido: uso de relatórios e perguntas por mês.
 - Negócio: clientes pagantes, churn, custo de IA por restaurante.
 
-## 11. Validação
+## 7. Validação
 
 1. Entrevistas com conhecidos do ramo: como controlam hoje, quanto pagariam.
 2. Teste "mágico de Oz" (2 a 4 semanas, 2 ou 3 restaurantes): número de WhatsApp operado manualmente com ajuda de IA. Objetivo: confirmar que eles enviam os gastos no dia a dia e coletar exemplos reais de mensagens.
-3. Piloto do MVP com 5 a 10 restaurantes, gratuito por 60 a 90 dias, depois preço de fundador.
+3. Piloto do MVP com 5 a 10 restaurantes, gratuito por 60 a 90 dias, depois preço de fundador (RF37, plano FUNDADOR).
 
-## 12. Riscos
+## 8. Riscos
 
-- **Política do WhatsApp:** a Meta restringe chatbots de IA de uso geral na API. Nosso bot é de função específica, mas as regras precisam ser confirmadas antes de construir.
-- **Consulta da NFC-e:** cada SEFAZ estadual tem página própria; o parsing varia por estado e pode quebrar. Começar pelos estados dos pilotos.
-- **Precisão da transcrição** em ambiente barulhento.
+- **Política do WhatsApp:** a Meta restringe chatbots de IA de uso geral na API. Nosso bot é de função específica (RNF12), mas as regras precisam ser confirmadas antes de construir.
+- **Consulta da NFC-e:** cada SEFAZ estadual tem página própria; o parsing varia por estado e pode quebrar. Começar pelos estados dos pilotos (RF14.R5).
+- **Precisão da transcrição** em ambiente barulhento (RF13, RNF07).
 - **Adoção:** o maior risco é o colaborador não criar o hábito de enviar. Validar cedo.
-- **Custo por mensagem** crescendo com uso intenso: monitorar desde o dia 1.
+- **Custo por mensagem** crescendo com uso intenso: monitorar desde o dia 1 (RNF08, RF38).
+- **Liberação da Meta** (app não publicado e erro 130497, pendência P15): o desenvolvimento segue pelo chat de terminal até a E10.
 
-## 13. Pendências com o sócio contador
+## 9. Pendências com o sócio contador
 
-1. Plano de categorias definitivo.
-2. Tratamento de impostos sobre faturamento por regime (Simples na maioria).
-3. Regras de separação entre investimento e despesa.
-4. Viabilidade da captura automática de NF-e via certificado A1.
+As decisões que cabem ao Matheus estão na seção 5 de `requisitos.md` (P01 a P11). Até a decisão final vale a proposta do documento, marcada `[PROVISÓRIO – Pxx]`; nenhuma bloqueia as etapas de desenvolvimento. Acompanhamento e responsáveis: `TODOLIST.md`.

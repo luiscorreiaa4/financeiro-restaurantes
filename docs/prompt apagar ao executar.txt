@@ -1,0 +1,142 @@
+# Tarefa: alinhar toda a documentação do repositório ao Documento de Requisitos v1.0
+
+Você vai trabalhar só na documentação (arquivos .md e instruções do Claude). Não altere código, schema nem migrations nesta tarefa.
+
+## Modo de trabalho
+1. **Fase de plano (plan mode):** leia o material, faça o inventário e me apresente o plano completo: lista de arquivos, o que muda em cada um e a tabela de divergências entre o código e os requisitos. **Espere minha aprovação antes de editar qualquer arquivo.**
+2. **Fase de execução:** depois de aprovado, edite arquivo por arquivo com Write/Edit (nada de heredoc grande no Bash: falha no Windows), rode `pnpm lint` se algum arquivo verificado pelo Biome for tocado e, no fim, me mostre o resumo das mudanças e uma sugestão de mensagem de commit em Conventional Commits. **Não faça commit.**
+
+## Fonte da verdade nova
+O arquivo `docs/Documento_de_Requisitos_v1.0.docx` (72 páginas, criado em 29/10/2026) é a especificação aprovada do produto: 38 requisitos funcionais (RF01 a RF38), 14 não funcionais (RNF01 a RNF14), matriz de permissões por papel e 15 pendências (P01 a P15). Ele tem prioridade sobre o que os .md disserem em contrário.
+
+Para ler o .docx: `pandoc -t gfm docs/Documento_de_Requisitos_v1.0.docx -o <arquivo temporário fora do repositório>`. Se o pandoc não existir, use `npx mammoth` ou um script Python com `zipfile` lendo `word/document.xml`. Leia o documento **inteiro** antes de planejar: as regras finas estão dentro de cada RF (regras numeradas e critérios de aceite).
+
+## Inventário obrigatório
+Varra todos os `*.md` do repositório, fora de `node_modules`, `.next`, `dist` e `.turbo`, incluindo:
+- `CLAUDE.md`, `README.md` e `TODOLIST.md`;
+- todos os arquivos em `docs/`: `planejamento`, `arquitetura`, `mvp`, `plano-dev-canal-whatsapp`, `plano-dev-frontend`, `plano-luis`, `subplano-sem-cnpj`, `politica-meta-whatsapp`, `e3-o-que-falta-para-fechar`, `guia-setup-contas` e `pesquisa-ecossistema-claude-code` (este é local, fora do git);
+- `.claude/rules/*.md`, `.claude/skills/*/SKILL.md` e `.claude/agents/*`;
+- qualquer `CLAUDE.md` de módulo.
+
+Para cada arquivo, anote o que contradiz, o que está desatualizado e o que está duplicado em relação aos requisitos.
+
+## Estrutura de documentação a criar
+
+### 1. `docs/requisitos.md`: o manual (dicionário)
+Converta o .docx em Markdown, completo e sem resumir. Ele passa a ser a **fonte única das regras de negócio**. Formato:
+- No topo: versão, data, como usar e um **índice** com links para cada RF e RNF.
+- Um título por requisito, exatamente `### RF12 – Lançamento por Mensagem de Texto`, para dar para buscar por ID. Logo abaixo, uma linha com Prioridade, Fase e Módulo.
+- Campos em tabela `| Campo | Tipo | Obrig. | Regra |`. Regras numeradas como **R1, R2…**, que viram referência estável: `RF12.R5`. Critérios de aceite como **CA01…** (`RF12.CA04`).
+- Mantenha as seções do .docx: introdução, convenções, glossário, atores, matriz de permissões, resumo dos RFs, RFs, RNFs e pendências.
+- Pendências ainda não resolvidas ficam marcadas no próprio texto do requisito como `[PROVISÓRIO – P04]`, com a proposta adotada.
+
+### 2. `docs/decisoes.md`: registro de decisões
+Uma linha por decisão: ID, data, decisão, motivo, onde se aplica (RF ou etapa) e situação (vigente ou substituída).
+- Traga para cá as decisões espalhadas nos planos (D1 a D7 do canal, D-F1 a D-F7 do painel e as decisões dos "Resultados" das etapas) e as decisões novas listadas abaixo.
+- Os planos passam a citar o ID da decisão em vez de repetir a explicação.
+
+### 3. Papel de cada documento
+Deixe isso explícito no topo de cada arquivo e no `CLAUDE.md`:
+- `docs/requisitos.md`: **o quê** e as regras (fonte da verdade).
+- `docs/decisoes.md`: **por quê**.
+- `docs/planejamento.md`: visão de produto e de negócio. Enxugue: mantenha problema, público, negócio, custos, validação e riscos, e troque as regras detalhadas por referências a RFs.
+- `docs/arquitetura.md`: **como**, a parte técnica.
+- `docs/mvp.md`: **escopo por fase**. Reescreva como checklist organizado por RF, com a fase de cada um: MVP, v1.1 ou Fase 2.
+- Planos de desenvolvimento (`plano-dev-*`, `plano-luis`, `subplano-sem-cnpj`): **ordem de execução**. Cada etapa lista os RFs e as regras que entrega (ex.: "E7 entrega RF16, RF17, RF18; ver RF18.R1–R3") e **não** copia regra de negócio. Onde hoje há regra duplicada, troque por referência.
+- `TODOLIST.md`: tarefas e responsáveis. As pendências do Matheus apontam para os IDs P01 a P15.
+
+## Decisões novas a incorporar (tomadas em 29/10/2026)
+1. **Painel = PWA** no MVP, instalável no celular e no computador. App nativo só com demanda clara depois do piloto.
+2. **Autocadastro do dono (RF01):**
+   - O dono cria a empresa, a primeira unidade e o próprio usuário, verificando o e-mail por código.
+   - A conta nasce em período de teste e com a situação ATIVA. As situações possíveis são ATIVA, SOMENTE_LEITURA, CANCELADA e ENCERRADA (RF37).
+   - Isso muda o plano do painel, que previa `disableSignUp: true`: o cadastro passa a ser um endpoint próprio da API, e o login comum continua sem criar usuário.
+3. **Acesso por senha ou por código no e-mail (RF02 e RF03):**
+   - Código: 6 dígitos, válido por 5 minutos, até 3 tentativas. Reenvio após 60 s, no máximo 5 envios por hora por e-mail e 20 por IP.
+   - Senha: de 8 a 64 caracteres, guardada como hash forte. Após 5 erros, bloqueio de 15 minutos só da senha.
+   - Sessão: 12 horas por inatividade, ou 30 dias com "manter conectado".
+   - Há recuperação de acesso. O código por WhatsApp e o segundo fator ficam para a v1.1.
+   - Isso amplia a D-F5.
+4. **Papéis:**
+   - Quatro papéis: DONO, GERENTE, LANCADOR e CONTADOR. O CONTADOR é da Fase 2 (RF36).
+   - Quatro permissões adicionais, concedidas pelo dono: VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL e CONSULTAR_RELATORIOS_WHATSAPP.
+   - A matriz de permissões da seção 2.3 é a referência de testes.
+   - No código hoje: `owner`, `manager`, `staff`. Registre o mapeamento `staff` = LANCADOR e o `accountant` futuro.
+5. **Relatórios pelo WhatsApp por hierarquia (RF20, v1.1):**
+   - O dono vê tudo.
+   - O gerente vê as próprias unidades, sem folha.
+   - O lançador vê só "meus lançamentos".
+   - A IA só escolhe consultas parametrizadas; o banco calcula.
+   - Resumos predefinidos podem ser antecipados para o MVP (P10).
+6. **Captura de NF-e por e-mail (RF31, v1.1):** endereço exclusivo por empresa, leitura determinística do XML, deduplicação pela chave de acesso e quarentena para destinatário diferente. SEFAZ com certificado A1 fica para a Fase 2 (RF32).
+7. **Unidades de acesso como lista (RF05.R5, P13):** hoje `memberships.unit_id` aceita uma unidade ou todas.
+8. **Novos campos e regras que o modelo de dados terá de refletir** (listar como divergência, sem mudar código):
+   - Unidade: apelidos, CNPJ e status.
+   - Categoria: Exige Quantidade, palavras de apoio, status, tipos INVESTIMENTO e DEDUCAO.
+   - Lançamento:
+     - sinais de revisão (CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE, DATA_ANTIGA);
+     - canal de origem EMAIL;
+     - documento fiscal com chave de acesso e itens;
+     - itens de nota agrupados por categoria;
+     - motivo da exclusão.
+   - Recorrências, importações, assinatura e painel interno (RF33, RF35, RF37 e RF38).
+9. **Regras do canal que precisam aparecer nas etapas E6 a E9:**
+   - "desfazer" desfaz a última mensagem do usuário nas últimas 24 h; usado como reply, desfaz aquela confirmação (RF18).
+   - Pergunta pendente vale 24 h; mensagem nova de lançamento cancela a pergunta com aviso (RF15).
+   - Comandos: ajuda, desfazer, cancelar, trocar unidade, trocar empresa, parar, voltar e suporte (RF19).
+   - Limites: áudio de 180 s, imagem de 5 MB, 60 mensagens por hora por usuário, 1.000 por dia por empresa e cota mensal de consultas (RF21).
+   - Datas futuras são recusadas pelo WhatsApp.
+   - "Cartão" sem especificar usa a forma de cartão padrão da empresa.
+   - Taxa só em receitas. Canal APLICATIVO com comissão substitui a taxa da forma de pagamento (P06).
+   - Envio idempotente da confirmação.
+10. **Painel:**
+    - Lixeira visível por 30 dias.
+    - Exportação em XLSX e CSV (`;` e UTF-8 com BOM), com link válido por 1 hora e arquivo apagado em 7 dias.
+    - Lançamento manual no painel fica para a v1.1 (RF26).
+    - DRE e PDF ficam para a v1.1 (RF28).
+    - Indicadores do dashboard conforme RF27.
+
+## Pendências do Matheus (ainda não resolvidas, não bloqueiam a documentação)
+P01 categorias, P02 investimento × despesa, P03 planos e preços, P04 informações essenciais, P05 impostos, P06 taxa de canal × forma de pagamento, P07 padrões de formas e canais, P08 textos do WhatsApp, P09 indicadores, P10 relatórios no MVP, P11 certificado A1.
+
+- **Adote a proposta do documento como padrão provisório**, marque `[PROVISÓRIO – Pxx]` onde aparecer e registre no `TODOLIST.md` que a decisão final é do Matheus.
+- Nos planos, indique que a implementação deve isolar esses pontos em configuração ou constante única, para mudar depois sem retrabalho.
+- **Não trate nenhuma delas como bloqueio** das etapas, exceto onde já era bloqueio antes.
+
+## O que atualizar nos planos
+- `plano-dev-canal-whatsapp.md`:
+  - Não reescreva o histórico das etapas já feitas (E1 a E5). Acrescente, em cada uma, uma nota "Ajustes pelos requisitos v1.0" com o que mudou.
+  - Nas etapas E6 a E10, liste os RFs entregues e acrescente as entregas que faltam.
+  - Se algo novo não couber nas etapas existentes, crie etapas novas no fim (sem renumerar as atuais) e atualize a tabela de progresso e a seção "Ordem e marcos".
+- `plano-dev-frontend.md`:
+  - F1: autocadastro, senha, recuperação e sessões.
+  - F2: os quatro papéis e as permissões adicionais.
+  - F3: lixeira de 30 dias, sinais de revisão e filtros.
+  - F4: indicadores do RF27.
+  - F5: regras do RF29.
+  - F6: unidades com apelidos, subcategorias, colaboradores com unidades em lista, formas de pagamento e canais.
+  - Novas etapas para assinatura (RF37) e painel interno (RF38), se não couberem nas existentes.
+  - Atualize D-F5 e D-F6 em `decisoes.md`.
+- `mvp.md`: reescrito por RF e fase, mantendo marcado o que já foi feito.
+- `planejamento.md`: enxuto, com referências.
+- `arquitetura.md`: inclua a seção "Divergências entre o modelo de dados atual e os requisitos". Para cada divergência: tabela, o que falta, RF e a etapa que vai resolver.
+- `README.md`: aponte para `requisitos.md` e `decisoes.md`.
+
+## `CLAUDE.md` e instruções do Claude
+- Acrescente, logo depois de "O produto em uma frase", a seção **"Onde está cada coisa"**, com a hierarquia `requisitos.md` > `decisoes.md` > `arquitetura.md` > planos e a regra:
+  > Antes de implementar qualquer funcionalidade, localize o RF e as regras (`RFnn.Rn`) em `docs/requisitos.md` buscando pelo título `### RFnn` com Grep. Não leia o arquivo inteiro: ele é grande. Em conflito entre um plano e `requisitos.md`, vale `requisitos.md`; aponte o conflito em vez de escolher sozinho.
+- Inclua a regra de manutenção:
+  - Decisão nova ou mudança de regra entra primeiro em `decisoes.md` e `requisitos.md` (subindo a versão no topo), e depois nos planos, que só referenciam.
+  - O `.docx` v1.0 é um retrato e não deve ser editado; uma versão nova é gerada a partir do `.md` (pandoc) quando os sócios pedirem.
+- Atualize a seção "Estado atual" do `CLAUDE.md`, que está desatualizada: E1 a E5 já foram feitas.
+- Revise `.claude/rules/*.md` e as skills. Onde citarem regra de negócio, troque por referência a RF.
+- **Proponha, sem criar**, uma regra `.claude/rules/requisitos.md`, que valeria para `packages/core/**`, `apps/**` e `packages/db/schema/**`: citar o RF e a regra (ex.: `// RF12.R5`) em testes e código de regra de negócio e conferir os critérios de aceite do RF ao fechar uma etapa. Mostre o texto e espere aprovação, como manda o "Fechamento de etapa".
+
+## Critérios de pronto
+- `docs/requisitos.md` contém todos os 38 RFs, os 14 RNFs, a matriz de permissões e as 15 pendências, sem perda de regra nem de critério de aceite em relação ao .docx. Confira por contagem de títulos e de CAs.
+- Nenhum `.md` contradiz `requisitos.md`. Busque termos antigos como `disableSignUp`, "só convidados", "três papéis", "Lançador" × "staff" e "e-mail primeiro" e resolva cada ocorrência.
+- Os planos citam RFs em vez de repetir regras, e toda etapa futura lista os RFs que entrega.
+- O `CLAUDE.md` explica onde está cada coisa e como consultar o manual.
+- Links internos entre os `.md` funcionam.
+
+Escreva em português do Brasil, no estilo dos documentos atuais: frases curtas, sem travessão como pontuação, legendas ✅ ⚠️ 🧭 onde já são usadas.

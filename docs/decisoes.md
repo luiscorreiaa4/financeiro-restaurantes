@@ -1,0 +1,74 @@
+# Registro de decisões
+
+> **Papel deste documento:** diz **por quê**. Uma linha por decisão: o que ficou decidido, o motivo, onde vale e se continua vigente. O **quê** e as regras de negócio estão em [`requisitos.md`](requisitos.md); o **como** (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento, que citam o ID daqui em vez de repetir a explicação.
+
+**Como manter:** decisão nova ou mudança de regra entra primeiro aqui e em `requisitos.md` (subindo a versão no topo dele), e só depois nos planos, que apenas referenciam. Decisão que deixa de valer não é apagada: muda para "Substituída" e aponta para a nova.
+
+Legenda de situação: **Vigente** · **Vigente (recomendação)** quando ainda aguarda confirmação do Luís · **Aberta** · **Substituída**.
+
+## 1. Canal WhatsApp (D1 a D7)
+
+Origem: seção 4 de [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md).
+
+| ID | Data | Decisão | Motivo | Onde se aplica | Situação |
+|---|---|---|---|---|---|
+| D1 | 27/10/2026 | Extração com **saída estruturada** (`output_config.format`); tool use só para consultas e relatórios (v1.1). | `tool_choice` forçado devolve 400 nos modelos mais novos e não há prefill; a saída estruturada entrega o mesmo JSON validado pelo schema. | RF12, RNF07; E6 | Vigente |
+| D2 | 27/10/2026 | Drizzle ORM na **0.45.x estável**, sem a API relacional; reavaliar quando o 1.0 sair. | O RC ainda muda; o query builder não muda no v1. | RNF14; E2 | Vigente |
+| D3 | 28/10/2026 | O corpo do webhook é guardado **por mensagem** (`raw` com metadados, contato e a mensagem), não o POST inteiro; assinatura validada sobre os bytes recebidos. | A Meta não tem API de histórico e reenvia duplicatas; guardar a fatia por mensagem mantém a prova de origem sem duplicar o lote. | RF11.R1, RNF01.R5; E3 | Vigente |
+| D4 | 27/10/2026 | Build de produção da API e dos workers (bundle com tsup/esbuild ou TypeScript direto no Node 24) decidido na E10. | Hoje só há `tsx` em desenvolvimento; suporte do Node a TS em pacotes do workspace não verificado. | E10 | Aberta |
+| D5 | 27/10/2026 | Começar a extração com **Haiku** e medir nos evals antes de decidir o modelo; Sonnet por sinais objetivos. | Custo cerca de 20 vezes menor; só o eval diz se a precisão chega a 90%. | RNF07, RNF08.R3; E6, E8 | Vigente (recomendação) |
+| D6 | 27/10/2026 | "Salvar direto, perguntar só se faltar informação essencial"; a lista de essenciais é do Matheus. | É regra de negócio, não técnica. Hoje vale a proposta do documento (valor; quantidade de insumo; tipo não inferível; unidade inexistente ou ambígua). | RF12.R17, RF15; pendência P04 | Vigente, provisória (P04) |
+| D7 | 28/10/2026 | Testar o canal e a IA por um **chat de terminal** (`pnpm dev:chat`); o WhatsApp real só é ligado no fim (E10, `CHANNEL_MODE=whatsapp`). | Permite desenvolver tudo antes do CNPJ e da liberação da Meta (P15). É só ferramenta de desenvolvimento, sem interface visual. | RNF14.R5; E5, E7, E9, E10 | Vigente |
+
+## 2. Painel (D-F1 a D-F7)
+
+Origem: seção 4 de [`plano-dev-frontend.md`](plano-dev-frontend.md).
+
+| ID | Data | Decisão | Motivo | Onde se aplica | Situação |
+|---|---|---|---|---|---|
+| D-F1 | 27/10/2026 | **Better Auth na API** (Fastify), com `rewrites` no web para os cookies serem de primeira parte. | A API já é a autoridade de permissão e o painel não acessa o banco; evita duas fontes de verdade para a sessão. | RF02, RNF01; F1 | Vigente |
+| D-F2 | 27/10/2026 | shadcn/ui direto em `apps/web` no MVP, sem `packages/ui`. | Só há um app com UI; extrair quando houver o segundo consumidor. | F0 | Vigente (recomendação) |
+| D-F3 | 27/10/2026 | Contrato da API em schemas Zod compartilhados (`@app/core/contracts`), mais OpenAPI gerado como documentação. | Mais simples, sem etapa de geração de cliente. | F0, F3 | Vigente (recomendação) |
+| D-F4 | 27/10/2026 | Dinheiro no JSON como `number` inteiro validado (centavos). | Ergonomia; seguro até cerca de 9×10¹⁵ centavos. | RNF13.R1; F3 | Vigente (recomendação) |
+| D-F5 | 27/10/2026, ampliada em 29/10/2026 | Original: login só por código de e-mail, WhatsApp depois. **Ampliada (DN-03):** acesso por **senha ou código no e-mail**; código por WhatsApp e segundo fator ficam para a v1.1. | O código por WhatsApp inicia conversa e depende de template da Meta. A senha atende quem prefere; o código continua o modo padrão da tela. | RF02, RF03, RNF01; F1 | Vigente (ampliada) |
+| D-F6 | 27/10/2026, ampliada em 29/10/2026 | Original: lançamento manual fora do MVP. **Ampliada:** o lançamento manual é o RF26 (v1.1); no MVP o painel edita, exclui para a lixeira (30 dias) e restaura. DRE e PDF também ficam para a v1.1 (RF28). | Alinhado ao escopo por fase do documento de requisitos. | RF23, RF24, RF26, RF28; F3 | Vigente (ampliada) |
+| D-F7 | 27/10/2026 | Biblioteca de planilha Excel decidida na F5. | Opções, licenças e manutenção ainda não pesquisadas. | RF29; F5 | Aberta |
+
+## 3. Decisões das etapas já feitas
+
+Origem: seções "Resultado" de cada etapa em [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md).
+
+| ID | Data | Decisão | Motivo | Onde se aplica | Situação |
+|---|---|---|---|---|---|
+| DE-01 | 27/10/2026 | Arredondamento **meio-para-cima** (half-up) no cálculo de taxa; papéis `owner`, `manager`, `staff`; categoria sensível = folha. Pendente: confirmar tolerância de 1 centavo e a lista de essenciais (P04). | Regra simples e testável em `packages/core`. | RF08.R3, RNF13.R2, RF06; E1 | Vigente (papéis: ver DN-04) |
+| DE-02 | 27/10/2026 | A lista de categorias do seed (`packages/db/src/system-categories.ts`) é **provisória**; mudanças em categorias já gravadas exigem migration ou script. | O plano de categorias definitivo é do Matheus. | RF07.Obs2, RF07.Obs3; pendência P01; E2 | Vigente, provisória (P01) |
+| DE-03 | 28/10/2026 | Status de entrega do WhatsApp em **tabela própria** (`whatsapp_status_events`). | Erros como o 130497 chegam por `statuses` e precisam ser consultáveis. | RF11; E3 | Vigente |
+| DE-04 | 28/10/2026 | pg-boss já na E3, com adaptador mínimo que só enfileira (`exclusive`); a idempotência real é o `INSERT ... ON CONFLICT DO NOTHING`. | `singletonKey` só deduplica em filas de certas políticas. | RF11.R1, RNF05.R5; E3 | Vigente |
+| DE-05 | 28/10/2026 | Fixtures de webhook **sintéticas** por ora; trocar pelos payloads reais anonimizados. | Mensagem real do celular depende de P1 (app Meta não publicado). | E3 | Vigente |
+| DE-06 | 28/10/2026 | Handler `process-inbound` como esqueleto com porta de roteamento; worker com o papel `app_ingest` até a E5; **5 retentativas** (backoff 10 s a 300 s), DLQ de 14 dias, lote de 5; `pino` e `zod` em `apps/api`. | Falha transitória não pode perder mensagem; falha definitiva vai para a DLQ e gera aviso (RF19.R4). | RNF05.R5, RNF05.R6; E4 | Vigente (retry a confirmar) |
+| DE-07 | 28/10/2026 | Usuário em dois restaurantes: vale o **vínculo mais antigo**; a confirmação cita o nome do restaurante. | Regra simples, confirmada no piloto. | RF11.R5; E5, E7 | Vigente |
+| DE-08 | 28/10/2026 | **Opt-in** registrado na primeira mensagem de número cadastrado, em tabela por tenant (`whatsapp_opt_ins`, única por usuário); revogação ("parar") fica para a E10. | Exigência da política da Meta; método e prova são por conta da empresa. | RF05.R9, RF11.R9, RF19, RNF12.R2; E5, E10 | Vigente |
+| DE-09 | 28/10/2026 | `desfazer` **provisório** na E5 ("Ainda não há nada para desfazer."); `ajuda` real. O comportamento definitivo é o do RF18. | O desfazer depende de lançamentos gravados (E7). | RF18; E5, E7 | Substituída pelo RF18 na E7 |
+| DE-10 | 28/10/2026 | Fora do escopo **por conteúdo** é decidido na extração (E6, intenção `out_of_scope`); a E5 só recusa tipo não suportado. | Reconhecer "fora do escopo" exige a IA. | RF19.R2, RF19.R3, RNF12.R1; E5, E6 | Vigente |
+| DE-11 | 28/10/2026 | Desativação do colaborador em `memberships.deactivated_at`; desativado recebe **a mesma resposta** de número desconhecido. | Não revelar que o cadastro existe. | RF05.R8, RF11.R8; E5 | Vigente |
+| DE-12 | 28/10/2026 | Contato de suporte como **placeholder genérico** (`SUPPORT_CONTACT`) até haver contato real; textos de `messages.ts` aprovados como rascunho. | Revisão final dos textos é do Matheus. | RF19, pendência P08; E5 | Vigente, provisória (P08) |
+| DE-13 | 28/10/2026 | Seed de desenvolvimento **separado** (`pnpm db:seed:dev`), recusa `NODE_ENV=production`; mensagens do chat usam `wa_message_id` com prefixo `dev.`. | Nunca misturar dados de teste com dados reais. | D7; E5 | Vigente |
+
+## 4. Decisões de 29/10/2026 (Documento de Requisitos v1.0)
+
+Tomadas com os sócios ao elaborar o [`requisitos.md`](requisitos.md).
+
+| ID | Data | Decisão | Motivo | Onde se aplica | Situação |
+|---|---|---|---|---|---|
+| DN-01 | 29/10/2026 | **Painel = PWA** no MVP, instalável no celular e no computador. App nativo só com demanda clara depois do piloto. | O lançamento diário é pelo WhatsApp; o painel é consulta e edição. Um código só atende celular e desktop. | RNF10.R2, RF27; F7 | Vigente |
+| DN-02 | 29/10/2026 | **Autocadastro do dono**: cria a empresa, a primeira unidade e o próprio usuário, com e-mail verificado por código. A conta nasce em teste e com situação ATIVA (situações: ATIVA, SOMENTE_LEITURA, CANCELADA, ENCERRADA). O cadastro é um **endpoint próprio da API**; o login comum continua sem criar usuário. | O dono precisa começar sozinho, sem a equipe do produto. Substitui a ideia de só convidados (`disableSignUp: true`). | RF01, RF37; F1, F9 | Vigente. Substitui o `disableSignUp` do plano do painel |
+| DN-03 | 29/10/2026 | **Acesso por senha ou código no e-mail.** Código: 6 dígitos, 5 min, 3 tentativas, reenvio após 60 s, máx. 5 envios por hora por e-mail e 20 por IP. Senha: 8 a 64 caracteres, hash forte; 5 erros bloqueiam a senha por 15 min. Sessão: 12 h de inatividade ou 30 dias com "manter conectado". Há recuperação de acesso. Código por WhatsApp e 2º fator na v1.1. | Público de baixa familiaridade tecnológica; o código é o modo mais simples, a senha atende quem prefere. | RF02, RF03, RNF01; F1 | Vigente. Amplia D-F5 |
+| DN-04 | 29/10/2026 | **Quatro papéis** (DONO, GERENTE, LANCADOR, CONTADOR) e **quatro permissões adicionais** concedidas pelo dono (VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP). A matriz da seção 2.3 é a referência de testes. Mapeamento com o código: `owner` = DONO, `manager` = GERENTE, `staff` = LANCADOR, `accountant` = CONTADOR (Fase 2, RF36; ainda não existe no código). | Os papéis fixos mantêm a operação simples; as permissões cobrem os casos levantados sem papéis personalizados. | RF05, RF06, RF36; E1 (ajuste), F2 | Vigente. Substitui "três papéis" |
+| DN-05 | 29/10/2026 | **Relatórios pelo WhatsApp por hierarquia** (RF20, v1.1): o dono vê tudo; o gerente vê as próprias unidades, sem folha; o lançador vê só "meus lançamentos". A IA só escolhe consultas parametrizadas; o banco calcula. Resumos predefinidos ("resumo de hoje/semana/mês") podem ser antecipados para o MVP. | Regra inegociável 3: a IA nunca faz contas. A hierarquia protege folha e dados de outras unidades. | RF20, RF30, RF06; pendência P10 | Vigente, provisória (P10) |
+| DN-06 | 29/10/2026 | **Captura de NF-e por e-mail** (RF31, v1.1): endereço exclusivo por empresa, leitura determinística do XML, deduplicação pela chave de acesso e quarentena para destinatário diferente. SEFAZ com certificado A1 fica para a Fase 2 (RF32). | A leitura do XML é exata e dispensa IA para os valores. O certificado A1 depende de validação legal. | RF31, RF32; pendência P11 | Vigente (RF32 depende de P11) |
+| DN-07 | 29/10/2026 | **Unidades de acesso como lista**: o colaborador tem uma lista de unidades (ou TODAS), e hoje `memberships.unit_id` aceita só uma ou todas. | Gerentes e lançadores atuam em mais de uma unidade. | RF05.R5, RF05.R6; pendência P13; E11 | Vigente |
+| DN-08 | 29/10/2026 | O modelo de dados precisa refletir novos campos e regras (unidade, categoria, lançamento, recorrências, importações, assinatura, painel interno). Nenhuma mudança de schema nesta rodada; as divergências estão listadas em `arquitetura.md`. | Os requisitos v1.0 vão além do schema da E2. | RF04, RF07, RF12, RF33, RF35, RF37, RF38 | Vigente |
+| DN-09 | 29/10/2026 | **Regras do canal** que valem nas etapas E6 a E9: "desfazer" desfaz a última mensagem do usuário nas últimas 24 h (como reply, desfaz aquela confirmação); pergunta pendente vale 24 h e mensagem nova de lançamento a cancela com aviso; comandos ajuda, desfazer, cancelar, trocar unidade, trocar empresa, parar, voltar e suporte; limites de 180 s de áudio, 5 MB de imagem, 60 mensagens por hora por usuário, 1.000 por dia por empresa e cota mensal de consultas; datas futuras recusadas pelo WhatsApp; "cartão" sem especificar usa a forma de cartão padrão da empresa; taxa só em receitas; canal APLICATIVO com comissão substitui a taxa da forma de pagamento; envio idempotente da confirmação. | Reduz erro de lançamento, custo de IA e abuso; mantém a regra "salvar direto, confirmar sempre". | RF15, RF18, RF19, RF21, RF12.R2, RF12.R8, RF08, RF09, RF16.Obs1 | Vigente (limites provisórios: P03) |
+| DN-10 | 29/10/2026 | **Painel**: lixeira visível por 30 dias; exportação em XLSX e CSV (`;` e UTF-8 com BOM), link válido por 1 hora e arquivo apagado em 7 dias; lançamento manual na v1.1 (RF26); DRE e PDF na v1.1 (RF28); indicadores do dashboard conforme RF27. | Nada é apagado de verdade; o contador abre o CSV no Excel em português sem estragar acentos. | RF24, RF29, RF26, RF28, RF27, RNF04 | Vigente |
+| DN-11 | 29/10/2026 | **Pendências do Matheus (P01 a P11)** não bloqueiam as etapas: vale a proposta do documento como padrão provisório, marcada `[PROVISÓRIO – Pxx]`, e a implementação isola esses pontos em configuração ou constante única, para trocar depois sem retrabalho. A decisão final é do Matheus. | Evita parar o desenvolvimento por decisão de negócio ainda aberta. | requisitos.md seção 5; TODOLIST | Vigente. Exceções: as que já eram bloqueio antes (P15, Meta) |
+| DN-12 | 29/10/2026 | **Hierarquia dos documentos**: `requisitos.md` (o quê e as regras) > `decisoes.md` (por quê) > `arquitetura.md` (como) > planos (ordem de execução, sem copiar regra). O `.docx` v1.0 é um retrato e não é editado; versão nova sai do `.md` com pandoc. | Uma fonte única para as regras, sem duplicação entre planos. | CLAUDE.md, todos os `.md` | Vigente |

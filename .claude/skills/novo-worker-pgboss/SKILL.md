@@ -5,7 +5,7 @@ description: Cria um novo worker pg-boss neste repositório (fila, DLQ, caso de 
 
 # Novo worker pg-boss
 
-Modelo de referência: `process-inbound` (E4). Leia antes `.claude/rules/pg-boss.md`.
+Modelo de referência: `process-inbound` (E4). Leia antes `.claude/rules/pg-boss.md`. Política de tentativas, DLQ e idempotência: RNF05.R5 e R6 em `docs/requisitos.md`; o requisito do worker novo (por exemplo RF29 para exportação, RF13 e RF14 para mídia) dá as regras de negócio.
 
 1. **Nome e payload.** Constante do nome da fila e schema Zod do payload em `apps/api/src/modules/<modulo>/`. O payload leva só ids, nunca conteúdo de mensagem.
 2. **Configuração da fila.** Em `apps/api/src/infra/<nome>-queue.ts`: constante de config (retryLimit, retryDelay, retryBackoff, retryDelayMax opcional, expireInSeconds) e `ensure<Nome>Queues(boss, config)` que cria a DLQ, depois a fila, depois `updateQueue`. Chame de servidor e worker.

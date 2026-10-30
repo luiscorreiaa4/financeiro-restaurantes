@@ -4,12 +4,17 @@ Controle financeiro gerencial para restaurantes pequenos e médios, com lançame
 
 ## Documentação
 
+Cada documento tem um papel. Em conflito, vale a ordem da lista (do mais forte para o mais fraco).
+
+- [`docs/requisitos.md`](docs/requisitos.md): **o quê** e as regras de negócio (38 requisitos funcionais, 14 não funcionais, matriz de permissões, pendências). Fonte da verdade. Busque por `### RFnn`.
+- [`docs/decisoes.md`](docs/decisoes.md): **por quê**, o registro de decisões
+- [`docs/arquitetura.md`](docs/arquitetura.md): **como**, a parte técnica: stack, fluxo, modelo de dados e divergências em relação aos requisitos
+- [`docs/planejamento.md`](docs/planejamento.md): visão de produto e de negócio (problema, público, custos, validação, riscos)
+- [`docs/mvp.md`](docs/mvp.md): escopo por fase, organizado por requisito (MVP, v1.1, Fase 2)
+- [`docs/plano-dev-canal-whatsapp.md`](docs/plano-dev-canal-whatsapp.md): ordem de execução do canal WhatsApp, em 13 etapas (E1 a E13)
+- [`docs/plano-dev-frontend.md`](docs/plano-dev-frontend.md): ordem de execução do painel web, em 11 etapas (F0 a F10)
+- [`TODOLIST.md`](TODOLIST.md): tarefas e responsáveis (as pendências do Matheus apontam para P01 a P11)
 - [`CLAUDE.md`](CLAUDE.md): regras e convenções do repositório (lido automaticamente pelo Claude Code)
-- [`docs/planejamento.md`](docs/planejamento.md): produto, usuários, regras de negócio, LGPD, negócio
-- [`docs/arquitetura.md`](docs/arquitetura.md): stack, decisões técnicas, fluxo e modelo de dados
-- [`docs/mvp.md`](docs/mvp.md): escopo da primeira versão, em fases
-- [`docs/plano-dev-canal-whatsapp.md`](docs/plano-dev-canal-whatsapp.md): plano de desenvolvimento do canal WhatsApp, em 10 etapas (E1 a E10)
-- [`docs/plano-dev-frontend.md`](docs/plano-dev-frontend.md): plano de desenvolvimento do painel web, em 9 etapas (F0 a F8)
 
 ## Módulos e nomes
 
@@ -22,9 +27,9 @@ Dois módulos de produto, cada um com um plano. Os nomes abaixo são os usados n
 
 Por que "canal WhatsApp" e não "chat IA", "API" ou "AI": a IA é só um passo do caminho (`packages/ai`), e `apps/api` serve também o painel. O canal é o conjunto todo.
 
-Etapas: `E1` a `E10` são do canal WhatsApp, `F0` a `F8` são do painel. Cada plano tem uma tabela de progresso no topo.
+Etapas: `E1` a `E13` são do canal WhatsApp, `F0` a `F10` são do painel. Cada plano tem uma tabela de progresso no topo e lista os requisitos (RFs) que cada etapa entrega.
 
-**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, a criar na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.6.
+**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, criado na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.6.
 
 ## Estrutura do repositório
 
@@ -68,7 +73,7 @@ TypeScript · pnpm + Turborepo · Fastify · Next.js · PostgreSQL + Drizzle · 
 
 ## Estado atual
 
-Fase 0 (fundação) quase pronta: monorepo, TypeScript strict, Biome, Vitest, validação de variáveis de ambiente com Zod e Postgres 16 no Docker Compose funcionam. O workflow de CI está escrito, mas ainda não rodou no GitHub. Próximo passo: E1 (núcleo de domínio em `packages/core`) e F0 (fundação do web), que podem andar em paralelo.
+Fase 0 (fundação) pronta: monorepo, TypeScript strict, Biome, Vitest, validação de variáveis de ambiente com Zod e Postgres 16 no Docker Compose funcionam. O workflow de CI está escrito, mas ainda não rodou no GitHub. Canal WhatsApp: E1 a E5 feitas (domínio, banco com RLS, webhook, fila e workers, identificação e roteamento, com o `pnpm dev:chat`). Próximo passo: E6 (extração por IA, texto) no canal e F0 (fundação do web) no painel, que podem andar em paralelo.
 
 ## Primeiros passos
 
