@@ -19,15 +19,11 @@ coverage/
 .idea/
 
 # Documentos de trabalho locais (não vão para o GitHub)
-TODOLIST.md
-docs/guia-setup-contas.md
-docs/plano-luis.md
-docs/subplano-sem-cnpj.md
+docs/planos/matheus.md
+docs/planos/luis.md
+docs/planos/pesquisa-claude-code.md
+docs/planos/prompts/
 docs/politica-meta-whatsapp.md
-docs/prompt-inicio-canal-whatsapp.txt
-docs/pesquisa-ecossistema-claude-code.md
-docs/prompt-preparacao-claude-code.txt
-docs/prompt-inicio-painel.txt
 
 next-env.d.ts
 

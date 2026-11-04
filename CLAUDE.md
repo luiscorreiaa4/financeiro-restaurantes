@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 Guia para o Claude Code trabalhar neste repositório. Leia antes de qualquer tarefa.
-As regras de negócio estão em `docs/requisitos.md` (veja "Onde está cada coisa" abaixo). Visão de produto e negócio em `docs/planejamento.md`, arquitetura em `docs/arquitetura.md`, escopo por fase em `docs/mvp.md`.
-Planos de desenvolvimento por módulo: `docs/plano-dev-canal-whatsapp.md` (etapas E1 a E13) e `docs/plano-dev-frontend.md` (etapas F0 a F10). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa e siga o "Fechamento de etapa" do plano, que inclui propor (sem criar) regras, skills, hooks e `CLAUDE.md` de módulo para o que repetiu na etapa.
+As regras de negócio estão em `docs/requisitos.md` (veja "Onde está cada coisa" abaixo). Visão de produto e negócio em `docs/produto.md`, arquitetura em `docs/arquitetura.md`, escopo por fase em `docs/escopo-por-fase.md`.
+Planos de desenvolvimento por módulo: `docs/planos/canal-whatsapp.md` (etapas E1 a E13) e `docs/planos/painel.md` (etapas F0 a F10). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa e siga o "Fechamento de etapa" do plano, que inclui propor (sem criar) regras, skills, hooks e `CLAUDE.md` de módulo para o que repetiu na etapa.
 
 ## O produto em uma frase
 
@@ -19,10 +19,12 @@ Hierarquia da documentação, da mais forte para a mais fraca:
 | `docs/requisitos.md` | **O quê** e as regras de negócio (38 RFs, 14 RNFs, matriz de permissões, pendências). Fonte da verdade. |
 | `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F7, DE-xx das etapas, DN-xx de 29/10/2026). |
 | `docs/arquitetura.md` | **Como**: stack, fluxo, modelo de dados e divergências do modelo atual em relação aos requisitos. |
-| `docs/planejamento.md` | Visão de produto e de negócio: problema, público, custos, validação, riscos. |
-| `docs/mvp.md` | Escopo por fase, por RF (MVP, v1.1, Fase 2). |
-| `docs/plano-dev-*.md`, `plano-luis.md`, `subplano-sem-cnpj.md` | Ordem de execução. Listam os RFs que cada etapa entrega e **não** copiam regra de negócio. |
-| `TODOLIST.md` | Tarefas e responsáveis; as pendências do Matheus apontam para P01 a P11. |
+| `docs/produto.md` | Visão de produto e de negócio: problema, público, custos, validação, riscos. |
+| `docs/escopo-por-fase.md` | Escopo por fase, por RF (MVP, v1.1, Fase 2). |
+| `docs/planos/canal-whatsapp.md`, `docs/planos/painel.md` | Ordem de execução. Listam os RFs que cada etapa entrega e **não** copiam regra de negócio. |
+| `docs/planos/andamento.md` | Situação do projeto e pendências técnicas abertas. Tarefas de cada sócio em `docs/planos/matheus.md` e `docs/planos/luis.md` (locais, fora do git). |
+
+Índice completo em `docs/README.md`: na raiz de `docs/` só o que é referência permanente; o trabalho em andamento fica em `docs/planos/`.
 
 **Antes de implementar qualquer funcionalidade, localize o RF e as regras (`RFnn.Rn`) em `docs/requisitos.md` buscando pelo título `### RFnn` com Grep. Não leia o arquivo inteiro: ele é grande. Em conflito entre um plano e `requisitos.md`, vale `requisitos.md`; aponte o conflito em vez de escolher sozinho.**
 
@@ -99,7 +101,7 @@ Cada regra aponta para o requisito que a detalha em `docs/requisitos.md`.
 - Antes de mudar schema: editar `packages/db/schema`, gerar migration com drizzle-kit, revisar o SQL gerado, incluir política RLS.
 - Mudou prompt ou schema de extração em `packages/ai`: rodar os evals (`pnpm --filter @app/ai eval`) e não deixar a taxa de acerto cair.
 - Toda regra nova em `packages/core` vem com teste.
-- Testar o canal e a IA sem WhatsApp: `pnpm dev:chat` (chat de terminal, só para desenvolvimento, criado na E5; ver seção 3.6 de `docs/plano-dev-canal-whatsapp.md`; usuários de exemplo em `pnpm db:seed:dev`). O WhatsApp real só é ligado no fim, na E10 (`CHANNEL_MODE=whatsapp`).
+- Testar o canal e a IA sem WhatsApp: `pnpm dev:chat` (chat de terminal, só para desenvolvimento, criado na E5; ver seção 3.6 de `docs/planos/canal-whatsapp.md`; usuários de exemplo em `pnpm db:seed:dev`). O WhatsApp real só é ligado no fim, na E10 (`CHANNEL_MODE=whatsapp`).
 - Prefira mudanças pequenas e verificáveis. Rode `pnpm typecheck && pnpm lint && pnpm test` antes de concluir.
 
 ## Comandos
@@ -121,4 +123,4 @@ pnpm dev:chat       # chat de terminal que simula o WhatsApp, só para teste (pr
 
 ## Estado atual
 
-Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. Próxima etapa do canal: **E10** (envio real e operação; bloqueada pela Meta), com **E11** (modelo de dados dos requisitos) podendo andar antes. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) pedem ajustes nas etapas já feitas e etapas novas (E11 a E13, F9 e F10); veja as notas "Ajustes pelos requisitos v1.0" nos planos e a seção de divergências em `docs/arquitetura.md`.
+Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. Próxima etapa do canal: **E11** (modelo de dados dos requisitos); a **E10** (envio real e operação) está bloqueada pela Meta. Situação e pendências abertas em `docs/planos/andamento.md`. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) pedem ajustes nas etapas já feitas e etapas novas (E11 a E13, F9 e F10); veja as notas "Ajustes pelos requisitos v1.0" nos planos e a seção de divergências em `docs/arquitetura.md`.

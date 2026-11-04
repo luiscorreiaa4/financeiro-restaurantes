@@ -133,14 +133,14 @@ Protótipos de tela e fluxos detalhados (principal, alternativos e de exceção)
 
 | Documento (repositório) | Conteúdo |
 |---|---|
-| docs/planejamento.md | Decisões de produto, usuários, regras, LGPD e negócio |
+| docs/produto.md | Decisões de produto, usuários, regras, LGPD e negócio |
 | docs/arquitetura.md | Stack, decisões técnicas, fluxo e modelo de dados |
-| docs/mvp.md | Escopo da primeira versão, por fases |
-| docs/plano-dev-canal-whatsapp.md | Plano do canal WhatsApp (etapas E1 a E13) |
-| docs/plano-dev-frontend.md | Plano do painel (etapas F0 a F10) |
+| docs/escopo-por-fase.md | Escopo da primeira versão, por fases |
+| docs/planos/canal-whatsapp.md | Plano do canal WhatsApp (etapas E1 a E13) |
+| docs/planos/painel.md | Plano do painel (etapas F0 a F10) |
 | docs/decisoes.md | Registro de decisões (por quê) |
 | docs/politica-meta-whatsapp.md | Política da Meta para chatbots e mensagens |
-| TODOLIST.md | Responsáveis e pendências dos sócios |
+| docs/planos/andamento.md | Situação do projeto e pendências abertas |
 
 ## 1.5 Convenções
 
@@ -2582,10 +2582,10 @@ Itens que precisam de decisão antes ou durante o desenvolvimento dos requisitos
 | P09 | Indicadores do dono | Quais indicadores além de margem, CMV e folha (ticket médio exige número de vendas, hoje não coletado). | Margem, CMV % e folha % no MVP. | Matheus | [RF27](#rf27--dashboard-indicadores-e-gráficos) |
 | P10 | Relatórios no MVP | Antecipar ou não os resumos predefinidos pelo WhatsApp para o MVP. | Antecipar "resumo de hoje/semana/mês" se couber no prazo; interpretação livre na v1.1. | Ambos | [RF20](#rf20--relatórios-e-consultas-pelo-whatsapp-por-hierarquia) |
 | P11 | NF-e por certificado A1 | Viabilidade legal, custódia do certificado e frequência de consulta. | Implementar só após validação (RF32, Fase 2). | Matheus | [RF32](#rf32--captura-de-nf-e-pela-sefaz-com-certificado-digital) |
-| P12 | Ajustes no plano do painel | Autocadastro (hoje disableSignUp: true), login por senha (hoje só código) e papel Contador. | Atualizar plano-dev-frontend.md (F1, F2, F6) e o core (papéis). | Luís | RF01, RF02, RF06 |
+| P12 | Ajustes no plano do painel | Autocadastro (hoje disableSignUp: true), login por senha (hoje só código) e papel Contador. | Atualizar docs/planos/painel.md (F1, F2, F6) e o core (papéis). | Luís | RF01, RF02, RF06 |
 | P13 | Unidades de acesso | O schema atual permite uma unidade ou todas por vínculo; o RF05 pede uma lista de unidades. | Tabela de vínculo colaborador × unidade, mantendo "todas". | Luís | [RF05](#rf05--cadastro-de-colaboradores-e-números-de-whatsapp) |
 | P14 | Revogação do opt-in e envio idempotente | Comando "parar" e prova de consentimento; não repetir confirmação em reprocessamento. | RF19 e RF16, Obs1. | Luís | RF16, RF19 |
-| P15 | Desbloqueios da Meta | Publicar o app (P1) e resolver o erro 130497 (P2), número definitivo e verificação da empresa. | Seguir docs/plano-dev-canal-whatsapp.md, E10. | Luís e Matheus (CNPJ) | Todo o canal WhatsApp |
+| P15 | Desbloqueios da Meta | Publicar o app (P1) e resolver o erro 130497 (P2), número definitivo e verificação da empresa. | Seguir docs/planos/canal-whatsapp.md, E10. | Luís e Matheus (CNPJ) | Todo o canal WhatsApp |
 
 # Notas de conversão
 

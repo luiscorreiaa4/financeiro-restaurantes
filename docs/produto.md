@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** visão de **produto e de negócio**: problema, público, negócio, custos, validação e riscos. As regras detalhadas moram em [`requisitos.md`](requisitos.md) (o quê), as decisões em [`decisoes.md`](decisoes.md) (por quê) e a técnica em [`arquitetura.md`](arquitetura.md) (como). Aqui só há referências a elas.
 
-Documento vivo. Itens marcados com **[PENDENTE]** apontam para uma pendência (P01 a P15) da seção 5 de `requisitos.md`; a lista das que cabem aos sócios está em `TODOLIST.md`.
+Documento vivo. Itens marcados com **[PENDENTE]** apontam para uma pendência (P01 a P15) da seção 5 de `requisitos.md`; o que cabe ao Matheus está em `planos/matheus.md` e a situação geral em `planos/andamento.md`.
 
 ## 1. Problema e proposta
 
@@ -37,7 +37,7 @@ Cada item abaixo tem o seu requisito. Nada aqui define regra.
 - **Relatórios e IA**: dashboard e relatórios fixos no MVP; perguntas em linguagem natural (RF30, v1.1) e relatórios pelo WhatsApp por hierarquia (RF20, v1.1; resumos predefinidos podem vir antes, P10); resumo semanal e alertas por exceção (RF34); DRE e fechamento mensal em PDF (RF28). A IA escolhe consultas parametrizadas e o banco calcula (RNF13.R3).
 - **Estoque** fora do escopo; futuro: precificação sugerida por prato.
 
-Exemplos de mensagens esperadas **[PENDENTE: coletar 20 a 50 reais no teste piloto, para os evals; ver `TODOLIST.md`]**: ver os critérios de aceite do RF12 a RF14.
+Exemplos de mensagens esperadas **[PENDENTE: coletar 20 a 50 reais no teste piloto, para os evals; ver `planos/matheus.md`]**: ver os critérios de aceite do RF12 a RF14.
 
 ## 4. Integrações por fase
 
@@ -98,4 +98,4 @@ Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual
 
 ## 9. Pendências com o sócio contador
 
-As decisões que cabem ao Matheus estão na seção 5 de `requisitos.md` (P01 a P11). Até a decisão final vale a proposta do documento, marcada `[PROVISÓRIO – Pxx]`; nenhuma bloqueia as etapas de desenvolvimento. Acompanhamento e responsáveis: `TODOLIST.md`.
+As decisões que cabem ao Matheus estão na seção 5 de `requisitos.md` (P01 a P11). Até a decisão final vale a proposta do documento, marcada `[PROVISÓRIO – Pxx]`; nenhuma bloqueia as etapas de desenvolvimento. Acompanhamento: [`planos/matheus.md`](planos/matheus.md) (o que é dele) e [`planos/andamento.md`](planos/andamento.md) (situação geral).

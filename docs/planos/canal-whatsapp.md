@@ -1,8 +1,8 @@
 # Plano de desenvolvimento: canal WhatsApp (mensagem → lançamento)
 
-> **Papel deste documento:** **ordem de execução** do canal WhatsApp. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](decisoes.md) e a técnica em [`arquitetura.md`](arquitetura.md). Em conflito, vale `requisitos.md`.
+> **Papel deste documento:** **ordem de execução** do canal WhatsApp. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 30/10/2026 (E6 a E9 feitas; alinhado ao Documento de Requisitos v1.0). Cobre as fases 1, 2 e 3 do `docs/mvp.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/plano-dev-frontend.md`.
+Atualizado em 04/11/2026 (E1 a E9 feitas e resumidas na seção 6.1; alinhado ao Documento de Requisitos v1.0). Cobre as fases 1, 2 e 3 do `docs/escopo-por-fase.md` e a parte de canal/operação da fase 5. O painel web tem plano próprio em `docs/planos/painel.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde um requisito traz `[PROVISÓRIO – Pxx]`, a implementação isola o valor em configuração ou constante única, para trocar depois sem retrabalho (ver DN-11 em `decisoes.md`). A única pendência que já bloqueava, e continua, é a da Meta (P15), só para o teste real e a E10.
 
@@ -29,8 +29,8 @@ Legenda de confiança, usada em todo o documento:
 | E7 Fluxo de lançamento e confirmação | Feita (30/10/2026) | Migration 0004 (`flags`, `status` da pergunta, cache em `ai_usage`, `restore`, envio único por origem); `EntryStore`; handlers de extração, resposta à pergunta, correção por reply, `desfazer` (24 h ou por reply), `cancelar`, `suporte`; aviso de falha definitiva; chat com `/reply` e `/custo`. 80 testes de integração da API cobrem o fluxo. Pendente: `trocar unidade`, `trocar empresa` e empresa citada no texto (E11); textos a revisar (P08) |
 | E8 Evals e qualidade da IA | Feita (30/10/2026) | 39 casos inventados em JSONL, runner por campo e por lançamento, precisão e revocação da pergunta, custo e latência, baseline em `baseline.json` (100% nos casos atuais), `pnpm --filter @app/ai eval` com trava de orçamento. Rodada completa: cerca de US$ 0,015. Pendente: casos reais anonimizados do Matheus (o 100% é otimista: os casos são meus e o prompt foi ajustado olhando para eles) e rodar o eval no CI (precisa do segredo) |
 | E9 Áudio e foto | Feita (30/10/2026) **com ressalva**: áudio e foto só foram testados com fakes; falta teste com áudio e foto reais | Download da Meta (2 passos, conferido na doc), conversão com ffmpeg, transcrição `gpt-transcribe` por `fetch`, limite de 180 s, QR da NFC-e, chave única por empresa (`fiscal_documents`, migration 0005), itens agrupados por categoria, limites de uso (RF21), lida/digitando, chat com `/audio` e `/foto`. Pendente: S3 e retenção de 90 dias (E10), consulta à SEFAZ, preço do `gpt-transcribe`, ffmpeg no servidor |
-| E10 Envio real e operação | A fazer | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
-| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026) | Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm. Pode andar junto da E6 |
+| E10 Envio real e operação | Bloqueada (Meta, P15) | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
+| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026) | **Próxima etapa.** Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm, e destrava `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-17) |
 | E12 Relatórios pelo WhatsApp (RF20) | A fazer (v1.1; nova) | Resumos predefinidos podem vir antes (P10) |
 | E13 Automações da v1.1 (RF31, RF33, RF34, RF35) | A fazer (v1.1; nova) | Só depois do piloto |
 
@@ -57,12 +57,12 @@ Cada etapa lista os RFs que entrega; as regras ficam em `requisitos.md`. Etapas 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
 2. Atualizar a tabela de progresso e o campo "Atualizado em".
-3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.** Ver os candidatos previstos por etapa em `docs/pesquisa-ecossistema-claude-code.md`, seção 12 (arquivo local, fora do git).
+3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.** Ver os candidatos previstos por etapa em [`pesquisa-claude-code.md`](pesquisa-claude-code.md), seção 12 (arquivo local, fora do git).
 4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
 
-**Decisões:** D1 a D7 e as decisões das etapas estão em [`decisoes.md`](decisoes.md) (seções 1 e 3). Este plano cita o ID em vez de repetir a explicação.
+**Decisões:** D1 a D7 e as decisões das etapas estão em [`decisoes.md`](../decisoes.md) (seções 1 e 3). Este plano cita o ID em vez de repetir a explicação.
 
-**Estado do repositório:** fase 0 pronta (monorepo, Biome, Vitest, validação de env, Postgres no Compose). Faltava só rodar o CI no GitHub.
+**Estado do repositório:** fase 0 pronta (falta só rodar o CI no GitHub) e E1 a E9 feitas. Pendências abertas das etapas feitas: [`andamento.md`](andamento.md), seção 5.
 
 ## 1. Objetivo e escopo
 
@@ -87,7 +87,7 @@ No documento de requisitos as duas aparecem juntas como a pendência **P15** (de
 | O que bloqueia | Só o teste real da E3 (o "Pronto quando"). | Só a E10 e qualquer resposta real no WhatsApp (regra 7, "confirmar sempre"). |
 | Dono | Luís | Luís (pagamento e perfil); Matheus (CNPJ para a verificação) |
 
-**Para repetir o teste real da E3 quando P1 for resolvido:** `docs/e3-o-que-falta-para-fechar.md`, passo 4. Mandar "Teste" do celular; deve entrar 1 linha em `inbound_messages` com o seu `wa_id` e 1 job em `pgboss.job`.
+**Para repetir o teste real da E3 quando P1 for resolvido:** `guia-testes-manuais.md`, seção 10. Mandar "Teste" do celular; deve entrar 1 linha em `inbound_messages` com o seu `wa_id` e 1 job em `pgboss.job`.
 
 **Enquanto isso:** desenvolver E4 a E9 testando pelo **chat de desenvolvimento no terminal** (D7, seção 3.6), mais as fixtures e o POST assinado local. O WhatsApp real só é configurado no fim, na E10.
 
@@ -233,7 +233,7 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 **Quando é construído:** versão 1 na **E5** (digitar texto e ver a resposta, trocar de usuário); cresce na **E7** (`/reply`, `/custo`) e na **E9** (`/audio`, `/foto`). O script da E6 (10 a 15 frases direto na IA, com custo por mensagem) continua existindo: testa só a extração, sem banco.
 
 **Ligar o WhatsApp real (checklist do fim do desenvolvimento, E10):**
-1. P1: publicar o app da Meta e repetir o teste real da E3 (`docs/e3-o-que-falta-para-fechar.md`, passo 4).
+1. P1: publicar o app da Meta e repetir o teste real da E3 (`guia-testes-manuais.md`, seção 10).
 2. P2: resolver o erro 130497 (pagamento, perfil, verificação da empresa com CNPJ).
 3. Número definitivo e nome de exibição.
 4. `CHANNEL_MODE=whatsapp`: entram `CloudMessageSender` e `MetaMediaDownloader` no lugar dos `Dev*` (só a composição em `apps/api` muda; o `core` e a IA não sabem a diferença).
@@ -241,7 +241,7 @@ Reprocessar uma mensagem nunca duplica lançamentos: `entries` tem unicidade por
 
 ## 4. Decisões
 
-A explicação de cada decisão (motivo, onde vale e situação) está em [`decisoes.md`](decisoes.md). Aqui fica só o índice, para os trechos deste plano que citam o ID.
+A explicação de cada decisão (motivo, onde vale e situação) está em [`decisoes.md`](../decisoes.md). Aqui fica só o índice, para os trechos deste plano que citam o ID.
 
 | ID | Tema | Situação |
 |---|---|---|
@@ -291,329 +291,27 @@ Teste simples que lê os `package.json` e falha se `@app/core` listar dependênc
 
 Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G), não prazos.
 
-### E1: Núcleo de domínio (`packages/core`) — P/M
-
-**Objetivo:** todas as regras que não dependem de rede nem de banco, testadas sem mocks.
-
-**Entregas**
-- `Money` em centavos (bigint ou number seguro), com `formatBRL`, soma, subtração e multiplicação por pontos-base. Nunca `float`.
-- Cálculo de taxa e líquido (`fee_percent_bp`, `fee_fixed_cents`, `net_cents`), com arredondamento definido e documentado.
-- `Entry` e `EntryDraft`: criação, edição com versão (`entry_versions`: quem, quando, antes/depois, canal) e soft delete.
-- Permissões por papel e categorias sensíveis (folha).
-- Normalização de telefone brasileiro: gera forma canônica e as variantes com e sem o 9º dígito.
-- Parser dos comandos `desfazer` e `ajuda`, tolerante a caixa, acento e espaço.
-- `Result` e erros nomeados.
-- Schemas Zod do domínio: `ExtractedEntry`, `ExtractionResult`.
-
-**Testes:** unitários exaustivos, incluindo casos de borda de dinheiro (arredondamento de taxa, valores enormes, zero, negativos rejeitados) e tabela de entradas para o telefone. 🧭 Teste baseado em propriedades (por exemplo `fast-check`) para `Money` ⚠️ (não verifiquei a biblioteca).
-
-**Pronto quando:** `pnpm test` cobre cada regra e `core` não tem dependência de infra.
-
-**Ajustes pelos requisitos v1.0** (29/10/2026; o histórico acima não foi alterado):
-- Papéis: `owner`, `manager` e `staff` equivalem a DONO, GERENTE e LANCADOR (DN-04). Faltam o papel `accountant` (Fase 2, RF36) e as permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL e CONSULTAR_RELATORIOS_WHATSAPP (RF05.R7, RF06). A regra de categoria sensível deixa de ser "só o `owner`" (RF06.R3). A matriz da seção 2.3 vira teste (RF06.CA06). Fica na **E11**.
-- Taxa e líquido: confirmados o arredondamento meio-para-cima (RF08.CA02) e a tolerância de R$ 0,01 (RF12.R5). Falta aplicar taxa **só em receitas** (RF08.R3, RF12.R11) e a regra do canal APLICATIVO que substitui a taxa da forma de pagamento (RF09.R4, `[PROVISÓRIO – P06]`): E7.
-- Comandos: o parser cobre `desfazer` e `ajuda`; faltam `cancelar`, `trocar unidade`, `trocar empresa`, `suporte` (E7) e `parar` e `voltar` (E10), todos do RF19.
-- Telefone: a normalização do 9º dígito já cumpre RF01.R11 e RF01.CA09.
-- D6 (o que é "essencial") passa a ser RF12.R17, `[PROVISÓRIO – P04]`.
-
-### E2: Banco e multi-tenancy (`packages/db`) — M/G
-
-**Objetivo:** modelo de dados do `docs/arquitetura.md` com isolamento garantido no banco.
-
-**Entregas**
-- Schema Drizzle de todas as tabelas (tenants, units, users, memberships, categories, suppliers, payment_methods, sales_channels, inbound_messages, entries, entry_versions, pending_questions, ai_usage, audit_log). IDs UUID v7. `bigint` para centavos.
-- `inbound_messages`: `wa_message_id` único, `raw jsonb`, `status`, `wa_user_id`.
-- Migrations SQL revisadas, com políticas RLS (`pgPolicy`) e `ENABLE`/`FORCE ROW LEVEL SECURITY` quando aplicável.
-- `withTenant(tenantId, fn)`: transação com `set_config('app.tenant_id', $1, true)` (parametrizado, nunca interpolado).
-- Papéis separados: `app` (sem BYPASSRLS) para a aplicação, `postgres` (admin) para migrations e jobs administrativos.
-- Seed com categorias provisórias. ✅ **Decidido (27/10/2026):** a lista em `packages/db/src/system-categories.ts` é **provisória** e precisará ser ajustada depois, com validação do Matheus (nomes, subcategorias, natureza fixa/variável e grupo do DRE). Como o seed é idempotente e só cria o que falta, mudanças em categorias já gravadas exigem migration ou script de ajuste, não basta editar a lista.
-- Tabelas do pg-boss em esquema próprio, acessadas só pelo papel administrativo.
-
-**Testes (Testcontainers)**
-- Isolamento: tenant A não lê, não altera e não insere para tenant B, em **cada** tabela.
-- Meta-teste: toda tabela com `tenant_id` tem RLS ligado e política.
-- Query sem `withTenant` retorna zero linhas ou falha, nunca dados de outro tenant.
-- Papel `app` não tem `BYPASSRLS`.
-- Unicidade de `wa_message_id` e de `(inbound_message_id, posição)`.
-- Migration aplicada em banco vazio e reaplicada sem erro.
-
-**Pronto quando:** o meta-teste passa e nenhuma query do app roda fora de `withTenant`.
-
-**Ajustes pelos requisitos v1.0** (29/10/2026): o isolamento cumpre RNF02. Os requisitos pedem campos e tabelas que o schema não tem (empresa com plano e situação, unidade com apelidos e status, lista de unidades por colaborador, categoria com Exige Quantidade e palavras de apoio, lançamento com sinais de revisão, motivo da exclusão e documento fiscal, `pending_questions` com situação, `ai_usage` com cache, `audit_log` sem empresa). A lista completa, com RF e etapa, está em `arquitetura.md`, seção "Divergências entre o modelo de dados atual e os requisitos". A lista de categorias do seed segue provisória (DE-02, P01, P02, P05). Nenhuma migration nova nesta rodada; entram na **E11** e nas etapas de cada RF, sempre pela regra `.claude/rules/tabela-nova.md`.
-
-### E3: Gateway do WhatsApp (webhook) — M
-
-**Objetivo:** receber, validar, gravar e responder 200 em menos de 1 s.
-
-**Entregas**
-- Rota `GET /webhooks/whatsapp`: handshake (`hub.mode`, `hub.verify_token`, `hub.challenge`) com comparação em tempo constante do token.
-- Rota `POST /webhooks/whatsapp`: parser que preserva o corpo bruto; `bodyLimit` acima de 3 MB; validação de `X-Hub-Signature-256` sobre os bytes, comparação em tempo constante; resposta 401 sem processar se inválida.
-- Schemas Zod de `messages` e `statuses`; **itera sobre todos os eventos** do payload.
-- Gravação idempotente (`ON CONFLICT DO NOTHING` em `wa_message_id`), payload bruto guardado.
-- Enfileiramento de `process-inbound` (uma tarefa por mensagem nova) e resposta 200.
-- Eventos de `status` gravados (entregue, lido, falhou), com o código de erro. É assim que veremos erros como o 130497.
-- Túnel público (cloudflared ou ngrok) para o desenvolvimento, configurando URL e `WHATSAPP_VERIFY_TOKEN` no app da Meta.
-
-**Testes**
-- Unitário: assinatura válida, inválida, ausente, corpo adulterado em 1 byte.
-- Contrato: fixtures reais passam nos schemas; campos desconhecidos novos não derrubam o parse (usar `passthrough` ou tolerância controlada).
-- Integração: duplicata (mesmo POST duas vezes) gera uma linha e um job; payload com vários eventos; lote misto de mensagens e status.
-- Latência: 200 em < 1 s com a fila e o banco reais (teste de tempo com folga e script de carga à parte).
-- Real: mensagem do celular chega pelo túnel e vira linha em `inbound_messages`.
-
-**Pronto quando:** a mensagem "Teste" enviada do seu celular aparece no banco, e o mesmo POST reenviado não duplica.
-
-#### Resultado da E3 (28/10/2026)
-
-> **Passo a passo do que falta para fechar a E3 (túnel, Meta, conferências): `docs/e3-o-que-falta-para-fechar.md`.**
-
-**Entregue:** `GET/POST /webhooks/whatsapp` (`apps/api/src/http/webhooks/whatsapp.ts`), caso de uso `IngestWebhook`, `PgBossQueue` mínimo (fila `process-inbound`, política `exclusive`, só enfileira), tabela `whatsapp_status_events` (migration 0002), `createInboundIngestRepo` (`packages/db`), parser, assinatura e handshake (`packages/whatsapp`), 11 fixtures sintéticas e `DATABASE_INGEST_URL`. Testes: 95 de integração no db e 12 na api passam (`pnpm test:int`).
-
-**Decisões desta etapa:** status em tabela própria; pg-boss instalado já na E3 com adaptador mínimo; D3 resolvida como fatia por mensagem (`raw` guarda metadata, contato e a mensagem, não o POST inteiro); fixtures sintéticas por ora.
-
-**Confirmado na doc do pg-boss (28/10/2026):** `singletonKey` só deduplica em filas `short`, `stately` ou `exclusive` (ou com `singletonSeconds`); `send()` pode devolver `null`; `createQueue` aceita `policy`, `deadLetter`, `retryLimit`, `retryBackoff`, `expireInSeconds`. A idempotência real é o `INSERT ... ON CONFLICT DO NOTHING ... RETURNING`. Falta confirmar para a E4: opções de `stop()` e de `work()`.
-
-**Padrões adotados (conferir):**
-- Sem `WHATSAPP_APP_SECRET` ou `WHATSAPP_VERIFY_TOKEN`, a rota responde 503 e nunca aceita sem checar.
-- Assinatura inválida: 401. JSON inválido: 400. Campo que não é `messages`: 200 sem gravar.
-- Tipos não tratados (reação, figurinha) viram `unsupported` e também são enfileirados; a E5 decide o que fazer.
-- Falha ao enfileirar depois de gravar: 500. Na reentrega, mensagem ainda em `received` volta para a fila.
-- Logs sem query string (o handshake leva `hub.verify_token`) e sem conteúdo de mensagem, nem em erro do banco (o Drizzle põe os parâmetros do SQL na mensagem de erro).
-- Convenção de testes: unitários ao lado do código em `src/`; integração e fixtures em `test/`.
-
-**Como testar à mão**
-1. `docker compose up -d`. Em banco antigo, crie o papel: `docker compose exec -T postgres psql -U postgres -d app < docker/postgres/init.sql`.
-2. `pnpm db:migrate`.
-3. No `.env`: `DATABASE_INGEST_URL=postgres://app_ingest:app_ingest@localhost:5434/app` (porta **5434**: a 5432 pode estar ocupada por um Postgres nativo do Windows), e `WHATSAPP_APP_SECRET` e `WHATSAPP_VERIFY_TOKEN` com qualquer valor local.
-4. `pnpm dev`.
-5. Handshake no navegador: `http://localhost:4000/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=SEU_TOKEN&hub.challenge=123` deve mostrar `123`. Token errado: 403.
-6. POST assinado, na raiz do repositório (deve imprimir `200 {"ok":true}`; rodar duas vezes não duplica):
-   ```
-   node --env-file=.env -e "const c=require('crypto'),fs=require('fs');const b=fs.readFileSync('packages/whatsapp/test/fixtures/text-message.json');const s='sha256='+c.createHmac('sha256',process.env.WHATSAPP_APP_SECRET).update(b).digest('hex');fetch('http://localhost:4000/webhooks/whatsapp',{method:'POST',headers:{'content-type':'application/json','x-hub-signature-256':s},body:b}).then(async r=>console.log(r.status,await r.text()))"
-   ```
-7. Banco: `docker compose exec postgres psql -U postgres -d app -c "select wa_message_id, type, text, status from inbound_messages"` mostra 1 linha `Teste` com status `received`; `-c "select count(*) from pgboss.job"` mostra 1 job.
-8. Troque um caractere do comando do passo 6: deve voltar 401 e nada é gravado.
-
-**Pendências da E3**
-- [ ] Teste real pelo túnel: túnel, URL, verify token e botão Teste da Meta **já feitos em 28/10** (POST assinado chegou, status gravado). Falta a mensagem "Teste" real do celular virar linha em `inbound_messages` e o reenvio não duplicar. ⏳ Bloqueado por **P1** (app da Meta não publicado). É o "Pronto quando" da etapa.
-- [ ] Trocar/acrescentar as fixtures sintéticas pelos dois payloads reais anonimizados (texto recebido e `status: failed` 130497).
-- [ ] Conferir `redact` do Pino na doc (⚠️ item da seção 2); hoje o `req` é serializado só com método, caminho e id.
-- [ ] Script de carga do webhook (o teste de latência cobre uma requisição com folga; a carga em rajada fica para antes do piloto).
-- [x] Formato do `user_id` (`BR.<número>`): no payload real do console de teste (28/10) vem nos **dois** lugares, `contacts[].user_id` e `messages[].from_user_id`. O parser já aceita os dois; falta só virar fixture real anonimizada.
-
-**Candidatos de contexto do Claude propostos (aguardam aprovação, nada foi criado):**
-1. Regra `.claude/rules/webhook.md` (`apps/api/src/http/**`, `packages/whatsapp/**`): assinatura sobre bytes brutos, `bodyLimit` ≥ 3 MB, idempotência, 200 em < 1 s, iterar todos os eventos, nunca logar query string nem conteúdo.
-2. Skill `novo-fixture-whatsapp`: capturar payload real, anonimizar, criar fixture e teste de contrato.
-3. Subagente `revisor-seguranca` (Read, Grep, Glob, Bash somente leitura): isolamento de tenant, PII em log, assinatura, segredos.
-4. Hook `PreToolUse` que bloqueia editar migration já commitada (a 0002 já está).
-5. Regra `.claude/rules/testes.md`: unitário em `src/`, integração em `test/`, fixtures em `test/fixtures/`.
-6. Erro que repetiu: heredoc grande no Bash do Windows falha; usar Write/Edit. Vale uma linha no `CLAUDE.md`.
-
-**Próxima etapa:** E4 (fila e workers). Antes, aprovar ou ajustar os candidatos acima e fazer o teste real pelo túnel.
-
-**Ajustes pelos requisitos v1.0** (29/10/2026): o webhook cumpre RF11.R1 e R2 (idempotência pelo identificador da mensagem), RF11.CA01 e CA06 (duplicata e assinatura inválida), RNF01.R5 e RNF05.R1. Nada a mudar no código. O teste real com mensagem do celular segue bloqueado pela Meta, hoje a pendência **P15** (antes P1 e P2 do plano). Documento em PDF de nota fiscal recebe a resposta de tipo não suportado até o RF31 (RF11.R3).
-
-### E4: Fila e workers (pg-boss) — M
-
-**Objetivo:** processamento assíncrono, idempotente e resiliente.
-
-**Entregas**
-- Entrypoint `worker.ts` separado do `server.ts`, mesma imagem.
-- Filas criadas na inicialização com política explícita: tentativas, backoff exponencial, expiração e **fila de mensagens mortas (DLQ)**. ⚠️ Opções exatas a confirmar em `pgboss.io/api/queues`.
-- Handler `process-inbound` que recebe lote, é idempotente e usa o estado da E3 (3.4).
-- Chave de unicidade do job por `wa_message_id` para impedir enfileiramento duplo. ⚠️ Confirmar o nome da opção na doc.
-- Encerramento limpo com sinais: terminar jobs em andamento antes de sair.
-- Log estruturado por job (sem conteúdo de mensagem).
-
-**Testes (integração):** retry após erro transitório; esgotar tentativas leva à DLQ; reprocessar não duplica lançamento; dois workers não pegam a mesma mensagem; shutdown no meio de um job.
-
-**Pronto quando:** derrubar o worker no meio do processamento e subir de novo termina a mensagem sem duplicar nem perder.
-
-#### Resultado da E4 (28/10/2026)
-
-**Entregue:** `apps/api/src/worker.ts` (entrypoint separado do `server.ts`, mesma imagem), `infra/pg-boss-worker.ts` (consome `process-inbound` em lote, resposta por job com `perJobResults`), `infra/process-inbound-queue.ts` (`ensureProcessInboundQueues`: cria a DLQ e a fila, e converge com `updateQueue` a fila que a E3 criou só com `exclusive`), `modules/inbound/process-inbound.ts` (caso de uso, valida o job com Zod, porta `RouteInbound` com `routeNothing` como padrão), `infra/logger.ts` (pino com `redact`), `InboundProcessingRepo` em `core` e `createInboundProcessingRepo` em `db`. Scripts: `pnpm dev:worker` (raiz) e `start:worker` (api).
-
-**Decisões desta etapa (suas):** handler como esqueleto com porta de roteamento; worker com o papel `app_ingest` até a E5; 5 tentativas com backoff e DLQ de 14 dias; `pino` adicionado. **Adicionei por padrão:** `zod` em `apps/api` (a stack já o define; mesma versão do workspace).
-
-**Política da fila (constante em `process-inbound-queue.ts`):** `retryLimit 5` (6 execuções no total), `retryDelay 10` com backoff e teto de 300 s, `expireInSeconds 300`, DLQ com retenção de 14 dias. Mensagem fica `failed` com código curto (`Error`, `Error:40001`), nunca o texto nem a mensagem de erro (o Drizzle põe os parâmetros do SQL nela).
-
-**Confirmado na doc/tipos do pg-boss 12.38 (28/10/2026):** opções de `createQueue` (`retryDelayMax` só vale com `retryBackoff: true`, o pg-boss recusa sem isso: descoberto pelos testes); `work()` com `batchSize`, `pollingIntervalSeconds`, `localConcurrency` e `perJobResults` (resultado `completed`/`failed`/`deadletter` por job); `Job.retryCount`; `stop({ graceful, close, timeout })` com padrão `graceful: true`, `timeout: 30000`; DLQ precisa existir antes.
-
-**Padrões adotados (conferir):**
-- Retomada: `claim` aceita `received` e `processing`, porque o retry e o job expirado de um worker caído voltam com a mensagem em `processing`.
-- Mensagem já `processed`, `failed` ou `needs_answer` + job duplicado ou atrasado: ignorado (`skipped`), job completa.
-- Payload de job fora do contrato: vai direto para a DLQ (`deadletter`), sem retentar.
-- Lote de até 5 mensagens, processadas em sequência; um erro não derruba as outras.
-- Servidor e worker chamam `ensureProcessInboundQueues` ao subir (idempotente).
-- `pnpm dev` continua subindo só api e web: o worker é `pnpm dev:worker` em outro terminal.
-
-**Como testar à mão**
-1. `docker compose up -d` e `pnpm db:migrate`; `.env` com `DATABASE_INGEST_URL` e `DATABASE_ADMIN_URL` (porta 5434).
-2. Terminal 1: `pnpm dev`. Terminal 2: `pnpm dev:worker` (deve logar "worker iniciado").
-3. Mande o POST assinado do passo 6 da E3. No terminal do worker aparece "mensagem processada" (sem o texto).
-4. `docker compose exec postgres psql -U postgres -d app -c "select wa_message_id, status, error from inbound_messages"` mostra `processed`; `-c "select name, state from pgboss.job"` mostra o job `completed`.
-5. Parada limpa: Ctrl+C no worker loga "encerrando worker" e sai sem erro. Para ver a falha: derrube o worker, mande a mensagem, e confira que o job fica `created` e é consumido quando o worker volta.
-
-**Pendências da E4**
-- [ ] Confirmar a política de retry (números acima) e o lote de 5.
-- [ ] Rodar o worker uma vez contra o Postgres do Compose (os testes usam Testcontainers).
-- [ ] Alerta/monitoramento da DLQ (E10).
-- [ ] Teste real de queda do processo (`kill`) fica para o staging; o teste automatizado simula com `stop({ graceful: false })` + expiração.
-
-**Contexto do Claude criado após aprovação (28/10/2026):** `.claude/rules/pg-boss.md`, `.claude/rules/testes.md`, skill `.claude/skills/novo-worker-pgboss/` e a linha `pnpm dev:worker` no `CLAUDE.md`.
-
-**Próxima etapa:** E5 (identificação e roteamento). Ela troca `routeNothing`, passa a atribuir o tenant à mensagem e cria o `pnpm dev:chat`.
-
-**Ajustes pelos requisitos v1.0** (29/10/2026): a política de 5 retentativas com backoff, a DLQ e a idempotência cumprem RNF05.R5 e R6 e RNF05.CA02 (DE-06). A falha definitiva ainda precisa avisar o colaborador com o contato do suporte (RF19.R4, RF19.CA05): entra na E7/E10. O alerta da DLQ vira o painel interno (RF38, F10).
-
-### E5: Identificação e roteamento da conversa — M
-
-**Objetivo:** saber quem escreveu e o que a mensagem é, antes de gastar IA.
-
-**Entregas**
-- Resolução telefone → usuário → tenant, papéis e unidade padrão, com a normalização da E1.
-- Número desconhecido: resposta educada e padronizada, dentro da janela de 24 h, sem expor dados.
-- Registro do **opt-in** do usuário (exigência da política da Meta).
-- Roteamento em ordem: comando (`desfazer`, `ajuda`) → resposta a uma confirmação (correção por reply, via `context.message_id`) → resposta a pergunta pendente → extração.
-- Saída para humano nas mensagens de ajuda e erro (canal de suporte).
-- Recusa curta e padronizada para assunto fora do escopo (a política da Meta trata IA de propósito geral como proibida).
-- **Chat de desenvolvimento v1** (D7, seção 3.6): `pnpm dev:chat` no terminal, que assina e envia payloads ao webhook local, mostra as respostas pelo `DevMessageSender` e troca de usuário com `/como`. Só desenvolvimento; sem interface visual. `CHANNEL_MODE=dev` no `.env`.
-
-**Testes:** tabela de telefones com e sem 9º dígito; usuário de dois tenants; usuário desativado; comandos com variações; reply para a confirmação certa e para uma antiga; mensagem fora de escopo.
-
-**Pronto quando:** cada tipo de mensagem cai no ramo certo sem chamar a IA nos casos de comando e número desconhecido, e dá para ver isso conversando pelo `pnpm dev:chat`.
-
-#### Resultado da E5 (28/10/2026)
-
-**Entregue**
-- `core`: `resolveSender` (vínculo ativo mais antigo; desativado = desconhecido; unidade padrão) e `decideRoute` (ordem: remetente → tipo → comando → reply a confirmação → pergunta pendente → extração), ambos puros. Portas `SenderDirectory`, `InboundSenderRepo`, `TenantConversationRepo`; `MessageSender.sendText` ganhou `trace` opcional (tenant, mensagem de origem, finalidade).
-- `db`: migration `0003_conversation_routing` com `outbound_messages` (tenant opcional, só acrescenta), `whatsapp_opt_ins` (por tenant, só acrescenta, única por usuário) e `memberships.deactivated_at`; repositórios dos três adaptadores e do registro de saída; `claim` passa a devolver `replyToWaMessageId` (lido de `raw.message.context.id`); `seedDevData` (`pnpm db:seed:dev`).
-- `apps/api`: `route-inbound.ts` (troca o `routeNothing`), `messages.ts` (todos os textos pt-BR), `DevMessageSender` (recusa `NODE_ENV=production`), composição do worker com os papéis `app_ingest` e `app`, `CHANNEL_MODE` e `SUPPORT_CONTACT` no env.
-- `whatsapp`: `buildTextWebhookPayload`, no mesmo formato das fixtures (inclui `context` de reply e `from_user_id`).
-- Chat de desenvolvimento v1 (`apps/api/src/dev`): `/como`, `/sair`, texto livre; `/reply` e `/custo` (E7), `/audio` e `/foto` (E9) respondem que ainda não existem.
-
-**Decisões desta etapa (suas):** em 2 restaurantes vale o vínculo mais antigo (a confirmação da E7 deve citar o nome do restaurante); opt-in na primeira mensagem de número cadastrado, em tabela por tenant; `desfazer` provisório ("Ainda não há nada para desfazer.") e `ajuda` real; fora do escopo por conteúdo fica para a E6 (intent `out_of_scope`), a E5 só recusa tipo não suportado; desativação em `memberships.deactivated_at`; suporte como placeholder genérico até haver contato; textos do rascunho aprovados; seed de dev separado.
-
-**Padrões adotados (conferir):**
-- Desativado e desconhecido recebem exatamente a mesma resposta (não revela que o cadastro existe).
-- Texto vazio conta como tipo não suportado. Áudio e foto vão para o ramo de extração.
-- Comando vence reply: "desfazer" respondendo a uma confirmação continua sendo comando (a E7 decide se desfaz aquele lançamento).
-- Reply a mensagem nossa que não é confirmação (ajuda, aviso) não vira correção.
-- Reply a uma confirmação antiga aciona a correção **daquela** confirmação, não da última.
-- Resposta sempre para o número com o 9º dígito; o `wa_id` recebido pode vir sem.
-- Número de outro país: recebe a resposta de desconhecido.
-- Erro de envio sobe e o job é retentado. Como o envio acontece antes do `markProcessed`, um retry depois de enviar pode repetir a resposta; a E7 deve tornar o envio idempotente por (mensagem de origem, finalidade).
-- Opt-in: sem revogação por enquanto. `unique (tenant, user)` impede duplicar; opt-out e novo opt-in entram na E10.
-
-**Conferido na documentação da Meta (28/10/2026):** a política exige opt-in e deixa o método e a prova por conta da empresa; a automação exige saída para humano. A página **não** traz a regra de "IA de propósito geral proibida" que o plano cita (deve estar nos termos de soluções de negócio): tratamos a recusa fora do escopo como decisão nossa, não verificada.
-
-**Como testar à mão**
-1. `docker compose up -d`, `pnpm db:migrate` e `pnpm db:seed:dev` (com `DATABASE_ADMIN_URL` definida; o `db:migrate` não lê o `.env`).
-2. `.env` com `WHATSAPP_APP_SECRET` e `DATABASE_INGEST_URL`. Terminal 1: `pnpm dev`. Terminal 2: `pnpm dev:worker`. Terminal 3: `pnpm dev:chat`.
-3. No chat: `ajuda` (texto de ajuda), `desfazer` (provisório), `paguei 350 de carne` (nota "sem resposta, IA na E6"), `/como 11900000000` + `oi` (número desconhecido), `/como 551187650001` + `ajuda` (sem o 9º dígito), `/como 11987650005` + `ajuda` (desativado: mesma resposta do desconhecido), `/como 11987650004` (em 2 restaurantes).
-4. Conferir: `select status, tenant_id from inbound_messages order by received_at desc` e `select count(*) from whatsapp_opt_ins`.
-
-**Pendências da E5**
-- [ ] Revisar os textos de `messages.ts` com o Matheus e definir o `SUPPORT_CONTACT` real.
-- [ ] Confirmar a regra do "tenant mais antigo" quando o piloto tiver usuário em dois restaurantes.
-- [ ] Opt-out/revogação do opt-in e prova de consentimento no cadastro de usuários (E10 e F-etapa de usuários).
-- [ ] Idempotência do envio de resposta (E7).
-- [ ] Confirmar a regra de "IA de propósito geral" da Meta antes da E10.
-
-**Ajustes pelos requisitos v1.0** (29/10/2026):
-- Entregou parte de RF11 (R5 a R9), RF19 (`ajuda`, tipo não suportado) e RF05.R8 e R9. Os textos do `messages.ts` são os rascunhos de RF11.R8 e RF19; a revisão é do Matheus (`[PROVISÓRIO – P08]`).
-- `desfazer` provisório ("Ainda não há nada para desfazer.") **não** é o RF18; o comportamento real (últimas 24 h, reply, ordem inversa) entra na E7 (DE-09).
-- O reply a confirmação antiga já aciona a confirmação certa (RF17.R1); a correção em si é E7.
-- Faltam: atribuição à empresa citada no texto (RF11.R5), comandos `cancelar`, `trocar unidade`, `trocar empresa`, `suporte` (E7), `parar` e `voltar` com revogação do opt-in (E10, P14).
-- O ramo de pergunta pendente só roteia (o handler responde nada até a E7). Cancelar a pergunta quando chega um lançamento novo, com aviso, é RF15.R6: E7.
-
-### E6: Extração por IA (texto) — G
-
-**Objetivo:** texto livre → `ExtractionResult` validado, barato e medido.
-
-**Entrega os requisitos:** RF12 (R1 a R20: interpretação, campos, datas, valores, vários lançamentos, essenciais `[PROVISÓRIO – P04]`), RF15.R1 e R2 (rascunho e pergunta única), RF21.R2 (parte), RNF07 e RNF08. Regras acrescentadas pelos requisitos v1.0 que esta etapa precisa cumprir: datas futuras recusadas pelo WhatsApp (RF12.R2), "cartão" sem especificar usa a forma de cartão padrão (RF12.R8), conferência de quantidade × preço × total com diferença acima de R$ 0,01 gerando pergunta (RF12.R5), sinais de revisão CATEGORIA_A_REVISAR e DATA_ANTIGA (RF12.R6 e R13), descrição sem CPF nem número de cartão (RF12.R3), contexto só da empresa da mensagem (RF12.R18). Critérios: RF12.CA01 a CA10.
-
-**Entregas**
-- **Schema `ExtractionResult`** (em `core`): intenção (`register` | `out_of_scope` | `unclear`), lista de lançamentos, e, quando faltar algo essencial, a pergunta e os campos faltantes. A IA **extrai**, não calcula: o schema aceita `quantity`, `unit_price_cents` e `total_cents`, e o sistema valida a consistência e recalcula.
-- **Prompt de função específica** (extração de lançamento financeiro, nunca assistente geral). Sem instrução do tipo "responda qualquer pergunta".
-- **Montagem do contexto por tenant:** categorias, fornecedores frequentes, unidades, formas de pagamento. Esse bloco é estável por tenant.
-- **Cache de prompt:** regras do sistema e contexto do tenant **antes** do ponto de cache; a mensagem e a data de hoje **depois** (a data muda todo dia e invalidaria o prefixo). Verificar por `usage.cache_read_input_tokens`. O tamanho mínimo cacheável depende do modelo ⚠️.
-- `ClaudeEntryExtractor`: structured outputs (D1), `effort` explícito e baixo para extração, `max_tokens` folgado, **sem `temperature`**, tratamento de `stop_reason` (`refusal`, `max_tokens`) e de JSON inválido (uma nova tentativa com o erro; se persistir, pergunta ao usuário).
-- **Roteamento Haiku → Sonnet** por sinais determinísticos (saída inválida, intenção `unclear`, mensagem longa, foto difícil), não pela "confiança" que o próprio modelo declara.
-- **Presunções** aplicadas pelo sistema, não pela IA: data de hoje, unidade padrão, categoria e forma de pagamento sugeridas pelo histórico.
-- `pending_questions` com expiração.
-- **`ai_usage`** por chamada: tokens de entrada, saída, leitura e escrita de cache, modelo, custo estimado calculado com `pricing.ts` versionado (preços em arquivo, não no código espalhado).
-
-**Testes**
-- Unitário/contrato: `ExtractionResult` aceita e rejeita os casos certos; cálculo de custo com valores conhecidos.
-- Com `FakeEntryExtractor`: o orquestrador trata saída inválida, recusa, `max_tokens` e fallback para o Sonnet.
-- Ao vivo (gated, ver E8): dataset real contra o modelo.
-- Teste do builder de prompt: o prefixo cacheável é idêntico entre duas mensagens do mesmo tenant (nada volátil antes do ponto de cache).
-
-**Pronto quando:** o script de linha de comando recebe 10 a 15 frases e imprime os lançamentos extraídos, com custo por mensagem.
-
-### E7: Fluxo de lançamento e confirmação — M
-
-**Objetivo:** do `ExtractionResult` ao lançamento gravado e confirmado.
-
-**Entrega os requisitos:** RF12 (gravação: R11 a R15, canal de origem e sinais), RF10 (fornecedores criados a partir dos lançamentos), RF15 (pergunta única, validade de 24 h, mensagem nova cancela a pergunta com aviso, uma aberta por colaborador), RF16 (confirmação, **envio idempotente**, ver RF16.Obs1 e P14), RF17 (correção por reply), RF18 (**desfazer**: última mensagem nas últimas 24 h, como reply desfaz aquela confirmação, de novo desfaz o anterior; ver RF18.R1 a R6), RF19 (`cancelar`, `trocar unidade`, `trocar empresa`, `suporte`; aviso de falha definitiva, RF19.R4), RF09.R4 (canal APLICATIVO substitui a taxa da forma, `[PROVISÓRIO – P06]`), RF11.R5 (empresa citada no texto). Taxa só em receitas (RF08.R3). `entry_versions` ganha a ação de restauração (RF25.R4). Textos de confirmação são provisórios até a revisão do Matheus (`[PROVISÓRIO – P08]`). Critérios: RF15.CA01 a CA04, RF16.CA01 a CA04, RF17.CA01 a CA05, RF18.CA01 a CA05, RF19.CA01 a CA05.
-
-**Entregas**
-- Caso de uso `RegisterEntries`: valida, calcula taxa e líquido no `core`, grava `entries`, `entry_versions` e `ai_usage` **na mesma transação**, guarda `inbound_message_id` como origem.
-- Mensagem de confirmação no formato padrão (textos do Matheus), com o que foi registrado e como corrigir. Guarda o `wa_message_id` da resposta para permitir correção por reply.
-- Pergunta de volta (`pending_questions`) e retomada quando o usuário responde.
-- `UndoEntry` (`desfazer`) e `CorrectEntry` (reply), ambos gerando versão.
-- Vários lançamentos por mensagem, com confirmação agrupada.
-
-**Testes:** ponta a ponta do canal (fixture de webhook → banco → saída do `FakeMessageSender`); desfazer duas vezes; corrigir um lançamento antigo; erro no meio da transação não deixa lançamento pela metade; permissão negada.
-
-**Pronto quando:** a mensagem digitada no `pnpm dev:chat` vira lançamento com versão e origem, e a confirmação aparece no próprio chat. (Pelo celular, só na E10.)
-
-### E8: Evals e qualidade da IA — M (contínuo)
-
-**Objetivo:** saber, com número, se a IA está melhorando ou piorando.
-
-**Entrega os requisitos:** RNF07 (conjunto de avaliação, métricas por campo e por lançamento, meta do piloto de 90% sem correção e 98% de valor e tipo corretos, bloqueio de mudança que piora; ver RNF07.R1 a R5 e CA01), mais RF13.CA05 (áudios de cozinha) quando a E9 existir.
-
-**Entregas**
-- Dataset em JSONL versionado: mensagem de entrada, contexto do tenant, resultado esperado, categoria do caso (fácil, ambíguo, fora de escopo, erro de digitação, vários lançamentos).
-- Começa com 30+ casos próprios inventados e troca pelos reais coletados pelo Matheus. Mensagens reais são anonimizadas antes de entrar no repositório.
-- Runner que mede **por campo** (tipo, valor, data, categoria, pagamento, fornecedor), **por lançamento** (acerto exato), precisão e revocação da pergunta de volta (perguntou quando devia, não perguntou quando não devia), taxa de recusa correta de fora de escopo, custo por mensagem e latência p50/p95.
-- Baseline salvo; o CI falha se o acerto cair além da tolerância definida.
-- Execução em lote para barateá-la ⚠️ (a Batch API roda de forma assíncrona com custo menor; confirmar disponibilidade e preço atuais).
-- Processo para mudar prompt: rodar eval antes e depois, registrar no PR.
-
-**Antes de construir o runner:** definir com você o método de correção e o custo aceitável por rodada, e pedir sua aprovação (cada rodada contra o modelo real custa dinheiro).
-
-**Pronto quando:** existe uma taxa de acerto de referência e o CI a protege. Meta do piloto (TODOLIST): acima de 90%.
-
-### E9: Áudio e foto (fase 3) — G
-
-**Entrega os requisitos:** RF13 (áudio: limite de 180 s, transcrição, trecho entendido na confirmação, retenção de 90 dias; RF13.R1 a R4), RF14 (foto: QR Code da NFC-e primeiro, leitura por IA como reserva, chave de acesso sem duplicar, itens agrupados por categoria, imagem até 5 MB; RF14.R1 a R6), RF21 (limites de mídia e de mensagens por usuário por hora, RF21.R1 e R2), RF11.Obs3 (marcar como lida e indicador de digitação). Critérios: RF13.CA01 a CA05, RF14.CA01 a CA06.
-
-**Entregas**
-- Download de mídia da Meta (obter a URL e baixar com o token; a URL é temporária) e envio ao S3 com chave por tenant. Páginas: `.../business-phone-numbers/media.md`.
-- `Transcriber` com `OpenAITranscriber` (RF13.R2 e R3); teste com **áudios reais de cozinha** (ruído, gíria). Conversão com ffmpeg se o OGG/Opus não for aceito ⚠️.
-- Reaproveitamento do fluxo de texto: a transcrição entra como texto em `inbound_messages` e segue a E6.
-- Foto: leitura do QR da NFC-e e consulta à SEFAZ (estados dos pilotos primeiro, RF14.R5); fallback para extração multimodal.
-- Limites de uso (RF21): mensagens por usuário por hora e por empresa por dia, configuráveis por plano.
-- Indicador de digitação e confirmação de leitura enquanto processa (páginas "Typing indicators" e "Read receipts" da doc da Meta).
-- Retenção de áudio de 90 dias (RF13.R4, RNF03.R4), por regra de ciclo de vida no bucket.
-
-**Testes:** áudios de exemplo com transcrição esperada (tolerância a erro de palavra); QR com fixtures gravadas da SEFAZ (contrato, sem bater no site em CI); imagem sem QR no dataset de evals; rate limit excedido responde de forma padronizada.
-
-**Pronto quando:** um áudio de 20 s e uma foto de NFC-e, enviados pelo `/audio` e `/foto` do chat de dev, viram lançamentos confirmados.
-
-#### Resultado das E6 a E9 (30/10/2026)
-
-**Entregue.** Veja as decisões DE-14 a DE-21 em [`decisoes.md`](decisoes.md) e o guia de testes manuais em [`guia-testes-e6-e9.md`](guia-testes-e6-e9.md).
-- `core`: `interpretExtraction`, `buildDrafts`, `planCorrection`, `groupReceiptEntries`, chave de acesso da NFC-e, limites de uso, comandos `cancelar` e `suporte`, portas de mídia e de lançamento. 236 testes.
-- `ai`: extrator e corretor Claude, prompts, `pricing.ts`, transcritor OpenAI, fakes, evals. 43 testes.
-- `db`: migrations 0004 (fluxo de lançamento) e 0005 (`fiscal_documents`), `EntryStore`, `UsageGuardStore`, `InboundMediaRepo`. 149 testes de integração.
-- `whatsapp`: payload simulado de mídia e `MetaMediaDownloader`.
-- `apps/api`: handlers de lançamento, correção, desfazer, áudio e foto; limites de uso; aviso de falha definitiva; chat com `/reply`, `/custo`, `/audio`, `/foto`. 124 testes unitários e 80 de integração.
-
-**Pendências (E10 em diante).** S3 e ciclo de vida de 90 dias do áudio; consulta real à SEFAZ (estado do piloto); `trocar unidade`, `trocar empresa` e empresa citada no texto (E11); eval no CI; casos reais para o eval; preço do `gpt-transcribe`; textos a revisar com o Matheus (P08); lista de quantidade essencial (P04); revogação do opt-in (E10).
+### 6.1 Etapas feitas (E1 a E9)
+
+O planejamento detalhado dessas etapas (entregas previstas, testes, "pronto quando") foi cumprido e saiu deste arquivo em 04/11/2026; está no histórico do git. Fica aqui o que foi entregue. As decisões tomadas estão em [`decisoes.md`](../decisoes.md) (DE-01 a DE-21), as **pendências abertas** em [`andamento.md`](andamento.md), seção 5, e o roteiro de teste à mão em [`guia-testes-manuais.md`](guia-testes-manuais.md).
+
+| Etapa | O que entregou | Decisões |
+|---|---|---|
+| **E1** Núcleo (`core`) | `Money` em centavos, `formatBRL`, taxa e líquido com arredondamento meio-para-cima, `Entry` com versão e soft delete, papéis `owner`/`manager`/`staff` e `can()`, categoria sensível (folha), telefone com e sem o 9º dígito, `Result` e erros nomeados | DE-01 |
+| **E2** Banco (`db`) | 14 tabelas, RLS com `FORCE`, `withTenant`, papéis `app` (sem BYPASSRLS), `app_ingest` e admin, meta-teste de RLS por tabela, seed de categorias provisórias | D2, DE-02 |
+| **E3** Webhook | `GET/POST /webhooks/whatsapp`, assinatura sobre os bytes brutos, `bodyLimit` acima de 3 MB, gravação idempotente por `wa_message_id`, `whatsapp_status_events` (0002), fila `process-inbound`. **Ressalva:** sem mensagem real do celular (P15) | D3, DE-03 a DE-05 |
+| **E4** Fila | `worker.ts` separado, 5 retentativas com backoff, DLQ de 14 dias, lote de 5, transições de estado guardadas, desligamento limpo, `pino` com `redact` | DE-06 |
+| **E5** Identificação | `resolveSender` e `decideRoute` puros no `core`, roteador no worker, `outbound_messages`, `whatsapp_opt_ins` e `memberships.deactivated_at` (0003), `messages.ts` com os textos, `pnpm dev:chat` e `pnpm db:seed:dev` | D7, DE-07 a DE-13 |
+| **E6** Extração por IA | `ClaudeEntryExtractor` (Haiku 5.5, saída estruturada, `effort` baixo, cache de prompt, Sonnet 5.5 por sinais objetivos), `interpretExtraction` e `buildDrafts` no `core`, `ai_usage` com `pricing.ts`, `pnpm --filter @app/ai extract` | D1, D5, D6, DE-14, DE-15 |
+| **E7** Lançamento | `EntryStore`, confirmação enviada uma vez por origem, pergunta de volta (uma aberta por colaborador, 24 h), correção por reply (`CorrectionExtractor`), `desfazer`, `cancelar`, `suporte`, aviso de falha definitiva, taxa só em receita (0004) | DE-16 a DE-19 |
+| **E8** Evals | 39 casos em JSONL, métricas por campo e por lançamento, precisão e revocação da pergunta, custo e latência, `baseline.json`, trava de orçamento | — |
+| **E9** Áudio e foto | Download da Meta em 2 passos, ffmpeg para MP3, `gpt-transcribe`, limite de 180 s, QR da NFC-e com chave única por empresa (`fiscal_documents`, 0005), itens agrupados por categoria, limites de uso (RF21), lida e digitando. **Ressalva:** só testado com simulação | DE-20, DE-21 |
+
+**Ajustes que os requisitos v1.0 (29/10/2026) pediram nas etapas feitas** e que ainda não foram feitos estão todos na E11 (papéis, permissões adicionais, unidades de acesso, campos) e na E10 (`parar`, `voltar`, cotas, janela de 24 h).
+
+**Contexto do Claude criado nas etapas:** `.claude/rules/pg-boss.md`, `testes.md`, `tabela-nova.md`, skill `novo-worker-pgboss`, subagentes `explorador`, `buscador-requisitos` e `verificador`, `CLAUDE.md` do chat de desenvolvimento. Propostas da E3 ainda não aprovadas: regra `webhook.md`, skill `novo-fixture-whatsapp`, subagente `revisor-seguranca`, hook que bloqueia editar migration já commitada.
+
+### 6.2 Etapas a fazer
 
 ### E10: Envio real, operação e produção do canal — M
 
@@ -636,7 +334,7 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 
 ### E11: Modelo de dados dos requisitos (papéis, unidades de acesso e campos) — M/G
 
-**Etapa nova (29/10/2026).** Fecha, no `core` e no `db`, as divergências listadas em `arquitetura.md` ("Divergências entre o modelo de dados atual e os requisitos") que o canal precisa para cumprir as regras. Pode andar junto da E6; as partes de tela ficam em F2 e F6 do plano do painel.
+**Etapa nova (29/10/2026).** Fecha, no `core` e no `db`, as divergências listadas em `arquitetura.md` ("Divergências entre o modelo de dados atual e os requisitos") que o canal precisa para cumprir as regras. É a próxima etapa do canal (a E10 está bloqueada pela Meta); as partes de tela ficam em F2 e F6 do plano do painel.
 
 **Entrega os requisitos:**
 - RF06 e RF05.R7: quarto papel `accountant` reservado, permissões adicionais (VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP) em `memberships.permissions`, categoria sensível visível para quem tem VER_FOLHA, e a **matriz da seção 2.3 como teste** (RF06.CA06).
@@ -675,7 +373,7 @@ Os requisitos transversais estão em `requisitos.md`; aqui só a relação com a
 
 - **Segurança:** RNF01 (assinatura sempre validada sobre os bytes, segredos em tempo constante e só em variáveis de ambiente, auditoria de dependências).
 - **LGPD:** RNF03 (retenção, minimização, portabilidade) e RF37 (encerramento). O texto jurídico vem do advogado.
-- **Política da Meta:** RNF12. Ver `docs/politica-meta-whatsapp.md`.
+- **Política da Meta:** RNF12. Ver [`politica-meta-whatsapp.md`](../politica-meta-whatsapp.md).
 - **Custo:** RNF08 (`ai_usage` desde a E6, custo por mensagem acompanhado, alerta acima do valor de referência).
 - **Observabilidade mínima desde a E3:** RNF11 (log estruturado com `wa_message_id`, tenant e duração, nunca o conteúdo).
 
@@ -697,11 +395,11 @@ Os requisitos transversais estão em `requisitos.md`; aqui só a relação com a
 ```
 E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6 ─► E7 ─► E8 (contínuo)
                             │     └──────────► E9 ─► E10
-                            └─► E11 (junto da E6, antes da E7)
+                            └─► E11 (próxima; a E7 foi feita antes, ver DE-17)
                                          E10 ─► (piloto) ─► E12, E13 (v1.1)
 ```
 
-- E11 precisa estar pronta antes de a E7 gravar lançamentos com unidade de acesso, sinais de revisão e permissões novas.
+- A E7 foi feita antes da E11: o que dependia das unidades de acesso (`trocar unidade`, `trocar empresa`, empresa citada no texto) ficou para a E11 (DE-17). Ao fazer a E11, revisar o fluxo de lançamento para usar a lista de unidades, os sinais de revisão e as permissões novas.
 - E12 e E13 são da v1.1; os resumos predefinidos da E12 podem ser antecipados (P10).
 - Pendências P01 a P11 não bloqueiam nenhuma etapa (DN-11).
 - E1 e E2 não dependem de nada externo.

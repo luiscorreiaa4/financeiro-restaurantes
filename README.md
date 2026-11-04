@@ -4,16 +4,17 @@ Controle financeiro gerencial para restaurantes pequenos e médios, com lançame
 
 ## Documentação
 
-Cada documento tem um papel. Em conflito, vale a ordem da lista (do mais forte para o mais fraco).
+O índice completo, com o papel de cada arquivo e para quem ele é, está em [`docs/README.md`](docs/README.md). Em conflito, vale a ordem da lista (do mais forte para o mais fraco).
 
 - [`docs/requisitos.md`](docs/requisitos.md): **o quê** e as regras de negócio (38 requisitos funcionais, 14 não funcionais, matriz de permissões, pendências). Fonte da verdade. Busque por `### RFnn`.
 - [`docs/decisoes.md`](docs/decisoes.md): **por quê**, o registro de decisões
 - [`docs/arquitetura.md`](docs/arquitetura.md): **como**, a parte técnica: stack, fluxo, modelo de dados e divergências em relação aos requisitos
-- [`docs/planejamento.md`](docs/planejamento.md): visão de produto e de negócio (problema, público, custos, validação, riscos)
-- [`docs/mvp.md`](docs/mvp.md): escopo por fase, organizado por requisito (MVP, v1.1, Fase 2)
-- [`docs/plano-dev-canal-whatsapp.md`](docs/plano-dev-canal-whatsapp.md): ordem de execução do canal WhatsApp, em 13 etapas (E1 a E13)
-- [`docs/plano-dev-frontend.md`](docs/plano-dev-frontend.md): ordem de execução do painel web, em 11 etapas (F0 a F10)
-- [`TODOLIST.md`](TODOLIST.md): tarefas e responsáveis (as pendências do Matheus apontam para P01 a P11)
+- [`docs/produto.md`](docs/produto.md): visão de produto e de negócio (problema, público, custos, validação, riscos)
+- [`docs/escopo-por-fase.md`](docs/escopo-por-fase.md): escopo por fase, organizado por requisito (MVP, v1.1, Fase 2)
+- [`docs/planos/andamento.md`](docs/planos/andamento.md): situação do projeto, próximos passos e pendências (comece por aqui)
+- [`docs/planos/canal-whatsapp.md`](docs/planos/canal-whatsapp.md): ordem de execução do canal WhatsApp, em 13 etapas (E1 a E13)
+- [`docs/planos/painel.md`](docs/planos/painel.md): ordem de execução do painel web, em 11 etapas (F0 a F10)
+- `docs/planos/matheus.md` e `docs/planos/luis.md`: tarefas de cada sócio (locais, fora do git)
 - [`CLAUDE.md`](CLAUDE.md): regras e convenções do repositório (lido automaticamente pelo Claude Code)
 
 ## Módulos e nomes
@@ -22,14 +23,14 @@ Dois módulos de produto, cada um com um plano. Os nomes abaixo são os usados n
 
 | Módulo | O que é | Onde vive no código | Plano | Fases do MVP |
 |---|---|---|---|---|
-| **Canal WhatsApp** | Caminho completo da mensagem até o lançamento gravado: webhook, fila, identificação do usuário, **IA** (extração e transcrição), gravação com versão e origem, confirmação | `apps/api`, `packages/whatsapp`, `packages/ai`, `packages/core`, `packages/db` | `plano-dev-canal-whatsapp.md` | 1, 2, 3 e parte da 5 |
-| **Painel web** | Consulta, edição e exportação dos lançamentos, dashboard, configurações | `apps/web` (e os endpoints do painel em `apps/api`) | `plano-dev-frontend.md` | 4 e parte da 5 |
+| **Canal WhatsApp** | Caminho completo da mensagem até o lançamento gravado: webhook, fila, identificação do usuário, **IA** (extração e transcrição), gravação com versão e origem, confirmação | `apps/api`, `packages/whatsapp`, `packages/ai`, `packages/core`, `packages/db` | `planos/canal-whatsapp.md` | 1, 2, 3 e parte da 5 |
+| **Painel web** | Consulta, edição e exportação dos lançamentos, dashboard, configurações | `apps/web` (e os endpoints do painel em `apps/api`) | `planos/painel.md` | 4 e parte da 5 |
 
 Por que "canal WhatsApp" e não "chat IA", "API" ou "AI": a IA é só um passo do caminho (`packages/ai`), e `apps/api` serve também o painel. O canal é o conjunto todo.
 
 Etapas: `E1` a `E13` são do canal WhatsApp, `F0` a `F10` são do painel. Cada plano tem uma tabela de progresso no topo e lista os requisitos (RFs) que cada etapa entrega.
 
-**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, criado na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/plano-dev-canal-whatsapp.md`, seção 3.6.
+**Testar sem WhatsApp:** durante o desenvolvimento, o canal e a IA são testados por um chat de terminal (`pnpm dev:chat`, criado na E5), só para teste e sem interface visual. O WhatsApp real é configurado no fim do desenvolvimento (E10), quando a Meta estiver liberada. Ver `docs/planos/canal-whatsapp.md`, seção 3.6.
 
 ## Estrutura do repositório
 
@@ -126,11 +127,11 @@ Entrar na pasta do módulo antes de abrir o Claude só vale para uma tarefa isol
 O Claude Code lê o `CLAUDE.md` sozinho, mas **não** lê os planos sozinho. Diga qual módulo e peça a próxima etapa:
 
 ```text
-Leia o CLAUDE.md e docs/plano-dev-canal-whatsapp.md e execute a próxima etapa pendente.
+Leia o CLAUDE.md e docs/planos/canal-whatsapp.md e execute a próxima etapa pendente.
 ```
 
 ```text
-Leia o CLAUDE.md e docs/plano-dev-frontend.md e execute a próxima etapa pendente.
+Leia o CLAUDE.md e docs/planos/painel.md e execute a próxima etapa pendente.
 ```
 
 Ao concluir uma etapa, atualize a tabela de progresso do plano e o campo "Atualizado em". Antes de dar uma etapa por pronta, rode `pnpm typecheck && pnpm lint && pnpm test`.

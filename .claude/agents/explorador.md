@@ -15,7 +15,7 @@ Mapa do monorepo (para buscar direto no lugar certo):
 - `packages/ai/` — prompts, schemas de extração, clientes de LLM e transcrição, evals.
 - `packages/whatsapp/` — cliente da Cloud API da Meta, parsing de webhooks, templates.
 - `packages/config/` — tsconfig, biome e env compartilhados.
-- `docs/` — requisitos, decisoes, arquitetura, planejamento, mvp e `plano-dev-*.md`.
+- `docs/` — referência permanente (requisitos, decisoes, arquitetura, produto, escopo-por-fase); `docs/planos/` — andamento, planos de etapas (`canal-whatsapp.md`, `painel.md`) e guia de testes. Índice em `docs/README.md`.
 - `.claude/` — rules, skills, hooks e agents do projeto.
 
 Regras de busca:

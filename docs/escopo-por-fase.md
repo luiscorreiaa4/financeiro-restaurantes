@@ -1,12 +1,12 @@
 # Escopo por fase
 
-> **Papel deste documento:** diz **o que entra em cada fase**, organizado por requisito (RF). Não repete regra: a regra de cada item está em [`requisitos.md`](requisitos.md). A ordem de execução e as etapas estão nos planos [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md) (E1 a E13) e [`plano-dev-frontend.md`](plano-dev-frontend.md) (F0 a F10).
+> **Papel deste documento:** diz **o que entra em cada fase**, organizado por requisito (RF). Não repete regra: a regra de cada item está em [`requisitos.md`](requisitos.md). A ordem de execução e as etapas estão nos planos [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md) (E1 a E13) e [`planos/painel.md`](planos/painel.md) (F0 a F10).
 
 **Objetivo da v1 (MVP):** lançamento pelo WhatsApp 100% funcional e um painel web (PWA) com lançamentos editáveis, gráficos simples e exportação. Tudo o que não está marcado MVP fica para a v1.1 ou a Fase 2.
 
 Legenda: `[x]` feito · `[~]` feito em parte (a nota diz o que falta) · `[ ]` a fazer. Fases: **MVP** (primeira versão, usada no piloto), **v1.1** (logo depois), **Fase 2** (depende de validação ou integração externa). Etapas: E = canal WhatsApp, F = painel.
 
-Atualizado em 29/10/2026.
+Atualizado em 04/11/2026 (E6 a E9 marcadas).
 
 ## Fundação (Fase 0)
 
@@ -33,22 +33,22 @@ Atualizado em 29/10/2026.
 - [~] **RF07** Plano de categorias: categorias padrão provisórias no seed (E2); faltam Exige Quantidade, palavras de apoio, status, subcategorias da empresa (E11, F6) **[PROVISÓRIO – P01, P02, P05]**
 - [~] **RF08** Formas de pagamento e taxas: tabela e cálculo de taxa e líquido existem (E1, E2); faltam tipo, apelidos, status, cartão padrão e a tela (E6, F6) **[PROVISÓRIO – P07]**
 - [~] **RF09** Canais de venda e comissões: tabela existe (E2); falta tipo, apelidos, a regra APLICATIVO × forma de pagamento e a tela (E7, F6) **[PROVISÓRIO – P06, P07]**
-- [ ] **RF10** Fornecedores (criação automática, mesclagem): E7, F6
+- [~] **RF10** Fornecedores: criação automática a partir do lançamento existe (E7); faltam mesclagem e a tela (F6)
 
 ### Canal WhatsApp
 
-- [~] **RF11** Identificação do remetente e consentimento: webhook, assinatura, idempotência, identificação por telefone, resposta a desconhecido, opt-in e roteamento (E3 a E5); faltam atribuição por empresa citada no texto e janela de 24 h (E7, E10). O teste com mensagem real depende de P15
-- [ ] **RF12** Lançamento por mensagem de texto: extração (E6) e gravação (E7)
-- [ ] **RF13** Lançamento por áudio: E9
-- [ ] **RF14** Lançamento por foto de cupom ou nota (QR Code da NFC-e primeiro): E9
-- [ ] **RF15** Pergunta de volta: E6 (rascunho) e E7
-- [ ] **RF16** Confirmação do lançamento (envio idempotente): E7
-- [ ] **RF17** Correção por resposta (reply): E7
-- [ ] **RF18** Desfazer lançamento: E7 (a E5 tem só uma resposta provisória)
-- [~] **RF19** Comandos, ajuda, suporte e fora do escopo: `ajuda`, tipo não suportado e recusa de remetente existem (E5); faltam `cancelar`, `trocar unidade`, `trocar empresa`, `suporte` (E7) e `parar` e `voltar` (E10) **[PROVISÓRIO – P08]**
-- [ ] **RF21** Limites de uso e proteção contra abuso: limites de mídia em E9, mensagens por hora e por dia e cota mensal em E10 **[PROVISÓRIO – P03]**
-- [ ] **RNF07** Evals de qualidade da IA com meta de acerto: E8
-- [~] Chat de desenvolvimento no terminal (`pnpm dev:chat`): texto, `/como` e `/sair` existem (E5); `/reply` e `/custo` (E7), `/audio` e `/foto` (E9)
+- [~] **RF11** Identificação do remetente e consentimento: webhook, assinatura, idempotência, identificação por telefone, resposta a desconhecido, opt-in e roteamento (E3 a E5); faltam atribuição por empresa citada no texto (E11) e janela de 24 h (E10). O teste com mensagem real depende de P15
+- [x] **RF12** Lançamento por mensagem de texto: extração (E6) e gravação (E7). Lista de quantidade essencial provisória **[PROVISÓRIO – P04]**
+- [~] **RF13** Lançamento por áudio: transcrição e limite de 3 min (E9); faltam teste com áudio real, S3 e retenção de 90 dias (E10)
+- [~] **RF14** Lançamento por foto de cupom ou nota: leitura por IA, QR da NFC-e sem duplicar, itens por categoria (E9); faltam a consulta à SEFAZ e o teste com foto real
+- [~] **RF15** Pergunta de volta: feita (E6, E7); falta um job que feche as perguntas vencidas (RF15.R4)
+- [x] **RF16** Confirmação do lançamento, enviada uma vez por mensagem de origem (E7). Textos provisórios **[PROVISÓRIO – P08]**
+- [x] **RF17** Correção por resposta (reply): E7
+- [x] **RF18** Desfazer lançamento: E7
+- [~] **RF19** Comandos, ajuda, suporte e fora do escopo: `ajuda`, tipo não suportado e recusa de remetente existem (E5); `cancelar` e `suporte` (E7); faltam `trocar unidade`, `trocar empresa` (E11) e `parar` e `voltar` (E10) **[PROVISÓRIO – P08]**
+- [~] **RF21** Limites de uso: mídia, mensagens por hora e por dia existem (E9); faltam cota mensal de consultas e alerta de custo (E10) **[PROVISÓRIO – P03]**
+- [~] **RNF07** Evals da IA: 39 casos e baseline (E8); faltam casos reais e rodar no CI
+- [x] Chat de desenvolvimento no terminal (`pnpm dev:chat`): texto, `/como`, `/reply`, `/custo`, `/audio`, `/foto` e `/sair`
 
 ### Painel
 
@@ -100,7 +100,7 @@ Antes dos requisitos, o trabalho era dividido em fases numeradas. A tabela liga 
 |---|---|---|
 | 0 | Fundação | feita (falta só rodar o CI) |
 | 1 | Domínio e banco | E1, E2 (feitas); ajustes em E11 |
-| 2 | WhatsApp: recebimento e texto | E3 a E5 (feitas), E6 a E8 |
-| 3 | Áudio e foto | E9 |
+| 2 | WhatsApp: recebimento e texto | E3 a E8 (feitas) |
+| 3 | Áudio e foto | E9 (feita, sem teste com mídia real) |
 | 4 | Painel web | F0 a F8 |
 | 5 | Pronto para piloto | E10, F8, F9, F10 |

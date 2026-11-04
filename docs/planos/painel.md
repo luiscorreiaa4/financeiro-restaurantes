@@ -1,8 +1,8 @@
 # Plano de desenvolvimento: painel web (frontend)
 
-> **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](decisoes.md) e a técnica em [`arquitetura.md`](arquitetura.md). Em conflito, vale `requisitos.md`.
+> **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 29/10/2026 (alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/mvp.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/plano-dev-canal-whatsapp.md`.
+Atualizado em 29/10/2026 (alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -55,7 +55,7 @@ Legenda de confiança, usada em todo o documento:
 3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.**
 4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
 
-**Decisões:** D-F1 a D-F7 e as decisões novas de 29/10/2026 (DN-01 a DN-12) estão em [`decisoes.md`](decisoes.md). Este plano cita o ID em vez de repetir a explicação. D-F5 e D-F6 foram **ampliadas** em 29/10/2026 (senha ou código; lançamento manual é o RF26 da v1.1).
+**Decisões:** D-F1 a D-F7 e as decisões novas de 29/10/2026 (DN-01 a DN-12) estão em [`decisoes.md`](../decisoes.md). Este plano cita o ID em vez de repetir a explicação. D-F5 e D-F6 foram **ampliadas** em 29/10/2026 (senha ou código; lançamento manual é o RF26 da v1.1).
 
 **Prazo (ajuste seu, 27/10/2026):** F0 a F2 juntas, de 2 a 3 semanas (8 a 15 dias úteis), não 3,5 a 5,5.
 
@@ -172,7 +172,7 @@ Regras: `features/*` não importam umas das outras; o que for comum sobe para `l
 
 ## 4. Decisões
 
-A explicação de cada decisão (motivo, onde vale e situação) está em [`decisoes.md`](decisoes.md), seção 2. Aqui fica só o índice, para os trechos deste plano que citam o ID.
+A explicação de cada decisão (motivo, onde vale e situação) está em [`decisoes.md`](../decisoes.md), seção 2. Aqui fica só o índice, para os trechos deste plano que citam o ID.
 
 | ID | Tema | Situação |
 |---|---|---|

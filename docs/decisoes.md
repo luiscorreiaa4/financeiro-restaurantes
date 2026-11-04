@@ -8,7 +8,7 @@ Legenda de situação: **Vigente** · **Vigente (recomendação)** quando ainda 
 
 ## 1. Canal WhatsApp (D1 a D7)
 
-Origem: seção 4 de [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md).
+Origem: seção 4 de [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md).
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
@@ -22,7 +22,7 @@ Origem: seção 4 de [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md
 
 ## 2. Painel (D-F1 a D-F7)
 
-Origem: seção 4 de [`plano-dev-frontend.md`](plano-dev-frontend.md).
+Origem: seção 4 de [`planos/painel.md`](planos/painel.md).
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
@@ -36,7 +36,7 @@ Origem: seção 4 de [`plano-dev-frontend.md`](plano-dev-frontend.md).
 
 ## 3. Decisões das etapas já feitas
 
-Origem: seções "Resultado" de cada etapa em [`plano-dev-canal-whatsapp.md`](plano-dev-canal-whatsapp.md).
+Origem: seções "Resultado" de cada etapa em [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md).
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
@@ -78,5 +78,5 @@ Tomadas com os sócios ao elaborar o [`requisitos.md`](requisitos.md).
 | DN-08 | 29/10/2026 | O modelo de dados precisa refletir novos campos e regras (unidade, categoria, lançamento, recorrências, importações, assinatura, painel interno). Nenhuma mudança de schema nesta rodada; as divergências estão listadas em `arquitetura.md`. | Os requisitos v1.0 vão além do schema da E2. | RF04, RF07, RF12, RF33, RF35, RF37, RF38 | Vigente |
 | DN-09 | 29/10/2026 | **Regras do canal** que valem nas etapas E6 a E9: "desfazer" desfaz a última mensagem do usuário nas últimas 24 h (como reply, desfaz aquela confirmação); pergunta pendente vale 24 h e mensagem nova de lançamento a cancela com aviso; comandos ajuda, desfazer, cancelar, trocar unidade, trocar empresa, parar, voltar e suporte; limites de 180 s de áudio, 5 MB de imagem, 60 mensagens por hora por usuário, 1.000 por dia por empresa e cota mensal de consultas; datas futuras recusadas pelo WhatsApp; "cartão" sem especificar usa a forma de cartão padrão da empresa; taxa só em receitas; canal APLICATIVO com comissão substitui a taxa da forma de pagamento; envio idempotente da confirmação. | Reduz erro de lançamento, custo de IA e abuso; mantém a regra "salvar direto, confirmar sempre". | RF15, RF18, RF19, RF21, RF12.R2, RF12.R8, RF08, RF09, RF16.Obs1 | Vigente (limites provisórios: P03) |
 | DN-10 | 29/10/2026 | **Painel**: lixeira visível por 30 dias; exportação em XLSX e CSV (`;` e UTF-8 com BOM), link válido por 1 hora e arquivo apagado em 7 dias; lançamento manual na v1.1 (RF26); DRE e PDF na v1.1 (RF28); indicadores do dashboard conforme RF27. | Nada é apagado de verdade; o contador abre o CSV no Excel em português sem estragar acentos. | RF24, RF29, RF26, RF28, RF27, RNF04 | Vigente |
-| DN-11 | 29/10/2026 | **Pendências do Matheus (P01 a P11)** não bloqueiam as etapas: vale a proposta do documento como padrão provisório, marcada `[PROVISÓRIO – Pxx]`, e a implementação isola esses pontos em configuração ou constante única, para trocar depois sem retrabalho. A decisão final é do Matheus. | Evita parar o desenvolvimento por decisão de negócio ainda aberta. | requisitos.md seção 5; TODOLIST | Vigente. Exceções: as que já eram bloqueio antes (P15, Meta) |
+| DN-11 | 29/10/2026 | **Pendências do Matheus (P01 a P11)** não bloqueiam as etapas: vale a proposta do documento como padrão provisório, marcada `[PROVISÓRIO – Pxx]`, e a implementação isola esses pontos em configuração ou constante única, para trocar depois sem retrabalho. A decisão final é do Matheus. | Evita parar o desenvolvimento por decisão de negócio ainda aberta. | requisitos.md seção 5; planos/matheus.md | Vigente. Exceções: as que já eram bloqueio antes (P15, Meta) |
 | DN-12 | 29/10/2026 | **Hierarquia dos documentos**: `requisitos.md` (o quê e as regras) > `decisoes.md` (por quê) > `arquitetura.md` (como) > planos (ordem de execução, sem copiar regra). O `.docx` v1.0 é um retrato e não é editado; versão nova sai do `.md` com pandoc. | Uma fonte única para as regras, sem duplicação entre planos. | CLAUDE.md, todos os `.md` | Vigente |
