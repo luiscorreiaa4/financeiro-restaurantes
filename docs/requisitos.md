@@ -2,9 +2,10 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.0 (conteúdo do Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir)
-- **Data:** 29/10/2026
+- **Versão:** 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
+- **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
 - **Responsáveis:** Luís (desenvolvimento) e Matheus (produto e contabilidade)
 
 > O `.docx` v1.0 é um retrato e não deve ser editado. Mudou regra: edite este arquivo (e suba a versão acima) depois de registrar a decisão em `decisoes.md`. Uma versão nova do `.docx` sai deste `.md` com pandoc quando os sócios pedirem.
@@ -76,6 +77,7 @@
 
 - [RF37 – Assinatura, Plano, Período de Teste e Encerramento da Conta](#rf37--assinatura-plano-período-de-teste-e-encerramento-da-conta)
 - [RF38 – Painel Interno de Operação (equipe do produto)](#rf38--painel-interno-de-operação-equipe-do-produto)
+- [RF39 – Imposto Estimado por Regime Tributário](#rf39--imposto-estimado-por-regime-tributário)
 
 **Requisitos não funcionais**
 
@@ -122,7 +124,7 @@ Protótipos de tela e fluxos detalhados (principal, alternativos e de exceção)
 
 ## 1.3 Fora do escopo
 
-- Emissão, escrituração ou conciliação fiscal de notas; apuração e pagamento de impostos.
+- Emissão, escrituração ou conciliação fiscal de notas; apuração e pagamento de impostos. (A **estimativa** gerencial de imposto, opcional, do RF39 não é apuração: não gera guia nem substitui o contador.)
 - Controle de estoque e ficha técnica de pratos (a precificação sugerida por prato é evolução futura).
 - Pagamentos, cobranças a clientes do restaurante e integração com maquininhas para captura de vendas.
 - Aplicativo nativo de loja no MVP (o painel é PWA).
@@ -136,8 +138,8 @@ Protótipos de tela e fluxos detalhados (principal, alternativos e de exceção)
 | docs/produto.md | Decisões de produto, usuários, regras, LGPD e negócio |
 | docs/arquitetura.md | Stack, decisões técnicas, fluxo e modelo de dados |
 | docs/escopo-por-fase.md | Escopo da primeira versão, por fases |
-| docs/planos/canal-whatsapp.md | Plano do canal WhatsApp (etapas E1 a E13) |
-| docs/planos/painel.md | Plano do painel (etapas F0 a F10) |
+| docs/planos/canal-whatsapp.md | Plano do canal WhatsApp (etapas E1 a E14) |
+| docs/planos/painel.md | Plano do painel (etapas F0 a F13) |
 | docs/decisoes.md | Registro de decisões (por quê) |
 | docs/politica-meta-whatsapp.md | Política da Meta para chatbots e mensagens |
 | docs/planos/andamento.md | Situação do projeto e pendências abertas |
@@ -177,6 +179,8 @@ Decisões tomadas com os sócios durante a elaboração deste documento e que co
 | **Colaborador** | Pessoa vinculada a uma empresa com um papel (Dono, Gerente, Lançador ou Contador). |
 | **Lançamento** | Registro de uma despesa ou receita, com valor, data, categoria e origem. No código: entry. |
 | **Data de competência** | Dia em que o gasto ou a venda aconteceu, usado nos relatórios. |
+| **Data de pagamento** | Dia em que o valor foi (ou será) pago ou recebido. Opcional; se não for dita, é igual à data de competência. Base do fluxo de caixa e de contas a pagar (v1.1). |
+| **Imposto estimado** | Estimativa gerencial do imposto sobre faturamento, calculada pelo sistema conforme o regime tributário e os parâmetros informados pelo dono. Nunca é apuração nem guia de pagamento. |
 | **Valor bruto, taxa e líquido** | Valor da venda, valor retido pela maquininha ou aplicativo e o que efetivamente entra (bruto − taxa). |
 | **DRE gerencial** | Demonstração do resultado simplificada: receitas, deduções, custos, despesas e resultado. |
 | **CMV** | Custo da mercadoria vendida: insumos usados para produzir o que foi vendido. |
@@ -204,7 +208,7 @@ Decisões tomadas com os sócios durante a elaboração deste documento e que co
 | **Dono** | Responsável pelo restaurante. Cria a conta, cadastra colaboradores e define hierarquias. Acesso total, inclusive folha de pagamento. | WhatsApp e painel | MVP |
 | **Gerente** | Lança, corrige lançamentos da equipe e acompanha relatórios das suas unidades. Sem folha, salvo permissão. | WhatsApp e painel | MVP |
 | **Lançador** | Compras, caixa, cozinha. Lança pelo WhatsApp e corrige só o que lançou. | WhatsApp (painel opcional) | MVP |
-| **Contador** | Contador do restaurante. Leitura e exportação em todas as unidades. | Painel | Fase 2 |
+| **Contador** | Contador do restaurante. Leitura e exportação em todas as unidades, de várias empresas clientes (multicliente). Vê folha de pagamento (DD-04). | Painel | MVP |
 | **Administrador interno** | Equipe do produto. Opera o painel interno, sem acesso ao conteúdo financeiro sem autorização. | Painel interno | MVP |
 | **Sistema** | Processos automáticos: recorrências, captura de notas, resumos. | — | v1.1 |
 
@@ -218,7 +222,7 @@ Decisões tomadas com os sócios durante a elaboração deste documento e que co
 
 Referência para o RF06 e para os testes de permissão. Valores entre papéis podem ser ampliados pelo Dono com as permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL e CONSULTAR_RELATORIOS_WHATSAPP (RF05).
 
-| Ação | Dono | Gerente | Lançador | Contador (Fase 2) |
+| Ação | Dono | Gerente | Lançador | Contador |
 |---|---|---|---|---|
 | Lançar pelo WhatsApp | Sim | Sim | Sim | Não |
 | Lançar categoria sensível (folha) | Sim | Com VER_FOLHA | Não | Não |
@@ -228,7 +232,7 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | Receber resumo semanal e alertas | Sim | Com permissão | Não | Não |
 | Acessar o painel | Sim | Sim | Se o Dono liberar | Sim |
 | Ver lançamentos no painel | Todos | Suas unidades | Só os próprios | Todos (leitura) |
-| Ver categorias sensíveis | Sim | Com VER_FOLHA | Não | Com VER_FOLHA |
+| Ver categorias sensíveis | Sim | Com VER_FOLHA | Não | Sim² |
 | Editar, excluir e restaurar no painel | Sim | Suas unidades | Só os próprios | Não |
 | Ver dashboard, DRE e perguntar sobre os dados | Sim | Suas unidades | Não | Sim |
 | Exportar dados | Sim | Com EXPORTAR_DADOS | Não | Sim |
@@ -240,6 +244,8 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | Assinatura, plano e encerramento | Sim | Não | Não | Não |
 
 ¹ Com a permissão CONSULTAR_RELATORIOS_WHATSAPP, o Lançador recebe os relatórios das suas unidades, sem folha. "Suas unidades" = Unidades de Acesso do colaborador (RF05). Categorias sensíveis seguem o RF06, regra 3, em todas as linhas.
+
+² O Contador vê folha sempre (DD-04), mas só depois de o Dono confirmar o aviso "este acesso inclui folha de pagamento" no convite; o aceite fica na trilha de auditoria (RNF04).
 
 ## 2.4 Resumo dos requisitos funcionais
 
@@ -264,7 +270,7 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | [RF17](#rf17--correção-por-resposta-reply) | Correção por Resposta (reply) | Canal WhatsApp | Essencial | MVP |
 | [RF18](#rf18--desfazer-lançamento) | Desfazer Lançamento | Canal WhatsApp | Essencial | MVP |
 | [RF19](#rf19--comandos-ajuda-suporte-e-fora-do-escopo) | Comandos, Ajuda, Suporte e Fora do Escopo | Canal WhatsApp | Essencial | MVP |
-| [RF20](#rf20--relatórios-e-consultas-pelo-whatsapp-por-hierarquia) | Relatórios e Consultas pelo WhatsApp (por hierarquia) | Canal WhatsApp | Importante | v1.1 |
+| [RF20](#rf20--relatórios-e-consultas-pelo-whatsapp-por-hierarquia) | Relatórios e Consultas pelo WhatsApp (por hierarquia) | Canal WhatsApp | Importante | MVP (resumos fixos) e v1.1 (consultas livres) |
 | [RF21](#rf21--limites-de-uso-e-proteção-contra-abuso) | Limites de Uso e Proteção contra Abuso | Canal WhatsApp | Essencial | MVP |
 | [RF22](#rf22--lista-e-pesquisa-de-lançamentos) | Lista e Pesquisa de Lançamentos | Painel | Essencial | MVP |
 | [RF23](#rf23--edição-de-lançamento-no-painel) | Edição de Lançamento no Painel | Painel | Essencial | MVP |
@@ -272,17 +278,18 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | [RF25](#rf25--ver-origem-e-histórico-de-versões) | Ver Origem e Histórico de Versões | Painel | Essencial | MVP |
 | [RF26](#rf26--lançamento-manual-no-painel) | Lançamento Manual no Painel | Painel | Desejável | v1.1 |
 | [RF27](#rf27--dashboard-indicadores-e-gráficos) | Dashboard (indicadores e gráficos) | Painel | Essencial | MVP |
-| [RF28](#rf28--dre-gerencial-e-fechamento-mensal-pdf) | DRE Gerencial e Fechamento Mensal (PDF) | Relatórios | Importante | v1.1 |
+| [RF28](#rf28--dre-gerencial-e-fechamento-mensal-pdf) | DRE Gerencial e Fechamento Mensal (PDF) | Relatórios | Importante | MVP (tela) e v1.1 (PDF) |
 | [RF29](#rf29--exportação-de-dados-excel-e-csv) | Exportação de Dados (Excel e CSV) | Relatórios | Essencial | MVP |
 | [RF30](#rf30--perguntas-em-linguagem-natural-sobre-os-dados-painel) | Perguntas em Linguagem Natural sobre os Dados (painel) | Relatórios | Importante | v1.1 |
-| [RF31](#rf31--captura-automática-de-notas-fiscais-por-e-mail) | Captura Automática de Notas Fiscais por E-mail | Automações e integrações | Importante | v1.1 |
+| [RF31](#rf31--captura-automática-de-notas-fiscais-por-e-mail) | Captura Automática de Notas Fiscais por E-mail (reformulado: envio manual do XML) | Automações e integrações | Importante | MVP |
 | [RF32](#rf32--captura-de-nf-e-pela-sefaz-com-certificado-digital) | Captura de NF-e pela SEFAZ com Certificado Digital | Automações e integrações | Desejável | Fase 2 |
 | [RF33](#rf33--lançamentos-recorrentes) | Lançamentos Recorrentes | Automações e integrações | Importante | v1.1 |
 | [RF34](#rf34--resumo-semanal-e-alertas-por-exceção) | Resumo Semanal e Alertas por Exceção | Automações e integrações | Importante | v1.1 |
-| [RF35](#rf35--importação-de-planilhas-extratos-e-relatórios-de-vendas) | Importação de Planilhas, Extratos e Relatórios de Vendas | Automações e integrações | Importante | v1.1 |
-| [RF36](#rf36--acesso-do-contador-multicliente) | Acesso do Contador (multicliente) | Automações e integrações | Desejável | Fase 2 |
+| [RF35](#rf35--importação-de-planilhas-extratos-e-relatórios-de-vendas) | Importação de Planilhas, Extratos e Relatórios de Vendas | Automações e integrações | Importante | MVP |
+| [RF36](#rf36--acesso-do-contador-multicliente) | Acesso do Contador (multicliente) | Automações e integrações | Importante | MVP (leitura e exportação; resumo por empresa na v1.1) |
 | [RF37](#rf37--assinatura-plano-período-de-teste-e-encerramento-da-conta) | Assinatura, Plano, Período de Teste e Encerramento da Conta | Assinatura e operação | Importante | MVP |
 | [RF38](#rf38--painel-interno-de-operação-equipe-do-produto) | Painel Interno de Operação (equipe do produto) | Assinatura e operação | Importante | MVP |
+| [RF39](#rf39--imposto-estimado-por-regime-tributário) | Imposto Estimado por Regime Tributário | Relatórios | Importante | MVP |
 
 # 3. Requisitos funcionais
 
@@ -342,7 +349,7 @@ Requisito responsável pela criação de uma nova conta (empresa cliente) pelo p
 - **R2** Razão Social é opcional (até 150 caracteres). Quando o CNPJ é informado, o sistema pode sugerir a razão social a partir de consulta pública, sempre editável.
 - **R3** CNPJ é opcional no autocadastro, porque o dono pode ainda não tê-lo à mão. Quando informado, deve ter os dígitos verificadores válidos e sequências repetidas são recusadas. Um CNPJ só pode estar em uma conta com situação diferente de ENCERRADA, garantido por restrição de unicidade no banco de dados (inclusive em cadastros simultâneos). O CNPJ passa a ser obrigatório para habilitar a captura de notas por e-mail (RF31).
 - **R4** Segmento: RESTAURANTE, BAR, LANCHONETE, PIZZARIA, PADARIA, CAFETERIA, HAMBURGUERIA, FOOD_TRUCK ou OUTRO. Usado para ajustar sugestões de categorias e para métricas internas.
-- **R5** Regime Tributário é opcional: MEI, SIMPLES_NACIONAL, LUCRO_PRESUMIDO, LUCRO_REAL ou NAO_SEI. Influencia o tratamento de impostos sobre faturamento nos relatórios (ver pendência P05).
+- **R5** Regime Tributário é opcional: MEI, SIMPLES_NACIONAL, LUCRO_PRESUMIDO, LUCRO_REAL ou NAO_SEI. Quando o dono ativa o imposto estimado, o regime (diferente de NAO_SEI) e os parâmetros dele passam a ser obrigatórios (RF39, DD-05).
 - **R6** Faixa de Faturamento Mensal é opcional: ATE_30_MIL, DE_30_A_100_MIL, DE_100_A_300_MIL, ACIMA_DE_300_MIL ou PREFIRO_NAO_INFORMAR. Usada só para segmentação comercial; nunca aparece para outros usuários da conta.
 - **R7** Nome da Unidade tem de 2 a 60 caracteres e é o nome usado nas confirmações do WhatsApp (ex.: "Restaurante Centro"). Pode ser igual ao Nome Fantasia quando houver uma só unidade, e o campo vem pré-preenchido com ele.
 - **R8** A UF da unidade define qual SEFAZ é consultada na leitura de cupons (RF14) e o fuso horário sugerido da unidade (RF04).
@@ -517,6 +524,7 @@ Requisito responsável pelo cadastro das unidades (restaurantes, filiais ou pont
 | Município | String | Sim |  |
 | Estado (UF) | String (UF) | Sim |  |
 | Fuso Horário | Enum | Sim | R4 |
+| Canal Padrão da Receita | Referência (canal de venda) | Sim | R6 |
 | Status | Enum | Não | R5 |
 | Data do Cadastro | DateTime | Não |  |
 
@@ -527,6 +535,7 @@ Requisito responsável pelo cadastro das unidades (restaurantes, filiais ou pont
 - **R3** CNPJ da Unidade é opcional e serve para filiais com CNPJ próprio. Quando informado, deve ser válido. É usado para associar notas fiscais recebidas por e-mail à unidade certa (RF31).
 - **R4** Fuso Horário vem sugerido a partir da UF (padrão America/Sao_Paulo) e define o que é "hoje" para os lançamentos da unidade.
 - **R5** Status pode ser ATIVA ou INATIVA. Unidade inativa não recebe novos lançamentos, não aparece como opção no WhatsApp e continua visível nos relatórios de períodos passados. Não é possível inativar a última unidade ativa da empresa.
+- **R6** Canal Padrão da Receita (DD-08) é escolhido pelo Dono para cada unidade no assistente inicial (sugestão: Salão). É o canal usado quando uma receita chega sem canal (RF09, Obs3). Pode ser trocado depois; a troca não altera lançamentos antigos.
 
 - **Obs1:** Atores: Dono. Gerente apenas consulta.
 - **Obs2:** A quantidade máxima de unidades depende do plano (RF37). Ao atingir o limite, o sistema oferece a mudança de plano.
@@ -649,15 +658,15 @@ Nas suas unidades de acesso: lança; consulta, edita e exclui lançamentos de qu
 
 Nas suas unidades de acesso: lança pelo WhatsApp e corrige ou desfaz apenas os próprios lançamentos. Não vê totais, relatórios nem lançamentos de outras pessoas. Pelo WhatsApp pode pedir apenas a lista do que ele mesmo lançou ("o que eu lancei hoje?"). Se o Dono liberar o painel, vê somente os próprios lançamentos. Não lança categorias sensíveis. Permissão adicional possível: CONSULTAR_RELATORIOS_WHATSAPP (passa a receber os relatórios das suas unidades, sem folha).
 
-**CONTADOR (Fase 2)**
+**CONTADOR (MVP, DD-03)**
 
-Somente leitura no painel, em todas as unidades: consulta lançamentos e relatórios, vê a origem e o histórico, exporta dados e o pacote mensal. Não lança, não edita, não usa o WhatsApp. Vê folha apenas com VER_FOLHA. Pode ter vínculo com várias empresas clientes (RF36).
+Somente leitura no painel, em todas as unidades: consulta lançamentos e relatórios, vê a origem e o histórico, exporta dados e, na v1.1, o pacote mensal. Não lança, não edita, não usa o WhatsApp. **Vê folha sempre (DD-04)**, depois de o Dono confirmar o aviso no convite. Pode ter vínculo com várias empresas clientes (RF36).
 
 **Regras:**
 
 - **R1** A matriz completa de ações por papel está na seção 2.3 deste documento e é a referência para testes.
 - **R2** Toda checagem de permissão é feita no servidor, a cada ação, inclusive no processamento das mensagens do WhatsApp. A tela apenas esconde o que o usuário não pode fazer.
-- **R3** Categoria sensível: lançamentos de categorias marcadas como sensíveis (RF07) só são vistos, criados, editados ou excluídos por quem é Dono ou tem VER_FOLHA. Para os demais, esses lançamentos não aparecem em listas e seus valores não entram nos totais exibidos; os relatórios mostram o aviso "inclui valores restritos" quando o total geral os contém e o usuário não pode vê-los. A restrição vale nas respostas da API, não só na tela.
+- **R3** Categoria sensível: lançamentos de categorias marcadas como sensíveis (RF07) só são vistos, criados, editados ou excluídos por quem é Dono ou tem VER_FOLHA. **Exceção (DD-04):** o Contador vê esses lançamentos sempre, mas nunca cria, edita nem exclui. Para os demais, esses lançamentos não aparecem em listas e seus valores não entram nos totais exibidos; os relatórios mostram o aviso "inclui valores restritos" quando o total geral os contém e o usuário não pode vê-los. A restrição vale nas respostas da API, não só na tela.
 - **R4** Se um colaborador sem permissão tentar lançar uma categoria sensível pelo WhatsApp (ex.: "paguei o salário do João"), o lançamento não é gravado e ele é orientado a pedir ao Dono.
 - **R5** Unidade fora do acesso: pedidos de lançamento ou relatório para uma unidade fora das Unidades de Acesso são recusados com mensagem que não revela dados da unidade.
 - **R6** Mudanças de papel e de permissões valem na próxima requisição e ficam registradas na trilha de auditoria (RNF04).
@@ -712,8 +721,8 @@ Requisito responsável pela classificação gerencial dos lançamentos, organiza
 
 - **R1** Nome tem de 2 a 60 caracteres e é único entre as categorias irmãs (mesma categoria pai), sem diferenciar maiúsculas, minúsculas e acentos.
 - **R2** Categoria Pai é obrigatória nas categorias criadas pela empresa: toda categoria própria é subcategoria de uma categoria padrão. São permitidos no máximo dois níveis (categoria e subcategoria).
-- **R3** Tipo: RECEITA, DESPESA, INVESTIMENTO ou DEDUCAO. Investimentos (equipamentos, reformas) não entram no resultado do mês e aparecem em quadro próprio. Deduções (taxas de cartão, comissões de aplicativos, impostos sobre faturamento) reduzem a receita bruta. Subcategoria herda o Tipo da categoria pai. **[PROVISÓRIO – P02]** A regra de separação entre investimento e despesa (valor mínimo, vida útil) e quando a IA pergunta ainda será definida pelo Matheus. Proposta adotada: equipamentos e reformas entram como INVESTIMENTO; perguntar só acima de um valor a definir.
-- **R4** Natureza: FIXA ou VARIAVEL, só para despesas. Herdada da categoria pai; a subcategoria pode trocá-la.
+- **R3** Tipo: RECEITA, DESPESA, INVESTIMENTO ou DEDUCAO. Investimentos (equipamentos, reformas) não entram no resultado do mês e aparecem em quadro próprio. Deduções (taxas de cartão, comissões de aplicativos, impostos sobre faturamento) reduzem a receita bruta. Subcategoria herda o Tipo da categoria pai. Investimento × despesa (DD-09, fecha P02): equipamentos e reformas entram como INVESTIMENTO; a IA pergunta quando o valor passa de R$ 1.500 (RF12.R23).
+- **R4** Natureza: FIXA ou VARIAVEL, só para despesas. Herdada da categoria pai; a subcategoria pode trocá-la. É a base do ponto de equilíbrio (RF27.R8, DD-13). O valor padrão de cada categoria do sistema é definido pelo Matheus junto com a lista (P01); CMV, taxas e comissões são variáveis, aluguel e folha são fixos.
 - **R5** Grupo do DRE: RECEITA_BRUTA, DEDUCOES, CMV, PESSOAL, OCUPACAO, UTILIDADES, OPERACIONAIS, MARKETING, FINANCEIRAS, IMPOSTOS ou INVESTIMENTOS. Herdado da categoria pai e não editável na subcategoria.
 - **R6** Sensível marca as categorias de folha de pagamento e afins (salários, pró-labore, encargos, benefícios). As regras de acesso estão no RF06, regra 3. Subcategoria de categoria sensível é sempre sensível.
 - **R7** Exige Quantidade indica que lançamentos da categoria precisam de quantidade e unidade de medida (insumos do CMV). Herdado da categoria pai.
@@ -821,8 +830,8 @@ Requisito responsável pelos canais por onde o restaurante vende (salão, delive
 
 - **Obs1:** Atores: Dono. Gerente consulta.
 - **Obs2:** Canais padrão criados com a empresa: Salão, Delivery próprio, iFood (APLICATIVO, comissão a configurar) e Retirada. Lista sujeita à pendência P07. **[PROVISÓRIO – P07]** Proposta adotada: os canais padrão acima, até o Matheus definir a lista.
-- **Obs3:** Canal de venda é opcional no lançamento. Sem canal informado, a receita fica com canal "Não informado".
-- **Obs4:** Hoje as categorias de receita provisórias do código (Salão, Delivery, Balcão) repetem a ideia de canal. A proposta é ter uma única categoria "Vendas" e usar o canal para a separação (pendência P01). **[PROVISÓRIO – P01]** Proposta adotada: uma única categoria "Vendas" e canal de venda para a separação.
+- **Obs3:** Toda receita tem canal (DD-08). Sem canal na mensagem, vale o **canal padrão da unidade**, escolhido no assistente inicial (RF04), e o lançamento recebe o sinal CANAL_A_REVISAR; a confirmação diz qual canal foi usado. Se a empresa tem só um canal ativo, usa esse sem sinal. "Não informado" não é mais gravado em receitas novas.
+- **Obs4:** A receita usa uma única categoria "Vendas"; o canal faz a separação. Os relatórios mostram o total e cada canal separado (DD-08, P01). **[PROVISÓRIO – P01]** A lista definitiva das demais categorias continua com o Matheus.
 
 **Alteração:**
 
@@ -840,7 +849,7 @@ Lista com filtro por tipo e status.
 
 - **CA01** – Dado o canal iFood com 23% e uma venda de R$ 200,00 pelo iFood paga online, quando é gravada, então a taxa é R$ 46,00 e o líquido R$ 154,00.
 - **CA02** – Dada uma venda no salão paga no crédito a 3,20%, quando é gravada, então vale a taxa do crédito e não a do canal.
-- **CA03** – Dada uma venda sem canal informado, quando é gravada, então o canal fica "Não informado" e o lançamento é aceito.
+- **CA03** – Dada uma venda sem canal informado em uma unidade com canal padrão Salão, quando é gravada, então o canal fica Salão, o lançamento recebe CANAL_A_REVISAR e a confirmação cita "Salão".
 
 ### RF10 – Fornecedores
 
@@ -967,10 +976,12 @@ Requisito responsável por transformar uma mensagem de texto livre, escrita do j
 |---|---|---|---|
 | Tipo | Enum | Sim | R1 |
 | Data de Competência | Date (dd/mm/aaaa) | Sim | R2 |
+| Data de Pagamento | Date (dd/mm/aaaa) | Não | R21 |
 | Descrição | String | Sim | R3 |
 | Quantidade | Decimal (até 3 casas) | Não | R4 |
 | Unidade de Medida | Enum | Não | R4 |
 | Valor Bruto | Moeda (R$) | Sim | R5 |
+| Pedidos | Inteiro | Não | R22 |
 
 **Classificação**
 
@@ -1016,7 +1027,7 @@ Requisito responsável por transformar uma mensagem de texto livre, escrita do j
 - **R6** A categoria é sugerida pela IA a partir da descrição, do fornecedor, das palavras de apoio e do histórico da empresa. Sem segurança suficiente, usa "Outras despesas" ou "Outras receitas" com o sinal CATEGORIA_A_REVISAR, sem perguntar.
 - **R7** Fornecedor é opcional; quando citado, é associado ou criado conforme o RF10.
 - **R8** Forma de Pagamento é opcional ("Não informada" quando ausente). "Cartão" sem especificar usa a forma de cartão padrão da empresa (configurável no RF08; padrão Crédito) e aparece na confirmação para fácil correção.
-- **R9** Canal de Venda só se aplica a receitas e é opcional ("Não informado" quando ausente).
+- **R9** Canal de Venda só se aplica a receitas e é obrigatório nelas (DD-08): sem canal na mensagem, vale o canal padrão da unidade com o sinal CANAL_A_REVISAR (RF09, Obs3).
 - **R10** Unidade é a citada na mensagem (pelo nome ou apelido, RF04) ou, se nenhuma for citada, a Unidade Padrão do colaborador. Se a unidade citada não estiver entre as Unidades de Acesso, o lançamento é recusado (RF06, regra 5).
 - **R11** Taxas e líquido são calculados pelo sistema na gravação, conforme RF08 e RF09, e copiados para o lançamento. Para despesas, taxa zero e líquido igual ao bruto. O banco garante que líquido = bruto − taxa.
 - **R12** Canal de Origem: WHATSAPP, PAINEL, IMPORTACAO, EMAIL ou SISTEMA (recorrentes). Lançamentos do WhatsApp guardam a mensagem de origem (texto, transcrição ou imagem), a posição do lançamento dentro dela (uma mensagem pode gerar vários) e a mensagem de confirmação enviada (usada na correção por resposta). Reprocessar a mesma mensagem nunca duplica lançamentos: a combinação mensagem de origem + posição é única.
@@ -1027,10 +1038,13 @@ Requisito responsável por transformar uma mensagem de texto livre, escrita do j
 **Regras de interpretação:**
 
 - **R16** Uma mensagem pode conter vários lançamentos, inclusive de tipos e categorias diferentes ("comprei 2 caixas de óleo 180, 10 kg de arroz 62 e um freezer de 3.200"). Todos são gravados juntos, em uma única transação, e confirmados em uma única mensagem.
-- **R17** Informações essenciais, cuja falta gera pergunta antes de gravar (RF15): valor; quantidade de insumo; tipo, quando não puder ser inferido; e a unidade, quando o colaborador citar uma unidade que não existe ou que seja ambígua. As demais informações são presumidas e mostradas na confirmação. A lista final de essenciais é pendência do sócio contador (P04). **[PROVISÓRIO – P04]** Proposta adotada: essenciais = valor; quantidade de insumo; tipo não inferível; unidade inexistente ou ambígua. Decisão final do Matheus.
+- **R17** Informações essenciais, cuja falta gera pergunta antes de gravar (RF15): valor; quantidade de insumo; tipo, quando não puder ser inferido; e a unidade, quando o colaborador citar uma unidade que não existe ou que seja ambígua. As demais informações são presumidas e mostradas na confirmação. Também gera pergunta uma despesa de equipamento ou reforma acima de R$ 1.500 (R23). A lista final de essenciais é pendência do sócio contador (P04). **[PROVISÓRIO – P04]** Proposta adotada: essenciais = valor; quantidade de insumo; tipo não inferível; unidade inexistente ou ambígua. Decisão final do Matheus.
 - **R18** A interpretação usa um modelo de linguagem com saída estruturada validada por esquema. O sistema valida cada campo antes de gravar; saída inválida é tentada mais uma vez e, se persistir, o sistema pergunta ao colaborador em vez de gravar algo errado. A IA recebe apenas o contexto da empresa (categorias, unidades, formas de pagamento, fornecedores frequentes) e nunca dados de outra empresa.
 - **R19** Mensagens que não são lançamento, comando nem pedido de relatório recebem a resposta de fora do escopo (RF19). Conversa livre não é atendida, por regra da política do WhatsApp para provedores de IA.
 - **R20** Cada chamada de IA registra o consumo (tokens, modelo, custo estimado) por empresa (RNF08).
+- **R21** Data de Pagamento (DD-02) é a data em que o valor foi ou será pago ou recebido. Se não for dita, é igual à Data de Competência. A IA só a preenche quando a mensagem traz o pagamento ("vence dia 20", "paguei dia 3", "recebo na sexta"). No MVP é guardada, editável no painel e exportada; contas a pagar e fluxo de caixa que a usam ficam na v1.1. Os relatórios do MVP usam sempre a Data de Competência.
+- **R22** Pedidos (DD-13) é o número de vendas ou pedidos de uma receita ("vendi 800 em 32 pedidos"), opcional e maior que zero. A IA só o extrai; o ticket médio é calculado pelo servidor (RF27) e mostra a cobertura da base (percentual da receita com pedidos informados). Também vem das vendas importadas (RF35).
+- **R23** Investimento × despesa (DD-09, fecha P02): despesa de equipamento ou reforma com valor bruto acima de R$ 1.500,00 gera pergunta "equipamento (investimento) ou despesa do mês?" antes de gravar (RF15). Abaixo desse valor, grava como despesa. O limite fica em constante única.
 
 - **Obs1:** Atores: Dono, Gerente e Lançador. Sistemas externos: WhatsApp Business Cloud API e provedor do modelo de linguagem.
 - **Obs2:** O lançamento é salvo direto, sem pedir confirmação prévia, e a correção posterior é fácil (RF16 a RF18).
@@ -1059,6 +1073,10 @@ No painel, conforme RF22. Pelo WhatsApp, o colaborador pode pedir "o que eu lanc
 - **CA08** – Dados dois lançamentos "gás 80" enviados em mensagens diferentes com 5 minutos de intervalo, quando o segundo é gravado, então recebe o sinal POSSIVEL_DUPLICIDADE e a confirmação avisa "parece repetido; responda 'desfazer' se for o caso".
 - **CA09** – Dada uma resposta do modelo de linguagem que não passa no esquema duas vezes seguidas, quando o processamento termina, então nada é gravado e o colaborador recebe uma pergunta pedindo para reformular.
 - **CA10** – Dada qualquer mensagem processada, quando o consumo é consultado, então existe registro de uso de IA ligado à empresa e à mensagem.
+- **CA11** – Dada a mensagem "paguei a carne 600, vence dia 20", quando é processada, então a data de pagamento é dia 20 e a de competência é hoje; sem "vence" ou "paguei dia", a data de pagamento é igual à de competência (R21).
+- **CA12** – Dada uma unidade com canal padrão Salão e a mensagem "vendi 800 hoje", quando é processada, então a receita é gravada no canal Salão com CANAL_A_REVISAR e a confirmação cita o canal usado (R9).
+- **CA13** – Dada a mensagem "comprei um forno 2.800", quando é processada, então nada é gravado ainda e o colaborador recebe a pergunta "equipamento (investimento) ou despesa do mês?"; com "ar-condicionado 1.200" a despesa é gravada direto (R23).
+- **CA14** – Dada a mensagem "vendi 800 em 32 pedidos", quando é processada, então a receita é gravada com Pedidos = 32 e o sistema não calcula o ticket médio na IA (R22).
 
 ### RF13 – Lançamento por Áudio
 
@@ -1405,7 +1423,7 @@ Não se aplica.
 
 ### RF20 – Relatórios e Consultas pelo WhatsApp (por hierarquia)
 
-**Prioridade:** Importante · **Fase:** v1.1 · **Módulo:** Canal WhatsApp
+**Prioridade:** Importante · **Fase:** MVP (resumos fixos "hoje", "semana" e "mês", DD-12) e v1.1 (consultas livres) · **Módulo:** Canal WhatsApp
 
 Requisito responsável por permitir que o colaborador peça relatórios pelo WhatsApp, em linguagem natural, recebendo apenas o que o seu papel permite: o Dono vê tudo; o Gerente vê as suas unidades sem folha; o Lançador vê só o que ele próprio lançou.
 
@@ -1435,7 +1453,7 @@ Requisito responsável por permitir que o colaborador peça relatórios pelo Wha
 - **Obs1:** A resposta sempre informa o período e as unidades considerados ("Resumo de 01/10 a 29/10, Restaurante Centro:"), para o usuário perceber se o pedido foi entendido.
 - **Obs2:** A resposta tem até 12 linhas; relatórios maiores trazem os principais itens e um link para a tela correspondente do painel.
 - **Obs3:** Pedidos ambíguos geram pergunta (por exemplo, quando "vendas da loja" pode ser mais de uma unidade).
-- **Obs4:** Os resumos predefinidos ("resumo de hoje", "resumo da semana", "resumo do mês") podem ser antecipados para o MVP sem a interpretação livre, por decisão dos sócios (pendência P10). **[PROVISÓRIO – P10]** Proposta adotada: antecipar os resumos predefinidos para o MVP se couber no prazo; interpretação livre na v1.1.
+- **Obs4:** Os resumos predefinidos ("resumo de hoje", "resumo da semana", "resumo do mês") entram no MVP sem a interpretação livre, por decisão dos sócios (DD-12, fecha P10). A interpretação livre fica na v1.1.
 - **Obs5:** Cada consulta conta na cota mensal de consultas do plano (RF21).
 
 **Alteração:**
@@ -1528,14 +1546,14 @@ Requisito responsável pela tela principal de consulta dos lançamentos no paine
 
 **Colunas exibidas:**
 
-Data, Descrição, Quantidade, Valor Bruto, Valor Líquido (receitas), Categoria, Fornecedor, Forma de Pagamento, Unidade, Lançado por, Canal de Origem e indicadores de revisão.
+Data, Data de Pagamento (quando diferente da data), Descrição, Quantidade, Valor Bruto, Valor Líquido (receitas), Categoria, Fornecedor, Forma de Pagamento, Canal de Venda (receitas), Unidade, Lançado por, Canal de Origem e indicadores de revisão.
 
 **Regras e observações do preenchimento dos campos:**
 
 - **R1** Período padrão: mês corrente. Atalhos: hoje, ontem, últimos 7 dias, mês corrente, mês anterior, personalizado (até 24 meses por consulta).
 - **R2** Somente as unidades de acesso do usuário. Padrão: unidade ativa no seletor do topo (RF02).
 - **R3** Lançador vê apenas os próprios lançamentos e não tem este filtro.
-- **R4** O filtro "a revisar" reúne CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE e DATA_ANTIGA. Marcar um lançamento como revisado remove o sinal e gera versão.
+- **R4** O filtro "a revisar" reúne CATEGORIA_A_REVISAR, CANAL_A_REVISAR, POSSIVEL_DUPLICIDADE e DATA_ANTIGA. Marcar um lançamento como revisado remove o sinal e gera versão.
 - **R5** Busca por descrição, fornecedor, valor exato ("450" ou "450,00") e chave de acesso de nota.
 
 - **Obs1:** Os filtros ficam na URL: recarregar a página ou usar o botão voltar mantém a consulta, e o endereço pode ser compartilhado com outro usuário da mesma empresa (que verá apenas o que o seu papel permite).
@@ -1573,7 +1591,7 @@ Requisito responsável pela edição completa de um lançamento no painel, com v
 
 **Campos editáveis:**
 
-Tipo, Data de Competência, Descrição, Quantidade, Unidade de Medida, Valor Bruto, Categoria, Fornecedor, Forma de Pagamento, Canal de Venda e Unidade (restaurante), com as regras do RF12. (R1)
+Tipo, Data de Competência, Data de Pagamento, Descrição, Quantidade, Unidade de Medida, Valor Bruto, Pedidos, Categoria, Fornecedor, Forma de Pagamento, Canal de Venda (obrigatório nas receitas) e Unidade (restaurante), com as regras do RF12. (R1)
 
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
@@ -1762,6 +1780,9 @@ Requisito responsável pela tela inicial do painel, que mostra ao dono, em pouco
 | CMV sobre a Receita | Percentual | Não | R4 |
 | Folha sobre a Receita | Percentual | Não | R5 |
 | Investimentos no Período | Moeda | Não | R3 |
+| Ticket Médio | Moeda | Não | R7 |
+| Ponto de Equilíbrio | Moeda | Não | R8 |
+| Imposto Estimado (e % da receita) | Moeda e percentual | Não | R9 |
 
 **Gráficos:**
 
@@ -1780,13 +1801,16 @@ Receita por canal de venda e por forma de pagamento. (R6)
 - **R3** Resultado = Receita Bruta − Deduções − Despesas Operacionais. Investimentos não entram no resultado e aparecem em indicador próprio. O tratamento dos impostos sobre faturamento depende da pendência P05. **[PROVISÓRIO – P05]** Proposta adotada: impostos sobre faturamento lançados como despesa da categoria própria, sem cálculo automático no MVP.
 - **R4** Margem = Resultado ÷ Receita Bruta. CMV sobre a Receita = despesas do grupo CMV ÷ Receita Bruta. Percentuais são calculados pelo servidor e exibidos com uma casa decimal. Sem receita no período, os percentuais aparecem como "—".
 - **R5** Somente para quem pode ver categorias sensíveis. Para os demais, o indicador não é enviado pela API (não basta esconder na tela).
-- **R6** Receitas sem canal ou forma aparecem como "Não informado".
+- **R6** Receitas sem forma de pagamento aparecem como "Não informada". Toda receita nova tem canal (RF09, Obs3); receitas antigas sem canal aparecem como "Não informado".
+- **R7** Ticket Médio = Receita Bruta das receitas com Pedidos informados ÷ soma dos Pedidos (RF12.R22). Mostra a cobertura da base ("base: 60% da receita"). Sem Pedidos no período, aparece como "—".
+- **R8** Ponto de Equilíbrio = Custos Fixos ÷ (1 − Custos Variáveis ÷ Receita Bruta). Custos Fixos e Variáveis seguem a Natureza FIXA ou VARIAVEL da categoria (RF07.R4); CMV e deduções contam como variáveis. Receita zero ou margem de contribuição menor ou igual a zero: aparece como "—".
+- **R9** Imposto Estimado só aparece se o dono ativou o RF39. Vem do cálculo do RF39 e é informativo: o Resultado usa o imposto lançado como despesa (R3).
 
 - **Obs1:** Todos os números vêm de consultas de agregação no servidor; a tela nunca soma valores.
 - **Obs2:** Cada gráfico tem alternativa em tabela, para acessibilidade e para quem prefere números.
 - **Obs3:** Os blocos carregam de forma independente: um bloco lento não trava os demais.
 - **Obs4:** Estado vazio útil: "Ainda não há lançamentos neste período", com o número de WhatsApp do produto.
-- **Obs5:** Lançador não tem acesso ao dashboard, salvo a visão "meus lançamentos" (RF22). Indicadores adicionais desejados pelo dono (ticket médio, ponto de equilíbrio) dependem de dados que o produto ainda não coleta e são pendência P09. **[PROVISÓRIO – P09]** Proposta adotada: margem, CMV % e folha % no MVP; demais indicadores dependem do Matheus.
+- **Obs5:** Lançador não tem acesso ao dashboard, salvo a visão "meus lançamentos" (RF22). Ticket médio, ponto de equilíbrio e imposto estimado entram no MVP (DD-13, fecha P09), com os dados coletados de forma opcional (RF12.R22, RF07, RF39).
 
 **Alteração:**
 
@@ -1807,12 +1831,15 @@ Não se aplica.
 - **CA03** – Dado um investimento de R$ 3.200,00 no mês, quando o resultado é calculado, então o valor não reduz o resultado e aparece em Investimentos.
 - **CA04** – Dado um período sem receitas, quando o dashboard é aberto, então margem e CMV aparecem como "—", sem erro de divisão.
 - **CA05** – Dado um celular com largura de 360 pixels, quando o dashboard é aberto, então não há rolagem horizontal.
+- **CA06** – Dadas receitas de R$ 10.000,00, sendo R$ 6.000,00 com 200 pedidos informados, quando o ticket médio é calculado, então vale R$ 30,00 e a tela mostra "base: 60% da receita" (R7).
+- **CA07** – Dados custos fixos de R$ 20.000,00, custos variáveis de R$ 30.000,00 e receita de R$ 100.000,00, quando o ponto de equilíbrio é calculado, então vale R$ 28.571,43 (R8).
+- **CA08** – Dada uma empresa sem o imposto estimado ativado, quando o dashboard é aberto, então o indicador não aparece e a API não o envia (R9).
 
 ## 3.5 Relatórios
 
 ### RF28 – DRE Gerencial e Fechamento Mensal (PDF)
 
-**Prioridade:** Importante · **Fase:** v1.1 · **Módulo:** Relatórios
+**Prioridade:** Importante · **Fase:** MVP (DRE na tela, DD-11) e v1.1 (PDF do fechamento mensal) · **Módulo:** Relatórios
 
 Requisito responsável pelo relatório de resultado do mês no formato de DRE gerencial simplificado, visível no painel e exportável em PDF para o dono e para o contador.
 
@@ -1876,11 +1903,11 @@ Requisito responsável por exportar os lançamentos em planilha, para o dono, pa
 
 - **R1** Formato: XLSX ou CSV. O CSV usa separador ponto e vírgula e codificação UTF-8 com BOM, para abrir corretamente no Excel em português. No XLSX, valores são números com formato de moeda e datas são datas, nunca texto.
 - **R2** A exportação respeita os filtros aplicados na lista e as permissões do usuário (categorias sensíveis fora para quem não pode vê-las).
-- **R3** Conteúdo: LANCAMENTOS (uma linha por lançamento ativo: data, tipo, descrição, quantidade, unidade de medida, valor bruto, taxa, líquido, categoria, subcategoria, grupo do DRE, fornecedor, documento do fornecedor, forma de pagamento, canal, unidade, lançado por, canal de origem, criado em) ou COMPLETO (inclui os lançamentos na lixeira, com coluna de status, e o histórico de versões; só para o Dono).
+- **R3** Conteúdo: LANCAMENTOS (uma linha por lançamento ativo: data de competência, data de pagamento, tipo, descrição, quantidade, unidade de medida, valor bruto, taxa, líquido, pedidos, categoria, subcategoria, grupo do DRE, natureza (fixa ou variável), fornecedor, documento do fornecedor, forma de pagamento, canal, unidade, lançado por, canal de origem, sinais de revisão, criado em; DD-02, DD-13) ou COMPLETO (inclui os lançamentos na lixeira, com coluna de status, e o histórico de versões; só para o Dono).
 - **R4** Situação: NA_FILA, GERANDO, PRONTO, FALHOU. A geração acontece em segundo plano; o usuário pode sair da tela e é avisado quando ficar pronta.
 - **R5** O link vale por 1 hora e o arquivo é eliminado após 7 dias. Só o usuário que pediu pode baixá-lo.
 
-- **Obs1:** Permissão: Dono sempre; Gerente com EXPORTAR_DADOS; Contador sempre (Fase 2). Toda exportação é registrada na trilha de auditoria (quem, quando, filtros e quantidade de linhas).
+- **Obs1:** Permissão: Dono sempre; Gerente com EXPORTAR_DADOS; Contador sempre (MVP, DD-03). Toda exportação é registrada na trilha de auditoria (quem, quando, filtros e quantidade de linhas).
 - **Obs2:** O pacote mensal para o contador (planilha + DRE em PDF + imagens das notas do mês, em um arquivo compactado) é evolução da Fase: v1.1, com conteúdo definido pelo sócio contador.
 
 **Alteração:**
@@ -1949,7 +1976,9 @@ Histórico das perguntas do próprio usuário.
 
 ### RF31 – Captura Automática de Notas Fiscais por E-mail
 
-**Prioridade:** Importante · **Fase:** v1.1 · **Módulo:** Automações e integrações
+**Prioridade:** Importante · **Fase:** MVP (envio manual do XML) · **Módulo:** Automações e integrações
+
+> **Reformulado em 05/11/2026 (DD-10).** Os sócios não querem captura automática por e-mail. No MVP, o dono, o gerente ou o lançador enviam o **arquivo XML da NF-e manualmente**, pelo painel (upload) ou pelo WhatsApp (documento). A leitura é determinística (sem IA para os valores), a chave de acesso (44 dígitos) evita lançamento duplicado e a Data de Competência é a data de emissão. Ficam **fora de escopo**: endereço de e-mail exclusivo por empresa, quarentena de destinatário diferente e recebimento automático. O texto abaixo é o original da v1.0; onde falar de e-mail, endereço de recebimento ou quarentena, vale esta nota. Pendência P18: o Matheus revisa as regras que sobram (R3 em diante) para o envio manual.
 
 Requisito responsável por lançar automaticamente as compras cujas notas fiscais (NF-e) são emitidas no CNPJ do restaurante e enviadas por e-mail. Cada empresa recebe um endereço de e-mail exclusivo; o fornecedor envia a nota para ele, ou o restaurante encaminha automaticamente, e o sistema lê o arquivo XML da nota e lança sem ninguém precisar lembrar.
 
@@ -2160,7 +2189,7 @@ Histórico de resumos e alertas enviados, no painel.
 
 ### RF35 – Importação de Planilhas, Extratos e Relatórios de Vendas
 
-**Prioridade:** Importante · **Fase:** v1.1 · **Módulo:** Automações e integrações
+**Prioridade:** Importante · **Fase:** MVP (antecipado de v1.1, DD-10) · **Módulo:** Automações e integrações
 
 Requisito responsável por trazer dados que o restaurante já tem: planilhas antigas de controle, extratos bancários e relatórios de vendas exportados de PDV ou de aplicativos de delivery. Atende tanto quem já tem planilha quanto quem quer começar com histórico.
 
@@ -2207,7 +2236,9 @@ Lista de importações com resultado e opção de desfazer.
 
 ### RF36 – Acesso do Contador (multicliente)
 
-**Prioridade:** Desejável · **Fase:** Fase 2 · **Módulo:** Automações e integrações
+**Prioridade:** Importante · **Fase:** MVP (antecipado da Fase 2, DD-03) · **Módulo:** Automações e integrações
+
+> **Escopo do MVP (DD-03, DD-04):** convite pelo Dono com o aviso de que o acesso inclui folha de pagamento; leitura, exportação e dashboard/DRE; o mesmo e-mail em várias empresas; tela inicial com a **lista de empresas**. O resumo por empresa descrito em R4 (último lançamento, resultado do mês, pendências) fica para a v1.1.
 
 Requisito responsável por dar ao contador do restaurante acesso de leitura e exportação, com uma visão única de todas as empresas clientes que o convidaram. Também apoia o canal de vendas por indicação de contadores.
 
@@ -2248,6 +2279,8 @@ Busca das empresas vinculadas por nome ou CNPJ.
 
 - **CA01** – Dado um contador vinculado a 3 empresas, quando entra no painel, então vê as 3 e nenhuma outra.
 - **CA02** – Dado o acesso revogado por um Dono, quando o contador recarrega a tela, então essa empresa deixa de aparecer e seus dados ficam inacessíveis.
+- **CA03** – Dado um Dono que convida um contador, quando o convite é enviado, então o Dono vê o aviso "este acesso inclui folha de pagamento" e só envia depois de confirmar; o aceite e a data ficam na trilha de auditoria (DD-04).
+- **CA04** – Dado um contador sem VER_FOLHA, quando abre os lançamentos de uma empresa, então vê as categorias de folha, mas a API recusa criar, editar ou excluir qualquer lançamento.
 
 ## 3.7 Assinatura e operação
 
@@ -2361,6 +2394,53 @@ Busca de contas por nome, CNPJ ou final do celular do Dono.
 - **CA02** – Dado um administrador sem autorização do Dono, quando tenta ver os lançamentos de uma empresa, então o acesso é negado.
 - **CA03** – Dada uma empresa cujo custo de IA passou do limite, quando o processamento seguinte termina, então a equipe recebe o alerta.
 
+### RF39 – Imposto Estimado por Regime Tributário
+
+**Prioridade:** Importante · **Fase:** MVP · **Módulo:** Relatórios
+
+Requisito responsável por mostrar, a quem escolher ver, uma **estimativa gerencial** do imposto sobre o faturamento, de acordo com o regime tributário da empresa. Nasceu da reunião de descoberta de 05/11/2026 (DD-05). O produto continua sem emitir nota, sem apurar imposto e sem gerar guia de pagamento: o contador é quem apura.
+
+**Configuração:**
+
+| Campo | Tipo | Obrig. | Regra |
+|---|---|---|---|
+| Ver Imposto Estimado | Boolean | Não | R1 |
+| Regime Tributário | Enum | Sim, se ativado | R2 |
+| Parâmetros do Regime | Conjunto de campos por regime | Sim, se ativado | R3 |
+| Vigência das Regras | Tabela versionada (sistema) | Não | R4 |
+
+**Regras e observações do preenchimento dos campos:**
+
+- **R1** Opcional por empresa. Só o Dono ativa ou desativa. Com a opção desligada, nenhum valor de imposto estimado é calculado nem exibido. Quem vê, quando ligada: os mesmos papéis que veem o dashboard e a DRE, inclusive o Contador (RF06).
+- **R2** Regime: MEI, SIMPLES_NACIONAL, LUCRO_PRESUMIDO ou LUCRO_REAL (os quatro calculam no MVP). NAO_SEI não permite ativar. O regime tem data de início; a troca de regime vale a partir da data informada e os meses anteriores continuam com o regime que valia.
+- **R3** Cada regime pede parâmetros próprios, informados pelo Dono ou responsável (por exemplo: faturamento dos 12 meses anteriores e anexo ou atividade no Simples; percentuais de presunção e alíquotas no Presumido; créditos informados no Real; valor fixo mensal no MEI). A lista exata de parâmetros e as fórmulas de cada regime são pendência do Matheus (P16). **[PROVISÓRIO – P16]**
+- **R4** As regras de cálculo (alíquotas, faixas, percentuais, datas) ficam em **tabela versionada por data de vigência**, mantida pelo Matheus. Mudar regra cria uma linha nova; nunca se edita a antiga. O cálculo de um mês usa as regras vigentes naquele mês. A reforma tributária (CBS e IBS a partir de 2027, com transição até 2033, datas a confirmar) entra como novas linhas de vigência, sem mudar código. **[PROVISÓRIO – P17]**
+- **R5** O cálculo é feito no servidor, em `packages/core`, em centavos inteiros, com arredondamento meio-para-cima e testes por regime. A IA não participa do cálculo (RNF13.R3).
+- **R6** O imposto estimado é **informativo**: aparece no dashboard (RF27.R9), na DRE (linha "Impostos sobre faturamento (estimado)") e na exportação, ao lado do imposto efetivamente lançado como despesa. O Resultado continua usando o lançado (RF27.R3), para não contar duas vezes. **[PROVISÓRIO – P16]** O Matheus confirma se a estimativa deve, no futuro, entrar no Resultado.
+- **R7** Todo valor exibido traz o aviso: "Estimativa gerencial. Não substitui a apuração do contador."
+- **R8** Ativar, desativar e alterar regime ou parâmetros ficam registrados na trilha de auditoria (RNF04).
+
+- **Obs1:** Todos os regimes saem no MVP (DD-05). Se o Matheus não conseguir validar as regras de um regime até o piloto, o aviso do R7 é o limite do risco assumido (DD-16).
+
+**Alteração:**
+
+O Dono altera regime e parâmetros a qualquer momento (R2, R8).
+
+**Exclusão:**
+
+Não se aplica. Desativar a opção (R1) esconde os valores.
+
+**Pesquisa:**
+
+Não se aplica.
+
+**Critérios de aceite:**
+
+- **CA01** – Dada uma empresa que não ativou a opção, quando o dashboard e a DRE são abertos, então nenhum valor de imposto estimado aparece.
+- **CA02** – Dada uma empresa no Simples com parâmetros informados, quando o mês é fechado, então o imposto estimado é igual a um cálculo independente com as mesmas regras e o aviso do R7 aparece.
+- **CA03** – Dada uma regra nova com vigência em 01/01/2027, quando dezembro de 2026 é consultado, então o cálculo usa a regra antiga.
+- **CA04** – Dado um regime ainda sem parâmetros completos, quando o Dono tenta ativar a opção, então a ativação é recusada com a lista do que falta.
+
 # 4. Requisitos não funcionais
 
 ### RNF01 – Segurança de Acesso e Credenciais
@@ -2404,9 +2484,9 @@ Busca de contas por nome, CNPJ ou final do celular do Dono.
 **Prioridade:** Essencial · **Fase:** MVP · **Módulo:** Requisito não funcional
 
 - **R1** Papéis: o restaurante (empresa cliente) é o controlador dos dados; o produto é o operador. Isso consta dos Termos de Uso, da Política de Privacidade e do Acordo de Tratamento de Dados (DPA), aceitos no cadastro (RF01).
-- **R2** Dados pessoais tratados: nome, celular e e-mail de colaboradores; CPF de fornecedores pessoa física; valores de salário (folha de pagamento); conteúdo de mensagens, áudios e imagens. Folha de pagamento é acessível só ao Dono e a quem ele autorizar (RF06).
+- **R2** Dados pessoais tratados: nome, celular e e-mail de colaboradores; CPF de fornecedores pessoa física; valores de salário (folha de pagamento); conteúdo de mensagens, áudios e imagens. Folha de pagamento é acessível ao Dono, a quem ele autorizar (RF06) e ao Contador convidado, depois do aviso confirmado pelo Dono (DD-04).
 - **R3** Minimização: a descrição dos lançamentos nunca guarda CPF, número de cartão ou de conta bancária (RF12, regra 3). O produto nunca pede esses dados pelo WhatsApp.
-- **R4** Retenção: áudios por 90 dias (depois, só a transcrição); imagens de notas enquanto a conta existir; arquivos de exportação por 7 dias; dados da conta até 90 dias após o cancelamento, quando são eliminados ou anonimizados (RF37).
+- **R4** Retenção: áudios por 90 dias (depois, só a transcrição); imagens de notas enquanto a conta existir; arquivos de exportação por 7 dias; dados da conta até 90 dias após o cancelamento, quando são eliminados ou anonimizados (RF37). Antes da eliminação o Dono é avisado e recebe a exportação COMPLETA (RF29); os Termos dizem que o produto não substitui a guarda fiscal de 5 anos, que é do contador (DD-06).
 - **R5** Portabilidade: o Dono exporta todos os dados a qualquer momento (RF29).
 - **R6** Provedores de IA e de transcrição contratados por API, configurados para não usar os dados para treinamento. Os dados de mensagens do WhatsApp não são usados para treinar ou melhorar modelos (política da Meta).
 - **R7** Hospedagem preferencialmente no Brasil (região de São Paulo). Transferências internacionais (provedores de IA) cobertas por cláusulas contratuais e informadas na Política de Privacidade.
@@ -2572,19 +2652,22 @@ Itens que precisam de decisão antes ou durante o desenvolvimento dos requisitos
 | ID | Tema | O que decidir | Proposta deste documento | Resp. | Afeta |
 |---|---|---|---|---|---|
 | P01 | Plano de categorias | Lista definitiva de categorias e subcategorias, natureza e grupo do DRE; uma categoria "Vendas" com separação por canal no lugar de Salão/Delivery/Balcão. | Proposta do RF07, Obs2. | Matheus | RF07, RF27, RF28 |
-| P02 | Investimento × despesa | Regra para separar investimento de despesa (valor mínimo, vida útil) e quando a IA deve perguntar. | Itens de equipamento e reforma como INVESTIMENTO; perguntar só acima de um valor a definir. | Matheus | RF07, RF12 |
+| P02 | Investimento × despesa | **Fechada em 05/11/2026 (DD-09):** a IA pergunta acima de R$ 1.500. | Equipamento e reforma como INVESTIMENTO. | Matheus | RF07, RF12 |
 | P03 | Planos e preços | Preços, limites de usuários, unidades e consultas por plano; duração do teste; preço de fundador. | Essencial e Profissional, R$ 99 a 199 por restaurante; teste de 14 dias; piloto de 60 a 90 dias. | Ambos | RF01, RF21, RF37 |
 | P04 | Informações essenciais | Quais faltas geram pergunta antes de gravar (D6 do plano do canal). | Valor; quantidade de insumo; tipo não inferível; unidade inexistente ou ambígua (RF12, regra 17). | Matheus | RF12, RF15 |
-| P05 | Impostos sobre faturamento | Como tratar impostos por regime (Simples na maioria) e se entram como dedução calculada ou lançada. | Lançados como despesa da categoria Impostos sobre faturamento, sem cálculo automático no MVP. | Matheus | RF27, RF28 |
+| P05 | Impostos sobre faturamento | **Fechada em 05/11/2026 (DD-05):** imposto estimado opcional, todos os regimes, regras em tabela versionada (RF39). Segue valendo o lançamento do imposto real como despesa. Os detalhes viraram P16 e P17. | Estimativa gerencial informativa. | Matheus | RF27, RF28, RF39 |
 | P06 | Taxa de canal × forma de pagamento | Se comissão do aplicativo e taxa do cartão se combinam. | Canal APLICATIVO com comissão substitui a taxa da forma de pagamento (RF09, regra 4). | Matheus | RF08, RF09 |
 | P07 | Padrões de formas de pagamento e canais | Listas padrão e taxas típicas (crédito, débito, voucher, iFood, 99Food, Keeta). | Dinheiro, Pix, Débito, Crédito, Voucher; Salão, Delivery próprio, iFood, Retirada. | Matheus | RF08, RF09 |
 | P08 | Textos do WhatsApp | Revisão de confirmação, ajuda, erros, recusas e avisos; contato de suporte real. | Textos-base deste documento e de messages.ts. | Matheus | RF11, RF16, RF19 |
-| P09 | Indicadores do dono | Quais indicadores além de margem, CMV e folha (ticket médio exige número de vendas, hoje não coletado). | Margem, CMV % e folha % no MVP. | Matheus | [RF27](#rf27--dashboard-indicadores-e-gráficos) |
-| P10 | Relatórios no MVP | Antecipar ou não os resumos predefinidos pelo WhatsApp para o MVP. | Antecipar "resumo de hoje/semana/mês" se couber no prazo; interpretação livre na v1.1. | Ambos | [RF20](#rf20--relatórios-e-consultas-pelo-whatsapp-por-hierarquia) |
+| P09 | Indicadores do dono | **Fechada em 05/11/2026 (DD-13):** margem, CMV %, folha %, ticket médio, ponto de equilíbrio e imposto estimado %. | Ver RF27.R7 a R9. | Matheus | [RF27](#rf27--dashboard-indicadores-e-gráficos) |
+| P10 | Relatórios no MVP | **Fechada em 05/11/2026 (DD-12):** resumos fixos de hoje, semana e mês no MVP. | Interpretação livre na v1.1. | Ambos | [RF20](#rf20--relatórios-e-consultas-pelo-whatsapp-por-hierarquia) |
 | P11 | NF-e por certificado A1 | Viabilidade legal, custódia do certificado e frequência de consulta. | Implementar só após validação (RF32, Fase 2). | Matheus | [RF32](#rf32--captura-de-nf-e-pela-sefaz-com-certificado-digital) |
 | P12 | Ajustes no plano do painel | Autocadastro (hoje disableSignUp: true), login por senha (hoje só código) e papel Contador. | Atualizar docs/planos/painel.md (F1, F2, F6) e o core (papéis). | Luís | RF01, RF02, RF06 |
 | P13 | Unidades de acesso | O schema atual permite uma unidade ou todas por vínculo; o RF05 pede uma lista de unidades. | Tabela de vínculo colaborador × unidade, mantendo "todas". | Luís | [RF05](#rf05--cadastro-de-colaboradores-e-números-de-whatsapp) |
 | P14 | Revogação do opt-in e envio idempotente | Comando "parar" e prova de consentimento; não repetir confirmação em reprocessamento. | RF19 e RF16, Obs1. | Luís | RF16, RF19 |
+| P16 | Imposto estimado: parâmetros e fórmulas | Lista de parâmetros e fórmulas de cada regime (MEI, Simples, Presumido, Real); se a estimativa deve entrar no Resultado; texto do aviso. | Estimativa informativa, fora do Resultado, com aviso do RF39.R7. | Matheus | RF39, RF27, RF28 |
+| P17 | Reforma tributária: vigências | Datas e alíquotas de CBS e IBS, transição e efeito em cada regime (inclusive Simples). | Tabela versionada por vigência; sem valores até o Matheus informar. | Matheus | RF39 |
+| P18 | NF-e por envio manual | Revisar as regras que sobram do RF31 para o envio manual de XML (painel e WhatsApp): quem pode enviar, CNPJ do destinatário diferente, nota de entrada × saída. | Dono, gerente e lançador enviam; destinatário diferente é recusado com aviso. | Matheus | RF31 |
 | P15 | Desbloqueios da Meta | Publicar o app (P1) e resolver o erro 130497 (P2), número definitivo e verificação da empresa. | Seguir docs/planos/canal-whatsapp.md, E10. | Luís e Matheus (CNPJ) | Todo o canal WhatsApp |
 
 # Notas de conversão

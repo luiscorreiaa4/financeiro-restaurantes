@@ -2,13 +2,13 @@
 
 Guia para o Claude Code trabalhar neste repositório. Leia antes de qualquer tarefa.
 As regras de negócio estão em `docs/requisitos.md` (veja "Onde está cada coisa" abaixo). Visão de produto e negócio em `docs/produto.md`, arquitetura em `docs/arquitetura.md`, escopo por fase em `docs/escopo-por-fase.md`.
-Planos de desenvolvimento por módulo: `docs/planos/canal-whatsapp.md` (etapas E1 a E13) e `docs/planos/painel.md` (etapas F0 a F10). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa e siga o "Fechamento de etapa" do plano, que inclui propor (sem criar) regras, skills, hooks e `CLAUDE.md` de módulo para o que repetiu na etapa.
+Planos de desenvolvimento por módulo: `docs/planos/canal-whatsapp.md` (etapas E1 a E14) e `docs/planos/painel.md` (etapas F0 a F13). Cada plano tem uma tabela de progresso no topo: "próxima etapa" é a primeira com status "A fazer". Atualize a tabela ao concluir uma etapa e siga o "Fechamento de etapa" do plano, que inclui propor (sem criar) regras, skills, hooks e `CLAUDE.md` de módulo para o que repetiu na etapa.
 
 ## O produto em uma frase
 
 Controle financeiro **gerencial** para restaurantes pequenos e médios, alimentado por **WhatsApp** (texto, áudio e foto de nota). A IA interpreta a mensagem, registra receitas e despesas e devolve uma confirmação clara. Um painel web mostra gráficos, permite editar lançamentos e exportar para Excel.
 
-Não é sistema fiscal: não emite nota, não apura imposto. Somos aliados do contador.
+Não é sistema fiscal: não emite nota e não apura imposto. A pedido do dono, mostra uma **estimativa** de imposto por regime tributário (RF39, DD-05), sempre com aviso. Somos aliados do contador, que também tem login (leitura e exportação, DD-03).
 
 ## Onde está cada coisa
 
@@ -16,8 +16,8 @@ Hierarquia da documentação, da mais forte para a mais fraca:
 
 | Documento | Papel |
 |---|---|
-| `docs/requisitos.md` | **O quê** e as regras de negócio (38 RFs, 14 RNFs, matriz de permissões, pendências). Fonte da verdade. |
-| `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F7, DE-xx das etapas, DN-xx de 29/10/2026). |
+| `docs/requisitos.md` | **O quê** e as regras de negócio (39 RFs, 14 RNFs, matriz de permissões, pendências). Versão 1.1 (05/11/2026). Fonte da verdade. |
+| `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F7, DE-xx das etapas, DN-xx de 29/10/2026, DD-xx da reunião de descoberta de 05/11/2026). Resumo em `docs/DESCOBERTA.md`. |
 | `docs/arquitetura.md` | **Como**: stack, fluxo, modelo de dados e divergências do modelo atual em relação aos requisitos. |
 | `docs/produto.md` | Visão de produto e de negócio: problema, público, custos, validação, riscos. |
 | `docs/escopo-por-fase.md` | Escopo por fase, por RF (MVP, v1.1, Fase 2). |
@@ -89,7 +89,7 @@ Cada regra aponta para o requisito que a detalha em `docs/requisitos.md`.
 
 - Código, nomes de tabelas e identificadores em **inglês**; textos para o usuário em **português do Brasil**.
 - Glossário: lançamento = `entry`; despesa = `expense`; receita = `revenue`; unidade/restaurante = `unit`; conta/empresa cliente = `tenant`; fornecedor = `supplier`; forma de pagamento = `payment_method`; canal de venda = `sales_channel`; categoria = `category`.
-- Papéis (RF06): DONO = `owner`, GERENTE = `manager`, LANCADOR = `staff`, CONTADOR = `accountant` (Fase 2, RF36; ainda não existe no código). Permissões adicionais: VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP. O mapeamento completo dos enums do documento para o código está nas notas de `docs/requisitos.md`.
+- Papéis (RF06): DONO = `owner`, GERENTE = `manager`, LANCADOR = `staff`, CONTADOR = `accountant` (MVP desde 05/11/2026, RF36 e DD-03; ainda não existe no código, entra na E11; vê folha após o aviso ao dono, DD-04). Permissões adicionais: VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP. O mapeamento completo dos enums do documento para o código está nas notas de `docs/requisitos.md`.
 - Datas de negócio em `date` (sem hora), fuso padrão `America/Sao_Paulo`. Timestamps em `timestamptz`.
 - IDs: UUID v7.
 - Validação de entrada com Zod em toda fronteira (HTTP, webhook, saída do LLM, jobs).
@@ -123,4 +123,4 @@ pnpm dev:chat       # chat de terminal que simula o WhatsApp, só para teste (pr
 
 ## Estado atual
 
-Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. Próxima etapa do canal: **E11** (modelo de dados dos requisitos); a **E10** (envio real e operação) está bloqueada pela Meta. Situação e pendências abertas em `docs/planos/andamento.md`. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) pedem ajustes nas etapas já feitas e etapas novas (E11 a E13, F9 e F10); veja as notas "Ajustes pelos requisitos v1.0" nos planos e a seção de divergências em `docs/arquitetura.md`.
+Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. Próxima etapa do canal: **E11** (modelo de dados dos requisitos); a **E10** (envio real e operação) está bloqueada pela Meta. Situação e pendências abertas em `docs/planos/andamento.md`. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) e a reunião de descoberta de 05/11/2026 (requisitos v1.1) pedem ajustes nas etapas já feitas e etapas novas (E11 a E14, F9 a F13); veja as notas nos planos e a seção de divergências em `docs/arquitetura.md`. O MVP agora inclui data de pagamento, contador multicliente, imposto estimado, importação de OFX e planilha, XML manual de NF-e, DRE na tela e resumos fixos pelo WhatsApp.

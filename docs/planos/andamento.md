@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 04/11/2026 (situação de 30/10/2026: nada mudou no código desde então).
+Atualizado em 05/11/2026 (reunião de descoberta; o código não mudou desde 30/10/2026). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -14,8 +14,8 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 |---|---|
 | Fundação (fase 0) | Pronta. Falta só rodar o CI no GitHub |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
-| Canal WhatsApp E10 a E13 | A fazer. **E11 é a próxima**; a E10 está travada pela Meta |
-| Painel web F0 a F11 | Nada feito. **F0 pode começar já** |
+| Canal WhatsApp E10 a E14 | A fazer. **E11 é a próxima** (agora ampliada); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
+| Painel web F0 a F13 | Nada feito. **F0 pode começar já**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -33,11 +33,12 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 
 ## 3. Próximos passos
 
-1. **E11 (canal): modelo de dados dos requisitos.** Quatro papéis e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade, categoria e lançamento; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
+1. **E11 (canal): modelo de dados dos requisitos.** Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
 2. **F0 (painel): fundação do web.** Pode andar em paralelo. Antes, planejar F0 e F1 com [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt).
 3. **Rodar o CI no GitHub.**
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
 5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
+6. **Matheus (novas pendências da reunião de 05/11/2026):** P16 (parâmetros e fórmulas de imposto por regime e se a estimativa entra no Resultado), P17 (vigências da reforma tributária), P18 (regras do XML manual), P01 (lista de categorias com Natureza FIXA/VARIAVEL), P03 (planos e preços), P04 (essenciais, agora com canal e pedidos). Detalhe em [`../DESCOBERTA.md`](../DESCOBERTA.md).
 
 ## 4. Travado por fora 🔴
 
@@ -75,8 +76,11 @@ Nada feito. Plano completo em [`painel.md`](painel.md).
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
+- [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
+- [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 
 ## 7. Documentação
 
 - [ ] Atualizar `arquitetura.md`: tabela `fiscal_documents`, colunas novas (`entries.flags`, `ai_usage.cache_*`, `pending_questions.status`), ação `restore` e os índices de envio único.
-- [ ] Se os sócios aceitarem as propostas de P04 e P06, levar para `requisitos.md` (subindo a versão) e para `escopo-por-fase.md`.
+- [ ] Se os sócios aceitarem as propostas de P04 e P06, levar para `requisitos.md` (subindo a versão) e para `escopo-por-fase.md`. (P06 e P07 foram mantidas provisórias em 05/11/2026, DD-15.)
+- [ ] Corrigido em 05/11/2026: o `andamento.md` citava "F0 a F11" e o `CLAUDE.md` "F0 a F10"; agora ambos dizem F0 a F13 e E1 a E14.

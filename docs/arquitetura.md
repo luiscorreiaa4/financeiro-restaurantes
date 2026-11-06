@@ -118,8 +118,8 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 
 | Onde | O que falta | RF | Etapa |
 |---|---|---|---|
-| `ROLES = ["owner", "manager", "staff"]` | Quarto papel `accountant` (CONTADOR, Fase 2); registrar `staff` = LANCADOR. | RF06, RF36 | Mapeamento: já em `decisoes.md` (DN-04). Papel novo: E11 / Fase 2 |
-| `can()` e `categoryIsSensitive` (só `owner` age sobre folha) | Permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP; gerente e contador com VER_FOLHA veem folha. | RF05.R7, RF06.R3 | E11 |
+| `ROLES = ["owner", "manager", "staff"]` | Quarto papel `accountant` (CONTADOR, **agora no MVP**, DD-03); registrar `staff` = LANCADOR. | RF06, RF36 | Mapeamento: já em `decisoes.md` (DN-04). Papel novo: E11 |
+| `can()` e `categoryIsSensitive` (só `owner` age sobre folha) | Permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP; gerente com VER_FOLHA vê folha; **o contador vê folha sempre (DD-04), sem criar, editar ou excluir**; aviso e aceite do dono na auditoria. | RF05.R7, RF06.R3 | E11 |
 | Testes de permissão | A matriz da seção 2.3 de `requisitos.md` como teste (todas as ações × papéis). | RF06.CA06 | E11 |
 
 ### Conta, unidade e colaborador
@@ -129,7 +129,7 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 | `tenants` (só `name`, `plan` default `trial`) | Razão social; CNPJ (único se situação ≠ ENCERRADA); segmento; regime tributário; faixa de faturamento; código de indicação; plano TESTE/ESSENCIAL/PROFISSIONAL/FUNDADOR; início e fim do teste; situação ATIVA/SOMENTE_LEITURA/CANCELADA/ENCERRADA; aceite dos termos (data e versões). | RF01, RF37 | F1 (autocadastro), F9 (assinatura) |
 | `users` (`email` opcional, sem senha) | Senha (hash forte com sal), e-mail verificado, bloqueio por tentativas, sessões ativas. | RF01.R10 a R12, RF02 | F1 |
 | Autenticação | Códigos de uso único, tentativas de senha, sessões e limites de envio; endpoint próprio de autocadastro (o Better Auth não cria usuário no login comum). | RF01 a RF03, RNF01 | F1 |
-| `units` (nome, fuso) | Apelidos (até 5, únicos na empresa); CNPJ da unidade; município e UF; status ATIVA/INATIVA; regra "não inativar a última ativa". | RF04 | F6 (tela), E11 (dados) |
+| `units` (nome, fuso) | Apelidos (até 5, únicos na empresa); CNPJ da unidade; município e UF; status ATIVA/INATIVA; regra "não inativar a última ativa"; **canal padrão da receita** (`default_sales_channel_id`, DD-08). | RF04 | F6 (tela), E11 (dados) |
 | `memberships` (`unit_id` nulo = todas; `permissions jsonb`) | Lista de unidades de acesso (tabela colaborador × unidade, mantendo "TODAS"); unidade padrão; situação CONVIDADO/ATIVO/DESATIVADO (hoje só `deactivated_at`); `invited_by`, data do convite; acesso ao painel; as 4 permissões adicionais validadas por enum. Pendência P13. | RF05.R5 a R8 | E11 |
 | `whatsapp_opt_ins` | Revogação do consentimento (`parar`) e novo opt-in (`voltar`); hoje só acrescenta. Pendência P14. | RF05.R9, RF19 | E10 |
 
@@ -146,7 +146,7 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 
 | Tabela | O que falta | RF | Etapa |
 |---|---|---|---|
-| `entries` | Sinais de revisão (CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e ação "marcar como revisado"; canal de origem `EMAIL`; motivo da exclusão, quem excluiu e restaurável até (hoje só `deleted_at`); documento fiscal com chave de acesso (44 dígitos, única por empresa) e itens agrupados por categoria; o id da confirmação enviada já existe (`confirmation_wa_message_id`) e a posição na mensagem de origem também (`position`). | RF12.R12, R13, RF14, RF24 | E7, E9, F3 |
+| `entries` | **`paid_on` (data de pagamento, opcional, padrão = `occurred_on`; DD-02) e `orders` (pedidos, opcional; DD-13); receita com `sales_channel_id` obrigatório (DD-08).** Sinais de revisão (CATEGORIA_A_REVISAR, **CANAL_A_REVISAR**, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e ação "marcar como revisado"; canal de origem `EMAIL`; motivo da exclusão, quem excluiu e restaurável até (hoje só `deleted_at`); documento fiscal com chave de acesso (44 dígitos, única por empresa) e itens agrupados por categoria; o id da confirmação enviada já existe (`confirmation_wa_message_id`) e a posição na mensagem de origem também (`position`). | RF12.R12, R13, RF14, RF24 | E7, E9, F3 |
 | `entry_versions` (`action`: create, update, delete; `channel`: whatsapp, web, import, system) | Ação `restore` (RESTAURACAO); canal `email`. O documento chama os canais de WHATSAPP, PAINEL, IMPORTACAO, EMAIL, SISTEMA (mapeamento em `requisitos.md`). | RF25.R4 | E7, F3 |
 | `entries.ai_confidence` | RNF08.R3 proíbe rotear por "confiança" declarada pelo modelo; a coluna pode ficar só informativa (revisar na E6). | RNF08.R3 | E6 |
 | `pending_questions` (tem `expires_at`) | Situação ABERTA/RESPONDIDA/CANCELADA/EXPIRADA; no máximo uma aberta por colaborador; validade de 24 h aplicada; cancelamento por mensagem nova de lançamento. | RF15 | E7 |
@@ -160,9 +160,11 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 | Tabela (proposta) | Para quê | RF | Etapa |
 |---|---|---|---|
 | `recurring_rules` (já no rascunho acima) | Lançamentos recorrentes e valor variável sem lançamento no mês. | RF33 | E13 (v1.1) |
-| `imports` e linhas importadas | Importação de planilhas, extratos OFX/CSV e relatórios de vendas, desfazer em 30 dias. | RF35 | E13 (v1.1) |
+| `imports` e linhas importadas | Importação de planilhas, extratos OFX/CSV e relatórios de vendas, desfazer em 30 dias; conciliação com tolerância zero de centavo (DD-14). **Agora no MVP.** | RF35 | E14 |
+| `tax_settings` (por empresa) e `tax_rules` (tabela do sistema, versionada por vigência) | Regime, data de início, parâmetros e opção "ver imposto estimado"; regras com `valid_from` e `valid_to`, nunca editadas (linha nova a cada mudança). A tabela de regras é global (sem `tenant_id`), com leitura apenas; `tax_settings` segue a regra de tabela nova (`tenant_id` e RLS). | RF39, DD-05 | E11 (dados), F12 (tela) |
+| Aceite do aviso de folha | Registro de que o dono confirmou "este acesso inclui folha" ao convidar o contador (na trilha `audit_log` ou em coluna de `memberships`). | RF36, DD-04 | E11 |
 | `exports` | Pedido de exportação, situação, link assinado de 1 hora, arquivo apagado em 7 dias. | RF29 | F5 |
-| `received_invoices` (notas por e-mail) | Endereço exclusivo da empresa, notas recebidas, quarentena, deduplicação pela chave de acesso. | RF31 | E13 (v1.1) |
+| Notas por XML (`fiscal_documents` já existe) | Enviadas manualmente (painel e WhatsApp como documento); deduplicação pela chave de acesso. **Sem** endereço de e-mail por empresa nem quarentena (DD-10). | RF31 | E14 |
 | `notification_preferences` e histórico de envios | Resumo semanal, alertas por exceção e preferências por colaborador. | RF34 | E13 (v1.1) |
 | `subscriptions` e cobranças | Plano, ciclo, situação do pagamento, encerramento e eliminação de dados. | RF37 | F9 |
 | `admin_actions` e autorizações temporárias | Ações do painel interno e acesso do suporte limitado a 24 horas. | RF38 | F10 |

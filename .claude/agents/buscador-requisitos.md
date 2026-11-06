@@ -14,7 +14,7 @@ Como buscar (nesta ordem):
 2. `docs/decisoes.md`: Grep pelo ID (D1 a D7, D-F1 a D-F7, DE-xx, DN-xx) ou pelo tema, e leia só as entradas achadas.
 3. `docs/arquitetura.md`: só a seção de divergências do modelo atual em relação aos requisitos, se o tema tocar em banco ou fluxo.
 4. `docs/escopo-por-fase.md`: só para dizer a fase do RF (MVP, v1.1 ou Fase 2), se pedido.
-5. `docs/planos/canal-whatsapp.md` e `docs/planos/painel.md`: só se perguntarem em qual etapa (E1 a E13, F0 a F10) o RF é entregue.
+5. `docs/planos/canal-whatsapp.md` e `docs/planos/painel.md`: só se perguntarem em qual etapa (E1 a E14, F0 a F13) o RF é entregue.
 
 Formato da resposta (curto, em tópicos):
 - **RFs envolvidos:** número, título, prioridade/fase, linhas (`requisitos.md:NNN-MMM`).

@@ -30,9 +30,10 @@ Legenda de confiança, usada em todo o documento:
 | E8 Evals e qualidade da IA | Feita (30/10/2026) | 39 casos inventados em JSONL, runner por campo e por lançamento, precisão e revocação da pergunta, custo e latência, baseline em `baseline.json` (100% nos casos atuais), `pnpm --filter @app/ai eval` com trava de orçamento. Rodada completa: cerca de US$ 0,015. Pendente: casos reais anonimizados do Matheus (o 100% é otimista: os casos são meus e o prompt foi ajustado olhando para eles) e rodar o eval no CI (precisa do segredo) |
 | E9 Áudio e foto | Feita (30/10/2026) **com ressalva**: áudio e foto só foram testados com fakes; falta teste com áudio e foto reais | Download da Meta (2 passos, conferido na doc), conversão com ffmpeg, transcrição `gpt-transcribe` por `fetch`, limite de 180 s, QR da NFC-e, chave única por empresa (`fiscal_documents`, migration 0005), itens agrupados por categoria, limites de uso (RF21), lida/digitando, chat com `/audio` e `/foto`. Pendente: S3 e retenção de 90 dias (E10), consulta à SEFAZ, preço do `gpt-transcribe`, ffmpeg no servidor |
 | E10 Envio real e operação | Bloqueada (Meta, P15) | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
-| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026) | **Próxima etapa.** Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm, e destrava `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-17) |
-| E12 Relatórios pelo WhatsApp (RF20) | A fazer (v1.1; nova) | Resumos predefinidos podem vir antes (P10) |
-| E13 Automações da v1.1 (RF31, RF33, RF34, RF35) | A fazer (v1.1; nova) | Só depois do piloto |
+| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | A fazer (nova, 29/10/2026; ampliada em 05/11/2026) | **Próxima etapa.** Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm, e destrava `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-17). **Acrescenta (DD-02, DD-03, DD-04, DD-08, DD-13):** papel `accountant` já com folha; `paid_on` e `orders` em `entries`; canal padrão por unidade e sinal `CANAL_A_REVISAR`; tabela de regras de imposto por vigência. Ajustes de prompt (E6): canal padrão, pedidos, data de pagamento e pergunta acima de R$ 1.500 (DD-09) |
+| E12 Resumos e relatórios pelo WhatsApp (RF20) | A fazer (**resumos fixos no MVP**, consultas livres na v1.1) | Resumos de hoje, semana e mês entram no MVP (DD-12, fecha P10) |
+| E13 Automações da v1.1 (RF33, RF34) | A fazer (v1.1) | Recorrentes, resumo semanal e alertas; só depois do piloto. RF31 e RF35 saíram daqui para a E14 |
+| E14 Importações e XML de NF-e (RF35, RF31 manual) | A fazer (**MVP**; nova, 05/11/2026) | Importação de planilha e OFX; XML pelo painel (F13) e pelo WhatsApp como documento; tolerância zero (DD-10, DD-14). P18 aberta |
 
 ### Requisitos por etapa
 
@@ -51,8 +52,9 @@ Cada etapa lista os RFs que entrega; as regras ficam em `requisitos.md`. Etapas 
 | E9 | RF13, RF14, RF21 (limites de mídia e taxa por usuário), RF11.Obs3 | n/a |
 | E10 | RF11.R10, RF19 (`parar` e `voltar`), RF21 (cotas), RNF05, RNF06, RNF11, RNF12 | n/a |
 | E11 | RF04, RF05.R5 a R8, RF06 (permissões adicionais), RF07, RF08, RF09 (campos) | n/a |
-| E12 | RF20 | n/a |
-| E13 | RF31, RF33, RF34, RF35 (v1.1); RF32 e RF36 (Fase 2) só listados | n/a |
+| E12 | RF20 (resumos fixos no MVP) | n/a |
+| E13 | RF33, RF34 (v1.1); RF32 (Fase 2) só listado | n/a |
+| E14 | RF35, RF31 (envio manual de XML) | Nova (DD-10) |
 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` e conferir que a etapa cumpre o "Pronto quando".
@@ -343,13 +345,19 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 - RF07, RF08, RF09: campos de apoio da IA (Exige Quantidade, palavras de apoio, apelidos), status, tipo da forma de pagamento e do canal, forma de cartão padrão da empresa.
 - RF12.R12 e R13, RF24: sinais de revisão, motivo da exclusão, canal de origem EMAIL e ação de restauração em `entry_versions`.
 
+**Acrescentado em 05/11/2026 (DD-02, DD-03, DD-04, DD-08, DD-13, DD-14):**
+- `accountant` deixa de ser reservado: entra no `core` e no `db`, vê folha e nunca cria, edita nem exclui; registro do aviso e aceite do dono na auditoria (RF36.CA03 e CA04).
+- `entries.paid_on` (padrão = `occurred_on`) e `entries.orders` (opcional); receita com canal obrigatório; `units.default_sales_channel_id`; sinal `CANAL_A_REVISAR` (RF12.R21 a R23, CA11 a CA14; RF04.R6).
+- `tax_settings` (por empresa, com RLS) e `tax_rules` (global, versionada por vigência, só leitura para o app) com os testes de `packages/core` por regime (RF39). Valores e fórmulas só depois de P16 e P17; até lá, a estrutura e regras de exemplo apenas em teste.
+- Ajuste de prompt e schema de extração (E6): data de pagamento, pedidos, canal padrão e pergunta acima de R$ 1.500; rodar `pnpm --filter @app/ai eval` e incluir os casos CA11 a CA14.
+
 **Testes:** matriz de permissões (papel × ação); isolamento da tabela de vínculo (regra `tabela-nova.md`); migração dos vínculos existentes (`unit_id` único ou nulo) para a nova lista sem perder acesso.
 
 **Pronto quando:** a matriz da seção 2.3 passa como teste no `core` e a migration roda em banco com dados do seed de desenvolvimento. Valores `[PROVISÓRIO – Pxx]` (P01, P02, P05, P06, P07) ficam em seed e constantes únicas.
 
-### E12: Relatórios pelo WhatsApp por hierarquia (RF20) — M (v1.1)
+### E12: Resumos e relatórios pelo WhatsApp por hierarquia (RF20) — M (resumos no MVP; consultas livres na v1.1)
 
-**Etapa nova.** Resumos predefinidos ("resumo de hoje", "da semana", "do mês") podem ser antecipados para o MVP por decisão dos sócios (P10), sem a interpretação livre.
+**Etapa nova.** Os resumos fixos ("resumo de hoje", "da semana", "do mês") entram no **MVP** (DD-12, P10 fechada), sem a interpretação livre. As demais consultas ficam na v1.1.
 
 **Entrega os requisitos:** RF20 (consultas RESUMO, POR_CATEGORIA, POR_FORNECEDOR, POR_FORMA_PAGAMENTO, POR_CANAL, EVOLUCAO, PRECO_INSUMO e MEUS_LANCAMENTOS; permissões por papel, RF20.R4 a R7; período e unidades padrão; resposta de até 12 linhas), RF21.R3 (cota mensal de consultas), RF06.CA01, CA03 e CA05. A IA só escolhe a consulta e os parâmetros; o banco calcula (RNF13.R3). É também a base do RF30 (perguntas no painel).
 
@@ -357,15 +365,23 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 
 **Pronto quando:** cada papel recebe só o que a matriz permite, pelo `pnpm dev:chat`.
 
-### E13: Automações da v1.1 (RF31, RF33, RF34, RF35) — G (v1.1)
+### E13: Automações da v1.1 (RF33, RF34) — G (v1.1)
 
-**Etapa nova, só listada.** Depois do piloto. Cada requisito vira uma sub-etapa quando for priorizado:
-- RF31 captura de NF-e por e-mail (endereço exclusivo, XML, chave de acesso, quarentena); depende do RF14 (itens por categoria) e de CNPJ cadastrado.
+**Etapa nova, só listada.** Depois do piloto. RF31 (agora envio manual de XML) e RF35 saíram para a **E14**, no MVP. Cada requisito vira uma sub-etapa quando for priorizado:
 - RF33 lançamentos recorrentes (valor fixo lança sozinho; variável só aparece como "sem lançamento").
 - RF34 resumo semanal e alertas por exceção (modelos aprovados pela Meta, consentimento e `parar`).
-- RF35 importação de planilhas, extratos e relatórios de vendas, com desfazer em 30 dias.
 
-Fora desta etapa, na **Fase 2**: RF32 (SEFAZ com certificado A1, só após validar P11) e RF36 (acesso do contador).
+Fora desta etapa, na **Fase 2**: RF32 (SEFAZ com certificado A1, só após validar P11). O acesso do contador (RF36) foi antecipado para o MVP (E11 e F13).
+
+### E14: Importações e XML de NF-e (RF35, RF31 manual) — M/G (MVP; nova em 05/11/2026)
+
+**Entrega os requisitos:**
+- RF35: importação de planilha, extrato OFX e relatório de vendas (PDV, iFood), com pré-visualização, desfazer em 30 dias, deduplicação e **tolerância zero** na conciliação de centavos (DD-14). Relatórios de vendas alimentam `entries.orders` (ticket médio, DD-13).
+- RF31 reformulado (DD-10): XML da NF-e enviado manualmente pelo WhatsApp (tipo de mídia "documento" no webhook e na fila) e pelo painel (F13). Leitura determinística, sem IA para os valores; chave de acesso única por empresa (`fiscal_documents`); sem e-mail por empresa nem quarentena. Regras finais: P18.
+
+**Testes:** arquivos de exemplo reais anonimizados (planilha, OFX, XML); reimportar o mesmo arquivo não duplica; diferença de 1 centavo marca revisão; isolamento das tabelas novas (`tabela-nova.md`); o desfazer restaura o estado anterior.
+
+**Pronto quando:** um OFX, uma planilha e um XML entram no `pnpm dev:chat` ou na API e viram lançamentos revisáveis, sem duplicar.
 
 ## 7. Qualidade transversal
 

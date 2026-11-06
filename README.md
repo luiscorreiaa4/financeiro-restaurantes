@@ -12,8 +12,8 @@ O índice completo, com o papel de cada arquivo e para quem ele é, está em [`d
 - [`docs/produto.md`](docs/produto.md): visão de produto e de negócio (problema, público, custos, validação, riscos)
 - [`docs/escopo-por-fase.md`](docs/escopo-por-fase.md): escopo por fase, organizado por requisito (MVP, v1.1, Fase 2)
 - [`docs/planos/andamento.md`](docs/planos/andamento.md): situação do projeto, próximos passos e pendências (comece por aqui)
-- [`docs/planos/canal-whatsapp.md`](docs/planos/canal-whatsapp.md): ordem de execução do canal WhatsApp, em 13 etapas (E1 a E13)
-- [`docs/planos/painel.md`](docs/planos/painel.md): ordem de execução do painel web, em 11 etapas (F0 a F10)
+- [`docs/planos/canal-whatsapp.md`](docs/planos/canal-whatsapp.md): ordem de execução do canal WhatsApp, em 14 etapas (E1 a E14)
+- [`docs/planos/painel.md`](docs/planos/painel.md): ordem de execução do painel web, em 14 etapas (F0 a F13)
 - `docs/planos/matheus.md` e `docs/planos/luis.md`: tarefas de cada sócio (locais, fora do git)
 - [`CLAUDE.md`](CLAUDE.md): regras e convenções do repositório (lido automaticamente pelo Claude Code)
 

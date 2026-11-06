@@ -16,25 +16,25 @@ Documento vivo. Itens marcados com **[PENDENTE]** apontam para uma pendência (P
 - Suporte próximo.
 - Feito para colaborar com o contador, não substituí-lo.
 
-**Escopo.** Controle **gerencial**. Não emite nem concilia notas fiscais, não apura impostos. O que fica fora está em `requisitos.md`, seção 1.3.
+**Escopo.** Controle **gerencial**. Não emite nem concilia notas fiscais e não apura impostos; a pedido do dono, mostra uma **estimativa** de imposto por regime tributário, sempre com aviso de que o contador é quem apura (RF39). O que fica fora está em `requisitos.md`, seção 1.3.
 
 ## 2. Público
 
 **Cliente-alvo.** Restaurantes, bares e lanchonetes de pequeno e médio porte, com ou sem várias unidades. Familiaridade tecnológica baixa a média (usabilidade: RNF09).
 
-**Quem usa.** Dono, gerente, lançador (compras, caixa, cozinha) e, na Fase 2, o contador. Uma conta (empresa) pode ter várias unidades e um usuário pode participar de várias contas. Papéis, permissões adicionais e a matriz de acesso: RF05, RF06 e `requisitos.md` seção 2.3. O perfil Contador pode cobrir vários clientes e virar canal de vendas por indicação (RF36, código de indicação no RF01).
+**Quem usa.** Dono, gerente, lançador (compras, caixa, cozinha) e o contador (leitura e exportação, de vários restaurantes, desde o MVP). Uma conta (empresa) pode ter várias unidades e um usuário pode participar de várias contas. Papéis, permissões adicionais e a matriz de acesso: RF05, RF06 e `requisitos.md` seção 2.3. O perfil Contador pode cobrir vários clientes e virar canal de vendas por indicação (RF36, código de indicação no RF01).
 
 ## 3. O produto em linhas gerais
 
 Cada item abaixo tem o seu requisito. Nada aqui define regra.
 
 - **Entrada pelo WhatsApp** (núcleo do produto): texto, áudio e foto de nota, vários lançamentos por mensagem, salvando direto e confirmando sempre. RF11 a RF19, RF21.
-- **Categorias** no formato de DRE gerencial simplificado, com subcategorias do dono e lista padrão: RF07. **[PENDENTE: P01, P02, P05, com o sócio contador.]**
+- **Categorias** no formato de DRE gerencial simplificado, com subcategorias do dono e lista padrão: RF07. **[PENDENTE: P01, com o sócio contador; P02 e P05 fechadas em 05/11/2026.]**
 - **Receitas**, canal de venda, forma de pagamento e taxas (bruto, taxa e líquido): RF08 e RF09. **[PENDENTE: P06, P07.]**
 - **Fornecedores**, cadastro automático a partir dos lançamentos: RF10.
 - **Recorrentes**: valor fixo lança sozinho, valor variável só aparece no fechamento como "ainda sem lançamento": RF33.
 - **Painel** (PWA, sem modo offline): lista, edição, lixeira, origem e histórico, dashboard e exportação. RF22 a RF27, RF29, RNF10. Cadastro da empresa pelo próprio dono, com período de teste: RF01 e RF37.
-- **Relatórios e IA**: dashboard e relatórios fixos no MVP; perguntas em linguagem natural (RF30, v1.1) e relatórios pelo WhatsApp por hierarquia (RF20, v1.1; resumos predefinidos podem vir antes, P10); resumo semanal e alertas por exceção (RF34); DRE e fechamento mensal em PDF (RF28). A IA escolhe consultas parametrizadas e o banco calcula (RNF13.R3).
+- **Relatórios e IA**: dashboard (com ticket médio, ponto de equilíbrio e imposto estimado), DRE na tela e resumos fixos de hoje, semana e mês pelo WhatsApp no MVP (RF27, RF28, RF20, RF39); perguntas em linguagem natural (RF30) e consultas livres pelo WhatsApp (RF20) na v1.1; resumo semanal e alertas por exceção (RF34); fechamento mensal em PDF (RF28). A IA escolhe consultas parametrizadas e o banco calcula (RNF13.R3).
 - **Estoque** fora do escopo; futuro: precificação sugerida por prato.
 
 Exemplos de mensagens esperadas **[PENDENTE: coletar 20 a 50 reais no teste piloto, para os evals; ver `planos/matheus.md`]**: ver os critérios de aceite do RF12 a RF14.
@@ -43,18 +43,18 @@ Exemplos de mensagens esperadas **[PENDENTE: coletar 20 a 50 reais no teste pilo
 
 | Fase | Integração | Requisito |
 |---|---|---|
-| MVP | WhatsApp (Cloud API oficial); QR Code da NFC-e com leitura por IA como reserva; exportação Excel/CSV; e-mail transacional | RF11 a RF19, RF14, RF29, RNF10 |
-| v1.1 | Captura de NF-e por e-mail (XML); importação de planilhas, extrato OFX/CSV e relatórios de PDV e iFood; resumo semanal e alertas; DRE em PDF | RF31, RF35, RF34, RF28 |
-| Fase 2 | Captura de NF-e pela SEFAZ com certificado A1 **[validar com o contador: P11]**; perfil Contador multicliente; Open Finance via agregador (Pluggy, Belvo); API do iFood | RF32, RF36 |
+| MVP | WhatsApp (Cloud API oficial); QR Code da NFC-e com leitura por IA como reserva; exportação Excel/CSV; e-mail transacional; envio manual do XML da NF-e (painel e WhatsApp); importação de planilhas, extrato OFX e relatórios de vendas; acesso do contador multicliente | RF11 a RF19, RF14, RF29, RF31, RF35, RF36, RNF10 |
+| v1.1 | Captura automática de NF-e por e-mail não será feita; resumo semanal e alertas; DRE em PDF; contas a pagar e fluxo de caixa | RF34, RF28 |
+| Fase 2 | Captura de NF-e pela SEFAZ com certificado A1 **[validar com o contador: P11]**; Open Finance via agregador (Pluggy, Belvo); API do iFood | RF32 |
 | Fase 3 | PDVs mais usados pelos clientes; exportação no formato de sistemas contábeis | a detalhar |
 
 Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual. Essa é a dor central.
 
 ## 5. Fiscal, legal e segurança
 
-- **Fiscal:** apenas controle gerencial.
-- **Contador do cliente:** perfil Contador (leitura e exportação, Fase 2) e exportações padrão: Excel/CSV com todos os lançamentos (RF29), DRE gerencial mensal em PDF (RF28) e pacote mensal com as notas organizadas (RF29.Obs2).
-- **LGPD e propriedade dos dados:** o restaurante é o **controlador**; nós somos **operadores**, o que consta nos Termos de Uso e no DPA aceitos no cadastro (RF01.R13). O cliente exporta tudo a qualquer momento, e depois do cancelamento os dados ficam disponíveis por 90 dias antes de serem eliminados (RF37, RNF03). Benchmarks anonimizados só com consentimento explícito. Dados pessoais tratados: telefones de colaboradores, CPFs em notas, salários (o mais sensível, só o dono por padrão). Detalhe: RNF03.
+- **Fiscal:** controle gerencial. O imposto estimado (RF39, opcional) é estimativa, nunca apuração nem guia; o produto não substitui a guarda fiscal de 5 anos, que é do contador (DD-06).
+- **Contador do cliente:** perfil Contador (leitura e exportação, multicliente, vê folha após o aviso ao dono; MVP) e exportações padrão: Excel/CSV com todos os lançamentos (RF29), DRE gerencial mensal em PDF (RF28) e pacote mensal com as notas organizadas (RF29.Obs2).
+- **LGPD e propriedade dos dados:** o restaurante é o **controlador**; nós somos **operadores**, o que consta nos Termos de Uso e no DPA aceitos no cadastro (RF01.R13). O cliente exporta tudo a qualquer momento, e depois do cancelamento os dados ficam disponíveis por 90 dias antes de serem eliminados (RF37, RNF03). Benchmarks anonimizados só com consentimento explícito. Dados pessoais tratados: telefones de colaboradores, CPFs em notas, salários (o mais sensível: dono, quem ele autorizar e o contador convidado, depois do aviso). Detalhe: RNF03.
 - **Segurança, auditoria e backup:** RNF01 (acesso e credenciais), RNF02 (isolamento entre empresas), RNF04 (auditoria e lixeira), RNF06 (backup, recuperação e ambientes). O texto jurídico (Termos, Política, DPA) vem do advogado.
 - **Política do WhatsApp:** RNF12 e [`politica-meta-whatsapp.md`](politica-meta-whatsapp.md).
 
@@ -98,4 +98,4 @@ Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual
 
 ## 9. Pendências com o sócio contador
 
-As decisões que cabem ao Matheus estão na seção 5 de `requisitos.md` (P01 a P11). Até a decisão final vale a proposta do documento, marcada `[PROVISÓRIO – Pxx]`; nenhuma bloqueia as etapas de desenvolvimento. Acompanhamento: [`planos/matheus.md`](planos/matheus.md) (o que é dele) e [`planos/andamento.md`](planos/andamento.md) (situação geral).
+As decisões que cabem ao Matheus estão na seção 5 de `requisitos.md` (P01 a P11 e P16 a P18; P02, P05, P09 e P10 já fechadas em 05/11/2026). Até a decisão final vale a proposta do documento, marcada `[PROVISÓRIO – Pxx]`; nenhuma bloqueia as etapas de desenvolvimento. Acompanhamento: [`planos/matheus.md`](planos/matheus.md) (o que é dele) e [`planos/andamento.md`](planos/andamento.md) (situação geral).

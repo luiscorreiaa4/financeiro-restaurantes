@@ -31,7 +31,9 @@ Legenda de confiança, usada em todo o documento:
 | F8 Endurecimento e lançamento | A fazer | |
 | F9 Assinatura, plano e encerramento da conta (RF37) | A fazer (nova, 29/10/2026) | Depende da F1 (conta com plano e situação). Preços e limites: `[PROVISÓRIO – P03]` |
 | F10 Painel interno de operação (RF38) | A fazer (nova, 29/10/2026) | Usa `ai_usage` do canal (E6 em diante) |
-| F11 v1.1 do painel (RF26, RF28, RF30) | Só listada | Lançamento manual, DRE em PDF e perguntas em linguagem natural; depois do piloto |
+| F11 v1.1 do painel (RF26, RF28 PDF, RF30) | Só listada | Lançamento manual, DRE em PDF e perguntas em linguagem natural; depois do piloto |
+| F12 Imposto estimado e DRE na tela (RF39, RF28 tela) | A fazer (**MVP**; nova, 05/11/2026) | Configuração de regime e parâmetros, cálculo por vigência no `core`, aviso de estimativa. Regras e parâmetros: P16, P17 (Matheus). Depende da F4 |
+| F13 Acesso do contador e importações no painel (RF36, RF35, RF31 manual) | A fazer (**MVP**; nova, 05/11/2026) | Convite com aviso de folha, lista de empresas do contador, upload de planilha, OFX e XML. Depende da F2 e da E14 do canal |
 
 ### Requisitos por etapa
 
@@ -39,11 +41,13 @@ Legenda de confiança, usada em todo o documento:
 |---|---|---|
 | F0 | RNF05.R3 e RNF09 (base: casca, estados de tela), RNF10.R2 (PWA, manifest em F7), RNF14 (testes) | Nenhuma |
 | F1 | RF01 (autocadastro), RF02 (senha ou código, sessões), RF03 (recuperação), RNF01 | **Sim**: troca "só convidados" por autocadastro e acesso por senha ou código (DN-02, DN-03) |
-| F2 | RF02.R6 (seletor de empresa e unidade), RF06 (papéis e permissões), RF05 (leitura), RNF02.R6 | **Sim**: quatro papéis e permissões adicionais |
+| F2 | RF02.R6 (seletor de empresa e unidade), RF06 (papéis e permissões), RF05 (leitura), RNF02.R6 | **Sim**: quatro papéis e permissões adicionais; o CONTADOR já entra no MVP e vê folha (DD-03, DD-04); matriz da seção 2.3 revisada |
 | F3 | RF22, RF23, RF24, RF25 | **Sim**: lixeira de 30 dias, sinais de revisão e filtros |
-| F4 | RF27 (indicadores e gráficos) | **Sim**: indicadores do RF27 `[PROVISÓRIO – P05, P09]` |
+| F4 | RF27 (indicadores e gráficos) | **Sim**: indicadores do RF27, com ticket médio, ponto de equilíbrio e imposto estimado (DD-13); P05 e P09 fechadas |
 | F5 | RF29 (XLSX e CSV, link de 1 hora, arquivo apagado em 7 dias) | **Sim**: regras do RF29 |
-| F6 | RF04 (unidades com apelidos), RF05 (colaboradores, unidades em lista), RF07 (subcategorias), RF08, RF09, RF10 | **Sim**: escopo ampliado |
+| F6 | RF04 (unidades com apelidos e canal padrão da receita), RF05 (colaboradores, unidades em lista), RF07 (subcategorias), RF08, RF09, RF10 | **Sim**: escopo ampliado; canal padrão por unidade no assistente inicial (DD-08) |
+| F12 | RF39, RF28 (tela) | Nova (DD-05, DD-11) |
+| F13 | RF36 (MVP), RF35, RF31 (envio manual) | Nova (DD-03, DD-10) |
 | F7 | RNF09, RNF10 | Nenhuma |
 | F8 | RNF05.R3 e R4, RNF09.R3, RNF11 | Nenhuma |
 | F9 | RF37 | Nova |
@@ -428,7 +432,27 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 ### F11: v1.1 do painel — só listada
 
-Depois do piloto, nesta ordem de prioridade a definir: RF26 (lançamento manual, "salvar e lançar outro"), RF28 (DRE gerencial e fechamento mensal em PDF) e RF30 (perguntas em linguagem natural sobre os dados, reaproveitando as consultas do RF20 da E12 do plano do canal). Também v1.1: código de acesso por WhatsApp e segundo fator do dono (RF02), pacote mensal para o contador (RF29.Obs2). Telas de RF31 (notas recebidas), RF33 (recorrentes), RF34 (preferências de resumo e alertas) e RF35 (importações) acompanham as etapas E13 do plano do canal. RF36 (contador multicliente) é Fase 2.
+Depois do piloto, nesta ordem de prioridade a definir: RF26 (lançamento manual, "salvar e lançar outro"), RF28 (DRE gerencial e fechamento mensal em PDF) e RF30 (perguntas em linguagem natural sobre os dados, reaproveitando as consultas do RF20 da E12 do plano do canal). Também v1.1: código de acesso por WhatsApp e segundo fator do dono (RF02), pacote mensal para o contador (RF29.Obs2), contas a pagar e fluxo de caixa (DD-02), resumo por empresa na tela do contador (RF36.R4). Telas de RF33 (recorrentes) e RF34 (preferências de resumo e alertas) acompanham a E13 do plano do canal. Importações (RF35) e XML (RF31) estão na F13 e na E14, no MVP. O contador multicliente (RF36) também está no MVP (F13).
+
+### F12: Imposto estimado e DRE na tela — G (MVP; nova em 05/11/2026)
+
+**Entrega os requisitos:** RF39 (opção "ver imposto estimado", regime e parâmetros, aviso de estimativa, linha estimada ao lado do imposto lançado) e a tela da DRE gerencial do RF28 (sem PDF). Também o canal padrão da receita por unidade no assistente inicial (RF04.R6) se ainda não estiver na F6. O cálculo vive em `packages/core` (E11); aqui ficam as telas e a API.
+
+**Depende de:** F4 (dashboard), E11 (tabelas e regras) e das pendências P16 e P17 do Matheus para os valores reais.
+
+**Testes:** RF39.CA01 a CA04; RF28.CA01 (Resultado da DRE igual ao do dashboard); API não envia o indicador de imposto se a opção está desligada; a DRE respeita categorias sensíveis.
+
+**Pronto quando:** o dono ativa o imposto, informa regime e parâmetros e vê a estimativa com o aviso na DRE e no dashboard.
+
+### F13: Acesso do contador e importações no painel — M/G (MVP; nova em 05/11/2026)
+
+**Entrega os requisitos:** RF36 (convite do contador com o aviso de folha e o aceite, lista de empresas, revogação, leitura e exportação), RF35 (telas de upload de planilha e OFX, pré-visualização e desfazer) e RF31 manual (upload de XML). RF22, RF23 e RF29 ganham a data de pagamento e os pedidos.
+
+**Depende de:** F2 (papéis), F5 (exportação) e E14 (processamento).
+
+**Testes:** RF36.CA01 a CA04; o contador nunca grava; a API devolve folha ao contador somente depois do aceite do dono.
+
+**Pronto quando:** o Matheus entra como contador em duas empresas de teste, lê e exporta os dados de ambas e perde o acesso de uma quando o dono revoga.
 
 ## 8. Riscos
 
