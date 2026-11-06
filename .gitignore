@@ -38,3 +38,6 @@ packages/ai/src/evals/last-run.json
 
 # Mídia do chat de desenvolvimento
 .dev-media/
+
+playwright-report/
+test-results/

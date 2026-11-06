@@ -17,7 +17,7 @@ Hierarquia da documentação, da mais forte para a mais fraca:
 | Documento | Papel |
 |---|---|
 | `docs/requisitos.md` | **O quê** e as regras de negócio (39 RFs, 14 RNFs, matriz de permissões, pendências). Versão 1.1 (05/11/2026). Fonte da verdade. |
-| `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F7, DE-xx das etapas, DN-xx de 29/10/2026, DD-xx da reunião de descoberta de 05/11/2026). Resumo em `docs/DESCOBERTA.md`. |
+| `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F9, DE-xx das etapas, DN-xx de 29/10/2026, DD-xx da reunião de descoberta de 05/11/2026). Resumo em `docs/DESCOBERTA.md`. |
 | `docs/arquitetura.md` | **Como**: stack, fluxo, modelo de dados e divergências do modelo atual em relação aos requisitos. |
 | `docs/produto.md` | Visão de produto e de negócio: problema, público, custos, validação, riscos. |
 | `docs/escopo-por-fase.md` | Escopo por fase, por RF (MVP, v1.1, Fase 2). |
@@ -98,7 +98,8 @@ Cada regra aponta para o requisito que a detalha em `docs/requisitos.md`.
 
 ## Como trabalhar aqui
 
-- **Fluxo de cada etapa (DD-17):** use o OpenSpec. `/opsx:explore` para pensar, `/opsx:propose <nome>` para gerar `openspec/changes/<nome>/` (proposal, specs, design, tasks), `/opsx:apply` para implementar e `/opsx:archive` ao concluir. O contexto e as regras estão em `openspec/config.yaml`. O OpenSpec **cita** os RF/CA de `docs/requisitos.md` e **não copia** regra; regra nova entra antes em `decisoes.md` e `requisitos.md`.
+- **Fluxo de cada etapa (DD-18):** use o Superpowers. `superpowers:brainstorming` (ou `mattpocock-skills:grilling`, para ser questionado a fundo) fecha o desenho, `superpowers:writing-plans` gera o plano, `superpowers:test-driven-development` guia a implementação e `superpowers:verification-before-completion` vale antes de dar por pronto. O desenho aprovado fica em `docs/superpowers/specs/` e o plano em `docs/superpowers/plans/`. Esses documentos **citam** os RF/CA de `docs/requisitos.md` e **não copiam** regra; regra nova entra antes em `decisoes.md` e `requisitos.md`. O OpenSpec foi abandonado (DD-18); não use `/opsx:*`.
+- Painel (`apps/web`): leia `apps/web/CLAUDE.md` antes de mexer (cache, dinheiro, testes, E2E).
 - Antes de mudar schema: editar `packages/db/schema`, gerar migration com drizzle-kit, revisar o SQL gerado, incluir política RLS.
 - Mudou prompt ou schema de extração em `packages/ai`: rodar os evals (`pnpm --filter @app/ai eval`) e não deixar a taxa de acerto cair.
 - Toda regra nova em `packages/core` vem com teste.
@@ -117,7 +118,6 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm --filter @app/ai eval
-openspec list       # mudanças em andamento (OpenSpec, instalado com: npm i -g @fission-ai/openspec)
 pnpm dev:worker     # worker da fila (pg-boss); rode em outro terminal junto de pnpm dev
 pnpm db:seed:dev    # restaurantes e usuários de exemplo para o chat (recusa NODE_ENV=production)
 pnpm dev:chat       # chat de terminal que simula o WhatsApp, só para teste (precisa de dev e dev:worker)
@@ -125,4 +125,4 @@ pnpm dev:chat       # chat de terminal que simula o WhatsApp, só para teste (pr
 
 ## Estado atual
 
-Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. O OpenSpec já está instalado (`openspec/`, DD-17) e é o primeiro passo de `docs/planos/andamento.md`. Etapa do canal em andamento: **E11** (modelo de dados dos requisitos, quase feita em 06/11/2026: dados e domínio prontos; faltam `trocar unidade`, `trocar empresa` e a empresa citada no texto, e rodar os evals com uma chave Anthropic válida); a **E10** (envio real e operação) está bloqueada pela Meta. Situação e pendências abertas em `docs/planos/andamento.md`. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: nenhuma etapa feita; **F0** pode começar já. Os requisitos v1.0 (29/10/2026) e a reunião de descoberta de 05/11/2026 (requisitos v1.1) pedem ajustes nas etapas já feitas e etapas novas (E11 a E14, F9 a F13); veja as notas nos planos e a seção de divergências em `docs/arquitetura.md`. O MVP agora inclui data de pagamento, contador multicliente, imposto estimado, importação de OFX e planilha, XML manual de NF-e, DRE na tela e resumos fixos pelo WhatsApp.
+Fase 0 (fundação) pronta, falta só rodar o CI no GitHub. Canal WhatsApp: **E1 a E9 feitas** (núcleo, banco com RLS, webhook, fila, identificação, extração por IA, lançamento com confirmação, correção e desfazer, evals, áudio e foto); a E3 tem a ressalva do teste com mensagem real (P1 da Meta) e a E9 a de áudio e foto nunca testados com mídia real. O fluxo por etapa é o Superpowers (DD-18); a pasta `openspec/changes/e11-modelo-de-dados/` ficou só como registro da E11. Etapa do canal em andamento: **E11** (modelo de dados dos requisitos, quase feita em 06/11/2026: dados e domínio prontos; faltam `trocar unidade`, `trocar empresa` e a empresa citada no texto, e rodar os evals com uma chave Anthropic válida); a **E10** (envio real e operação) está bloqueada pela Meta. Situação e pendências abertas em `docs/planos/andamento.md`. O `pnpm dev:chat` aceita texto, `/reply`, `/audio`, `/foto` e `/custo`; `pnpm --filter @app/ai eval` mede a IA (gasta crédito). Painel: **F0 feita** (06/11/2026: Tailwind e shadcn neutros, casca, Vitest, Playwright e jobs `e2e` e `integration` no CI); próxima: **F1**. Os requisitos v1.0 (29/10/2026) e a reunião de descoberta de 05/11/2026 (requisitos v1.1) pedem ajustes nas etapas já feitas e etapas novas (E11 a E14, F9 a F13); veja as notas nos planos e a seção de divergências em `docs/arquitetura.md`. O MVP agora inclui data de pagamento, contador multicliente, imposto estimado, importação de OFX e planilha, XML manual de NF-e, DRE na tela e resumos fixos pelo WhatsApp.

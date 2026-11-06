@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 29/10/2026 (alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 06/11/2026 (F0 feita; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -16,11 +16,11 @@ Legenda de confiança, usada em todo o documento:
 
 ## Como retomar este plano (leia primeiro)
 
-**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** da tabela abaixo (respeitando as dependências da seção 9). Abra a etapa como mudança do OpenSpec (`/opsx:propose <etapa>`), conforme o DD-17. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
+**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** da tabela abaixo (respeitando as dependências da seção 9). Planeje a etapa com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`), conforme o DD-18. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
 
 | Etapa | Status | Observação |
 |---|---|---|
-| F0 Fundação do web | A fazer | Pode começar já. Ler as páginas do Playwright (`webServer`, `projects`, `auth`, CI) |
+| F0 Fundação do web | **Feita (06/11/2026)** | Tailwind 4 + shadcn (preset base-nova, neutro, sem marca), casca responsiva com menu de celular, `lib/format`, `lib/api`, TanStack Query, Cache Components e cabeçalhos de segurança, Vitest + Playwright (desktop e Pixel 7), jobs `e2e` e `integration` no CI. Desenho: `docs/superpowers/specs/2026-11-06-f0-fundacao-web-design.md`; plano: `docs/superpowers/plans/2026-11-06-f0-fundacao-web.md`. Pendente: rodar os jobs novos no GitHub (só aparece depois do push) |
 | F1 Autenticação e sessão | A fazer | Depende do banco (E2 do canal WhatsApp). Fazer prova de conceito do Better Auth com Fastify antes |
 | F2 Conta, unidade e permissões | A fazer | |
 | F3 Lançamentos | A fazer | |
@@ -53,13 +53,19 @@ Legenda de confiança, usada em todo o documento:
 | F9 | RF37 | Nova |
 | F10 | RF38, RF21.R4 (alerta de custo), RF03.Obs2 (troca de e-mail do dono pelo suporte) | Nova |
 
+**Entregue pela F0 e o que ela deixa para as próximas (06/11/2026):**
+- **Entregue:** Tailwind 4 e shadcn (preset `base-nova`, neutro, D-F8), casca responsiva (menu lateral no desktop e em folha no celular), páginas de erro, carregando e não encontrado, `lib/format`, `lib/api` (`ApiError`, contrato Zod), TanStack Query, `rewrites` de `/api/*`, Cache Components, cabeçalhos de segurança, Vitest e Playwright (desktop e Pixel 7) e os jobs `e2e` e `integration` no CI. Regras do módulo em `apps/web/CLAUDE.md`.
+- **Conferido (era ⚠️):** shadcn com Tailwind 4 e React 19; Recharts 3.10 com `react-is` igual ao React; páginas `webServer`, `projects` e CI do Playwright; as flags `cacheComponents` e `partialPrefetching` e o `headers()` do Next 16.4; `@hookform/resolvers` 7 aceita Zod 4 (peer `^4`, conferido no npm).
+- **Para a F1:** a API do painel (`/api/me`, `/api/signup`, Better Auth) ainda não existe; `lib/api` e o `rewrites` estão prontos e testados com uma API falsa. O `proxy.ts` e a autenticação da casca nascem na F1. Fazer antes a prova de conceito do Better Auth com Fastify. O `storageState` do Playwright (página `auth`) ainda não foi lido.
+- **Pendências abertas** (também em `andamento.md`, seção 6): rodar os jobs novos no GitHub; decidir a identidade visual; decidir o destino do `apps/web/AGENTS.md`; confirmar que a base dos componentes (`@base-ui/react`) serve à F3; seguem ⚠️ o manifest do PWA (F7), a CSP e as metas de Web Vitals (F8) e a base do TanStack Table (F3).
+
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` (e o E2E, quando a etapa tiver) e conferir que a etapa cumpre o "Pronto quando".
 2. Atualizar a tabela de progresso e o campo "Atualizado em".
 3. **Revisar o contexto do Claude.** Responder: o que repetiu ou deu errado nesta etapa e vale virar regra (`.claude/rules`), skill, hook, `CLAUDE.md` do módulo ou subagente? Usar o critério: erro repetido duas vezes vira regra ou `CLAUDE.md`; procedimento colado pela terceira vez vira skill; o que precisa acontecer sempre vira hook. **Propor e esperar aprovação; não criar sozinho.**
 4. Sugerir a mensagem de commit em Conventional Commits. Não commitar sem pedido.
 
-**Decisões:** D-F1 a D-F7 e as decisões novas de 29/10/2026 (DN-01 a DN-12) estão em [`decisoes.md`](../decisoes.md). Este plano cita o ID em vez de repetir a explicação. D-F5 e D-F6 foram **ampliadas** em 29/10/2026 (senha ou código; lançamento manual é o RF26 da v1.1).
+**Decisões:** D-F1 a D-F9 e as decisões novas de 29/10/2026 (DN-01 a DN-12) estão em [`decisoes.md`](../decisoes.md). Este plano cita o ID em vez de repetir a explicação. D-F5 e D-F6 foram **ampliadas** em 29/10/2026 (senha ou código; lançamento manual é o RF26 da v1.1).
 
 **Prazo (ajuste seu, 27/10/2026):** F0 a F2 juntas, de 2 a 3 semanas (8 a 15 dias úteis), não 3,5 a 5,5.
 
@@ -83,12 +89,12 @@ Versões instaladas hoje: Next.js 16.4.3, React 19.3.1, TypeScript 7.0.2, Zod 4.
 | **`proxy.ts` (antigo middleware)** ✅ | Desde o Next 16, middleware se chama **Proxy**. Arquivo `proxy.ts` na raiz. A doc diz que não serve para busca lenta de dados nem como solução completa de sessão ou autorização, só para "checagens otimistas" (redirecionar quem não tem cookie). | `proxy.ts` só redireciona quem não tem cookie de sessão. A **autorização real** acontece na API e em cada leitura de dados no servidor. |
 | **`use cache` e dados de tenant** ✅ + 🧭 | O resultado de funções com `use cache` é guardado e **argumentos viram parte da chave**. Por padrão fica em memória por instância. `"use cache: private"` existe e guarda só no navegador. | 🧭 **Regra:** dado de tenant nunca entra em cache compartilhado do servidor. Sem `use cache` em consultas de tenant; se um dia for necessário, `tenantId` entra como argumento e a decisão é revisada. `use cache` fica para conteúdo público (página de login, páginas institucionais). |
 | **Tailwind CSS 4.3** ✅ | Instalação com `tailwindcss`, `@tailwindcss/postcss` e `postcss`; `postcss.config.mjs` com o plugin; `@import "tailwindcss";` no CSS global; **sem `tailwind.config.js`** na instalação, configuração em CSS (variáveis de tema). | Tokens de design em `@theme` no CSS. Nada de arquivo de config JS. |
-| **shadcn/ui** ✅ | CLI `shadcn@latest init -t next`. Para monorepo: flag `--monorepo`; ao adicionar componente, rodar de `apps/web` ou usar `-c apps/web`; imports em `@workspace/ui/components/...`. Há componentes de Chart, Data Table, Field/Input/Select e exemplos com React Hook Form, TanStack Form e Formisch. A página **não** diz se Tailwind v4 e React 19 são suportados. | ⚠️ Confirmar suporte a Tailwind 4 e React 19 ao rodar o `init`. Decisão D-F2 sobre `packages/ui`. |
-| **Recharts** ⚠️ | A página consultada não informa a versão atual nem o suporte ao React 19. Informa que o `react-is` precisa ter a mesma versão do `react`. O Chart do shadcn é construído sobre o Recharts. | Confirmar versão e compatibilidade com React 19 na instalação. Instalar `react-is` alinhado ao React. |
+| **shadcn/ui** ✅ | CLI `shadcn@latest init -t next`. Para monorepo: flag `--monorepo`; ao adicionar componente, rodar de `apps/web` ou usar `-c apps/web`; imports em `@workspace/ui/components/...`. Há componentes de Chart, Data Table, Field/Input/Select e exemplos com React Hook Form, TanStack Form e Formisch. A página **não** diz se Tailwind v4 e React 19 são suportados. | ✅ Conferido na F0 (06/11/2026): Tailwind 4 e React 19 funcionam; o `init` atual usa o preset `base-nova` sobre `@base-ui/react` (D-F8). Decisão D-F2 sobre `packages/ui`. |
+| **Recharts** ⚠️ | A página consultada não informa a versão atual nem o suporte ao React 19. Informa que o `react-is` precisa ter a mesma versão do `react`. O Chart do shadcn é construído sobre o Recharts. | ✅ Conferido na F0: Recharts 3.10 com `react-is` 19.3.1 renderiza no React 19 (teste `lib/charts/recharts-compat.test.tsx`). |
 | **TanStack Query v5** ✅ | Padrão para o App Router: `QueryClient` novo por requisição no servidor, prefetch em Server Component, `HydrationBoundary` com `dehydrate`. Desde a 5.40 dá para **não** usar `await` e transmitir queries pendentes (`useSuspenseQuery`). Não usar Server Actions para buscar dados em `queryFn`; Server Actions são para mutações. Não renderizar no servidor o resultado de `queryClient.query` e depois refazer no cliente (dessincroniza). | Leituras interativas (filtros, paginação, dashboard) com TanStack Query hidratado; mutações por Server Action ou chamada direta à API. |
 | **Better Auth: Email OTP** ✅ | Plugin `emailOTP` com callback `sendVerificationOTP({ email, otp, type })`; `type` é `sign-in`, `email-verification` ou `forget-password`. Padrões: expira em **300 s**, **6 dígitos**, **3 tentativas** (depois `TOO_MANY_ATTEMPTS`), reenvio por padrão gera código novo (`rotate`). Cadastra automaticamente quem não existe, a menos que `disableSignUp: true`. A doc manda **não** usar `await` no envio, para evitar ataque de tempo. A página **não** descreve limite de envios. | `disableSignUp: true` no plugin: **o login comum nunca cria usuário**. Quem cria conta é o **endpoint próprio de autocadastro** da API (RF01, DN-02), que grava empresa, unidade e dono numa transação depois de verificar o e-mail por código. Quem é convidado pelo dono entra pelo vínculo (RF05). Rate limit de **envio** é nosso, na API (números em RF02.R4). |
 | **Better Auth: Phone Number** ✅ | Callback `sendOTP({ phoneNumber, code }, ctx)`; verificação em `POST /phone-number/verify`; `signUpOnVerification` exige `getTempEmail`. Mesmos padrões de 300 s, 6 dígitos e 3 tentativas. A doc só descreve SMS e **não trata WhatsApp**. Também não mostra o schema gerado nem o adaptador Drizzle. | O callback é livre, então WhatsApp é possível em princípio. ⚠️ Enviar código fora da janela de 24 h exige template aprovado da Meta (a mensagem inicia a conversa e é cobrada). Não li a doc de templates de autenticação. |
-| **Playwright** ✅ parcial | Suporta Node 22, 24 e 26. Configuração em `playwright.config.ts` (browsers, projetos, retries, reporters). As páginas de `webServer`, `projects`, `auth` (`storageState`) e CI existem, mas **não foram lidas**. | ⚠️ Ler essas quatro páginas na F0. |
+| **Playwright** ✅ parcial | Suporta Node 22, 24 e 26. Configuração em `playwright.config.ts` (browsers, projetos, retries, reporters). As páginas de `webServer`, `projects`, `auth` (`storageState`) e CI existem, mas **não foram lidas**. | ✅ `webServer`, `projects` e CI lidas na F0; a página `auth` (`storageState`) fica para a F1. |
 | **Node, Biome, Turborepo** | Biome 2.6 e Turborepo 2.11 já instalados. | Biome formata CSS e JS; Markdown fica fora. |
 
 ## 3. Arquitetura
@@ -187,6 +193,8 @@ A explicação de cada decisão (motivo, onde vale e situação) está em [`deci
 | D-F5 | Acesso por senha ou código no e-mail; WhatsApp e 2º fator na v1.1 | Decidida, **ampliada em 29/10/2026** (DN-03) |
 | D-F6 | Lançamento manual é o RF26 (v1.1); no MVP só edição, lixeira e restauração | Decidida, **ampliada em 29/10/2026** |
 | D-F7 | Biblioteca de planilha Excel, decidir na F5 | Aberta |
+| D-F8 | F0 sem identidade visual: tema neutro do shadcn e fonte do sistema | Decidida (06/11/2026) |
+| D-F9 | E2E do web em `:3100` com API falsa em `:4010`; `rewrites()` por `API_URL` | Decidida (06/11/2026) |
 
 ## 5. Estratégia de testes
 
@@ -252,6 +260,8 @@ Cada etapa do front traz o seu pedaço da API. Todos os endpoints validam entrad
 Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 ### F0: Fundação do web — M
+
+**Feita em 06/11/2026.** Desenho em `docs/superpowers/specs/2026-11-06-f0-fundacao-web-design.md` e plano em `docs/superpowers/plans/2026-11-06-f0-fundacao-web.md`; o que ficou para a F1 está acima, em "Entregue pela F0".
 
 **Entregas**
 - `next.config.ts` com `cacheComponents: true` e `partialPrefetching: true` explícitos ✅.

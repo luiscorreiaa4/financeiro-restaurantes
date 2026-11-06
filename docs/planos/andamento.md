@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 05/11/2026 (reunião de descoberta; o código não mudou desde 30/10/2026). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 06/11/2026 (F0 do painel feita; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. Falta só rodar o CI no GitHub |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; faltam `trocar unidade`/`trocar empresa`/empresa citada e rodar os evals com uma chave Anthropic válida); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | Nada feito. **F0 pode começar já**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 feita (06/11/2026)**; F1 a F13 a fazer, **F1 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -33,13 +33,12 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 
 ## 3. Próximos passos
 
-1. **OpenSpec (fluxo de cada etapa) — antes de abrir qualquer etapa nova do canal ou do painel.** Instalado e iniciado em 05/11/2026 (`openspec/`, comandos `/opsx:*` em `.claude/`, contexto em `openspec/config.yaml`; decisão DD-17). Falta o Luís: (a) conferir `openspec/config.yaml` e os comandos criados em `.claude/commands/opsx/` e `.claude/skills/openspec-*`; (b) decidir sobre a telemetria anônima (`openspec config set telemetry.enabled false`); (c) rodar `/opsx:explore` e depois `/opsx:propose e11-modelo-de-dados` para provar o fluxo na E11; (d) arquivar com `/opsx:archive` ao concluir e conferir que `requisitos.md`, `decisoes.md` e o plano continuam coerentes. Regra: o OpenSpec **referencia** RF e CA do `requisitos.md`, não copia regra. Guia: [`guia/02-claude-code-skills-plugins-mcps.md`](guia/02-claude-code-skills-plugins-mcps.md).
-2. **E11 (canal): modelo de dados dos requisitos**, como primeira mudança do OpenSpec (`e11-modelo-de-dados`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-3. **F0 (painel): fundação do web**, só depois do passo 1. Pode andar em paralelo com a E11. Antes, planejar F0 e F1 com [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt) e abrir como mudança do OpenSpec (`/opsx:propose f0-fundacao-web`). As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
-4. **Rodar o CI no GitHub.**
-5. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
-6. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
-7. **Matheus (novas pendências da reunião de 05/11/2026):** P16 (parâmetros e fórmulas de imposto por regime e se a estimativa entra no Resultado), P17 (vigências da reforma tributária), P18 (regras do XML manual), P01 (lista de categorias com Natureza FIXA/VARIAVEL), P03 (planos e preços), P04 (essenciais, agora com canal e pedidos). Detalhe em [`../DESCOBERTA.md`](../DESCOBERTA.md).
+1. **E11 (canal): modelo de dados dos requisitos** (mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
+2. **F1 (painel): autenticação e sessão.** A F0 está feita; a F1 precisa do banco (E2, pronto). Planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`), fazendo antes a prova de conceito do Better Auth com Fastify (prompt de apoio em [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt)). As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
+3. **Rodar o CI no GitHub**, agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
+4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
+5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
+6. **Matheus (novas pendências da reunião de 05/11/2026):** P16 (parâmetros e fórmulas de imposto por regime e se a estimativa entra no Resultado), P17 (vigências da reforma tributária), P18 (regras do XML manual), P01 (lista de categorias com Natureza FIXA/VARIAVEL), P03 (planos e preços), P04 (essenciais, agora com canal e pedidos). Detalhe em [`../DESCOBERTA.md`](../DESCOBERTA.md).
 
 ## 4. Travado por fora 🔴
 
@@ -74,14 +73,21 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
   - [ ] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): falta decidir onde guardar a escolha. Proposta em `openspec/changes/e11-modelo-de-dados/design.md` ("Open Questions"); decidir, registrar em `decisoes.md` e só então implementar.
   - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline: a `ANTHROPIC_API_KEY` do `.env` está inválida (401). Trocar a chave primeiro.
   - [ ] Contador criado só por e-mail: `users.phone_e164` é obrigatório hoje (ajustar na F1/F13).
-  - Depois de fechar as três: `/opsx:archive e11-modelo-de-dados`, marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
+  - Depois de fechar as três (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar): marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
 
 ## 6. Painel
 
-Nada feito. Plano completo em [`painel.md`](painel.md).
+**F0 feita em 06/11/2026**; F1 a F13 a fazer, a **F1 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
+- **Pendências deixadas pela F0:**
+  - [ ] 🟡 Rodar no GitHub os jobs novos `e2e` e `integration`. É a primeira vez que a suíte de integração roda no CI; localmente passou (db 179, api 88). Se falhar, diagnosticar a causa real, sem enfraquecer teste. Dono: Luís (depende do push).
+  - [ ] Decidir a **identidade visual** (marca, paleta, fonte). A F0 ficou neutra por decisão do Luís (D-F8); a troca é local, em `apps/web/app/globals.css`. Antes do piloto (F7 e F8).
+  - [ ] Decidir o destino do `apps/web/AGENTS.md` (gerado pelo Next, não versionado): versionar, ignorar no `.gitignore` ou apagar.
+  - [ ] Confirmar com o Luís que a base dos componentes do shadcn (`@base-ui/react`, preset `base-nova`) serve à F3 (tabela, formulário, drawer). Alternativa: refazer o `init` com `--base radix`.
+  - [ ] Seguem ⚠️ no `painel.md`: prova de conceito do Better Auth com Fastify e `rewrites` (F1), `storageState` do Playwright (F1), manifest do PWA (F7), CSP e Web Vitals (F8), base do TanStack Table (F3).
+  - [x] `apps/web/CLAUDE.md` criado (regras de cache, dinheiro, datas, testes e E2E do painel).
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 
@@ -89,4 +95,7 @@ Nada feito. Plano completo em [`painel.md`](painel.md).
 
 - [ ] Atualizar `arquitetura.md`: tabela `fiscal_documents`, colunas novas (`entries.flags`, `ai_usage.cache_*`, `pending_questions.status`), ação `restore` e os índices de envio único.
 - [ ] Se os sócios aceitarem as propostas de P04 e P06, levar para `requisitos.md` (subindo a versão) e para `escopo-por-fase.md`. (P06 e P07 foram mantidas provisórias em 05/11/2026, DD-15.)
+- [x] Fluxo de cada etapa trocado de OpenSpec para Superpowers em 06/11/2026 (DD-18); `CLAUDE.md`, planos, `README` e guias atualizados.
+- [ ] Limpar o que sobrou do OpenSpec, se o Luís confirmar: `.claude/commands/opsx/`, `.claude/skills/openspec-*` e `openspec/` (config e specs). Manter `openspec/changes/e11-modelo-de-dados/` até fechar a E11, que guarda a pergunta de design aberta.
+- [ ] `planos/guia/contabilidade-restaurante-plano-do-zero.md` (roteiro genérico, já marcado como superado) ainda traz exemplos com `/opsx:*`; reescrever ou apagar.
 - [ ] Corrigido em 05/11/2026: o `andamento.md` citava "F0 a F11" e o `CLAUDE.md` "F0 a F10"; agora ambos dizem F0 a F13 e E1 a E14.

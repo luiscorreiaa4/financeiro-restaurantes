@@ -19,7 +19,8 @@
     "db:migrate": "pnpm --filter @app/db db:migrate",
     "db:seed": "pnpm --filter @app/db db:seed",
     "db:seed:dev": "pnpm --filter @app/db db:seed:dev",
-    "dev:chat": "pnpm --filter @app/api dev:chat"
+    "dev:chat": "pnpm --filter @app/api dev:chat",
+    "test:e2e": "turbo run test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",

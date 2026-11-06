@@ -1,0 +1,28 @@
+# CLAUDE.md do painel (`apps/web`)
+
+Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapas, em `docs/planos/painel.md`. Desenho e plano da F0: `docs/superpowers/specs/2026-11-06-f0-fundacao-web-design.md` e `docs/superpowers/plans/2026-11-06-f0-fundacao-web.md`.
+
+## Regras que não podem quebrar
+
+1. **Nunca `use cache` (nem cache compartilhado) em dado de tenant.** O Cache Components está ligado (`cacheComponents` e `partialPrefetching` em `next.config.ts`). `use cache` só para conteúdo público. Dado do tenant vem da API, em `<Suspense>`.
+2. **O painel não calcula dinheiro.** Ele formata o que a API devolveu. Use `formatBRL` de `@/lib/format` (reexporta `@app/core`). Dinheiro no JSON é `number` inteiro em centavos (D-F4).
+3. **Data de negócio é texto `YYYY-MM-DD`.** Formate com `formatBusinessDate`. Nunca `new Date("YYYY-MM-DD")` (lê como UTC e pode mostrar o dia anterior).
+4. **A autorização real é da API.** Esconder botão é conforto. O `proxy.ts` (F1) só redireciona quem não tem cookie.
+5. **Toda chamada à API passa por `lib/api`** (`createApiClient`), com schema Zod na resposta. Erro vira `ApiError` (`status` 0 = API fora do ar). Nunca use dado da API sem validar.
+6. **Chave de query do TanStack Query inclui o tenant e a unidade** quando a F2 existir. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
+7. Texto de mensagem de usuário é entrada não confiável: renderize como texto, nunca como HTML.
+
+## Estrutura e UI
+
+- `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
+- Componentes de `components/ui/` vêm do shadcn (preset `base-nova`, sobre `@base-ui/react`, pacote `cn`). Adicione com `pnpm dlx shadcn@latest add <componente>` dentro de `apps/web`; `--overwrite` apaga edição local.
+- **Sem identidade visual por enquanto (D-F8).** Tema neutro, fonte do sistema, cores só pelos tokens de `app/globals.css`. Não invente paleta nem fonte.
+- Ambiente do web: `lib/env.ts` (`parseWebEnv`). Não use `loadEnv` de `@app/config` aqui. `API_URL` é obrigatória em produção (padrão `http://localhost:4000` só fora dela).
+
+## Testes
+
+- Unitários e de componente: Vitest com jsdom, `*.test.ts(x)` ao lado do código. O Vitest ignora `e2e/` e o JSX é transformado pelo `oxc` (o tsconfig usa `jsx: "preserve"`).
+- E2E: Playwright em `e2e/*.spec.ts`, projetos `Desktop Chrome` e `Pixel 7`. `pnpm --filter @app/web test:e2e`. Sobe o web em `:3100` e uma API falsa em `:4010` (`e2e/fake-api.mjs`); com `CI=true` faz `next build` + `next start`, sem `CI` usa `next dev`. Instalar o navegador uma vez: `pnpm --filter @app/web exec playwright install chromium`.
+- Selecione por papel e texto acessível, não por classe CSS. Toda tela nova precisa de teste no celular (sem rolagem horizontal).
+- Se o `typecheck` acusar `Cannot find module '../../app/...'` em `.next/types`, apague `apps/web/.next` (saída de build ignorada pelo git).
+- Biome precisa de `css.parser.tailwindDirectives` (já ligado) para ler o `globals.css`.

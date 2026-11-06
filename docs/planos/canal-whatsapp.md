@@ -16,7 +16,7 @@ Legenda de confiança, usada em todo o documento:
 
 **Nome do módulo:** "canal WhatsApp" é o caminho completo da mensagem até o lançamento gravado: recebimento (webhook), fila, identificação, **IA** (um passo do caminho), gravação e confirmação. Não é só "a API" (`apps/api` também serve o painel) nem só "a IA" (`packages/ai` é uma parte pequena do plano). Vive em `apps/api`, `packages/whatsapp`, `packages/ai`, `packages/core` e `packages/db`.
 
-**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** na tabela abaixo. Abra a etapa como mudança do OpenSpec (`/opsx:propose <etapa>`), conforme o DD-17. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
+**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** na tabela abaixo. Planeje a etapa com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`), conforme o DD-18. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
 
 | Etapa | Status | Observação |
 |---|---|---|
@@ -64,7 +64,7 @@ Cada etapa lista os RFs que entrega; as regras ficam em `requisitos.md`. Etapas 
 
 **Decisões:** D1 a D7 e as decisões das etapas estão em [`decisoes.md`](../decisoes.md) (seções 1 e 3). Este plano cita o ID em vez de repetir a explicação.
 
-**Estado do repositório:** fase 0 pronta (falta só rodar o CI no GitHub) e E1 a E9 feitas. Pendências abertas das etapas feitas: [`andamento.md`](andamento.md), seção 5.
+**Estado do repositório:** fase 0 pronta (falta só rodar o CI no GitHub, que agora também tem os jobs `integration` e `e2e`) e E1 a E9 feitas. Pendências abertas das etapas feitas: [`andamento.md`](andamento.md), seção 5.
 
 ## 1. Objetivo e escopo
 
@@ -281,7 +281,7 @@ A explicação de cada decisão (motivo, onde vale e situação) está em [`deci
 ### 5.3 Jobs de CI propostos
 
 1. `check`: lint, typecheck, testes unitários e de contrato (já existe, rápido).
-2. `integration`: sobe Postgres via Testcontainers (o runner `ubuntu-latest` tem Docker) e roda `*.int.test.ts`.
+2. `integration`: sobe Postgres via Testcontainers (o runner `ubuntu-latest` tem Docker) e roda `*.int.test.ts`. **Criado em 06/11/2026** (F0 do painel); ainda não rodou no GitHub. Os jobs `evals` e `migrations` abaixo continuam por fazer.
 3. `evals`: só quando `packages/ai/**` muda; falha se a taxa de acerto cair abaixo do baseline menos a tolerância.
 4. `migrations`: gera migration a partir do schema e falha se houver diferença não commitada.
 

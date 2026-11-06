@@ -12,7 +12,7 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 | Arquivo | O que tem | Para quem |
 |---|---|---|
 | [`requisitos.md`](requisitos.md) | **O quê**: as regras de negócio (39 RFs, 14 RNFs, matriz de permissões, pendências P01 a P18; versão 1.1 de 05/11/2026). Fonte da verdade. Grande: busque por `### RFnn` | Os dois |
-| [`decisoes.md`](decisoes.md) | **Por quê**: uma linha por decisão (D1 a D7, D-F1 a D-F7, DE-01 a DE-21, DN-01 a DN-12, DD-01 a DD-16) | Os dois |
+| [`decisoes.md`](decisoes.md) | **Por quê**: uma linha por decisão (D1 a D7, D-F1 a D-F9, DE-01 a DE-21, DN-01 a DN-12, DD-01 a DD-18) | Os dois |
 | [`DESCOBERTA.md`](DESCOBERTA.md) | Resultado da reunião de descoberta de 05/11/2026: decisões, pendências abertas, escopo do MVP e o que ficou fora | Os dois |
 | [`arquitetura.md`](arquitetura.md) | **Como**: stack, fluxo da mensagem, modelo de dados e o que o código ainda não reflete dos requisitos | Luís |
 | [`produto.md`](produto.md) | Visão de produto e de negócio: problema, público, custos, validação, riscos | Os dois (mais o Matheus) |
@@ -34,7 +34,7 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 
 ## Como manter
 
-- Fluxo de cada etapa: OpenSpec (DD-17). As mudanças ficam em `openspec/changes/` (na raiz do repositório) e referenciam os RF; elas não substituem `requisitos.md`.
+- Fluxo de cada etapa: Superpowers (DD-18). Desenhos em `docs/superpowers/specs/` e planos em `docs/superpowers/plans/`; eles referenciam os RF e não substituem `requisitos.md`. O OpenSpec foi abandonado; `openspec/changes/e11-modelo-de-dados/` fica só como registro.
 
 - Regra nova ou mudança de regra: primeiro em `decisoes.md` e `requisitos.md` (subindo a versão no topo), depois nos planos, que só citam o ID.
 - Etapa concluída: atualizar a tabela de progresso do plano e o `planos/andamento.md`.

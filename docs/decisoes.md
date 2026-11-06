@@ -20,19 +20,21 @@ Origem: seção 4 de [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md).
 | D6 | 27/10/2026 | "Salvar direto, perguntar só se faltar informação essencial"; a lista de essenciais é do Matheus. | É regra de negócio, não técnica. Hoje vale a proposta do documento (valor; quantidade de insumo; tipo não inferível; unidade inexistente ou ambígua). | RF12.R17, RF15; pendência P04 | Vigente, provisória (P04) |
 | D7 | 28/10/2026 | Testar o canal e a IA por um **chat de terminal** (`pnpm dev:chat`); o WhatsApp real só é ligado no fim (E10, `CHANNEL_MODE=whatsapp`). | Permite desenvolver tudo antes do CNPJ e da liberação da Meta (P15). É só ferramenta de desenvolvimento, sem interface visual. | RNF14.R5; E5, E7, E9, E10 | Vigente |
 
-## 2. Painel (D-F1 a D-F7)
+## 2. Painel (D-F1 a D-F9)
 
 Origem: seção 4 de [`planos/painel.md`](planos/painel.md).
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
 | D-F1 | 27/10/2026 | **Better Auth na API** (Fastify), com `rewrites` no web para os cookies serem de primeira parte. | A API já é a autoridade de permissão e o painel não acessa o banco; evita duas fontes de verdade para a sessão. | RF02, RNF01; F1 | Vigente |
-| D-F2 | 27/10/2026 | shadcn/ui direto em `apps/web` no MVP, sem `packages/ui`. | Só há um app com UI; extrair quando houver o segundo consumidor. | F0 | Vigente (recomendação) |
+| D-F2 | 27/10/2026 | shadcn/ui direto em `apps/web` no MVP, sem `packages/ui`. | Só há um app com UI; extrair quando houver o segundo consumidor. | F0 | Vigente (aplicada na F0, 06/11/2026) |
 | D-F3 | 27/10/2026 | Contrato da API em schemas Zod compartilhados (`@app/core/contracts`), mais OpenAPI gerado como documentação. | Mais simples, sem etapa de geração de cliente. | F0, F3 | Vigente (recomendação) |
 | D-F4 | 27/10/2026 | Dinheiro no JSON como `number` inteiro validado (centavos). | Ergonomia; seguro até cerca de 9×10¹⁵ centavos. | RNF13.R1; F3 | Vigente (recomendação) |
 | D-F5 | 27/10/2026, ampliada em 29/10/2026 | Original: login só por código de e-mail, WhatsApp depois. **Ampliada (DN-03):** acesso por **senha ou código no e-mail**; código por WhatsApp e segundo fator ficam para a v1.1. | O código por WhatsApp inicia conversa e depende de template da Meta. A senha atende quem prefere; o código continua o modo padrão da tela. | RF02, RF03, RNF01; F1 | Vigente (ampliada) |
 | D-F6 | 27/10/2026, ampliada em 29/10/2026 | Original: lançamento manual fora do MVP. **Ampliada:** o lançamento manual é o RF26 (v1.1); no MVP o painel edita, exclui para a lixeira (30 dias) e restaura. DRE e PDF também ficam para a v1.1 (RF28). | Alinhado ao escopo por fase do documento de requisitos. | RF23, RF24, RF26, RF28; F3 | Vigente (ampliada) |
 | D-F7 | 27/10/2026 | Biblioteca de planilha Excel decidida na F5. | Opções, licenças e manutenção ainda não pesquisadas. | RF29; F5 | Aberta |
+| D-F8 | 06/11/2026 | A F0 **não tem identidade visual**: tema neutro padrão do shadcn (preset `base-nova`) e fonte do sistema. Marca, paleta e fonte são definidas depois. | Decisão do Luís: a fundação serve ao desenvolvimento e a marca ainda não existe. Os tokens ficam nas variáveis CSS de `app/globals.css`, então a troca é local. | F0; F7 e F8 | Vigente |
+| D-F9 | 06/11/2026 | O E2E do web sobe o web em `:3100` com `API_URL` apontando para uma API falsa em `:4010`; localmente usa `next dev`, no CI `next build` + `next start`. O `rewrites()` usa `API_URL` (padrão `http://localhost:4000` fora de produção; obrigatória em produção). | Testa o rewrite e o build de produção (Cache Components) sem depender da API real, que só nasce na F1, e sem conflitar com o `pnpm dev` na porta 3000. | F0; E2E das etapas seguintes | Vigente |
 
 ## 3. Decisões das etapas já feitas
 
@@ -86,7 +88,7 @@ Tomadas com os sócios ao elaborar o [`requisitos.md`](requisitos.md).
 
 ## 5. Decisões da reunião de descoberta (05/11/2026)
 
-Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o que ficou aberto em [`DESCOBERTA.md`](DESCOBERTA.md). O DD-17 (06/11/2026) registra a escolha do OpenSpec. Onde há conflito com decisão anterior, vale esta seção.
+Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o que ficou aberto em [`DESCOBERTA.md`](DESCOBERTA.md). O DD-17 (06/11/2026) registrou a escolha do OpenSpec, substituída pelo DD-18. Onde há conflito com decisão anterior, vale esta seção.
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
@@ -107,3 +109,4 @@ Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o 
 | DD-15 | 05/11/2026 | **P06 e P07 seguem provisórias:** vale a proposta escrita (canal APLICATIVO com comissão substitui a taxa da forma de pagamento; listas padrão de formas e canais); o Matheus decide depois do piloto. | Sem dados reais de taxas ainda. | RF08, RF09 | Vigente, provisória (P06, P07) |
 | DD-16 | 05/11/2026 | **Prazo:** o Luís confirmou que o prazo comporta todo o escopo acima antes do piloto. Nenhum corte previsto; se o prazo apertar, reabrir esta decisão. | Registro do risco assumido: o MVP cresceu em imposto, contador, importações e indicadores. | Todo o MVP | Vigente |
 | DD-17 | 06/11/2026 | **OpenSpec** é o fluxo de especificação por mudança (`/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:archive`), no lugar do Spec Kit citado em `planos/guia/contabilidade-restaurante-plano-do-zero.md`. Instalado e configurado em `openspec/` (contexto e regras em `openspec/config.yaml`). Taskmaster e Spec Kit não serão usados. O OpenSpec **referencia** `requisitos.md` e `decisoes.md` e não copia regra de negócio (DN-12 continua valendo). | É mais leve e feito para projeto que já existe; o Spec Kit criaria `constitution` e specs próprios e duplicaria a fonte de regras. | Todas as etapas E e F a partir da E11; `CLAUDE.md`, `andamento.md`, guias | Vigente |
+| DD-18 | 06/11/2026 | O fluxo de cada etapa é o **Superpowers** (`brainstorming` ou `grilling` para o desenho, `writing-plans`, `test-driven-development`, `verification-before-completion`). Desenhos em `docs/superpowers/specs/`, planos em `docs/superpowers/plans/`. O **OpenSpec deixa de ser usado** (substitui o DD-17); `openspec/changes/e11-modelo-de-dados/` fica só como registro da E11. Os documentos novos referenciam `requisitos.md` e `decisoes.md` e não copiam regra (DN-12 continua valendo). | Decisão do Luís: prefere o Superpowers (com ou sem `grilling`) a manter dois fluxos de especificação. O `requisitos.md` e os planos já guardam regras, critérios de aceite e ordem das etapas, então o OpenSpec duplicava a fonte. | Todas as etapas E e F; `CLAUDE.md`, `andamento.md`, planos e guias | Vigente |

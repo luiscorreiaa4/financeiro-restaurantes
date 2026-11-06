@@ -86,7 +86,10 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Parsing de webhook, assinatura, verificação, simulador, download de mídia da Meta | `packages/whatsapp/src/*.test.ts` | `pnpm --filter @app/whatsapp test` |
 | Variáveis de ambiente (Zod) | `packages/config/src/env.test.ts` | `pnpm --filter @app/config test` |
 | IA: extrator, prompt, custo, transcrição, evals (pontuação e baseline, sem rede) | `packages/ai/src/**/*.test.ts` | `pnpm --filter @app/ai test` |
-| Painel | `apps/web` (sem testes ainda; `--passWithNoTests`) | `pnpm --filter @app/web test` e `typecheck` |
+| Painel: formatação (`formatBRL`, datas de negócio), ambiente do web | `apps/web/lib/format/format.test.ts`, `apps/web/lib/env.test.ts` | `pnpm --filter @app/web test format` |
+| Painel: cliente da API (`ApiError`, contrato Zod) e `QueryClient` | `apps/web/lib/api/client.test.ts`, `apps/web/lib/query/get-query-client.test.ts` | `pnpm --filter @app/web test lib/api` |
+| Painel: casca (navegação, menu do celular) e compatibilidade do Recharts | `apps/web/components/app-shell.test.tsx`, `apps/web/lib/charts/recharts-compat.test.tsx` | `pnpm --filter @app/web test app-shell` |
+| Painel ponta a ponta (Playwright: casca, 404, cabeçalhos, rewrite de `/api/*`; desktop e celular) | `apps/web/e2e/smoke.spec.ts` | `pnpm --filter @app/web test:e2e` |
 
 ## Qual conjunto rodar, por tipo de mudança
 
@@ -97,7 +100,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | `packages/whatsapp/**` | `@app/whatsapp test` + `@app/api test:int whatsapp-webhook` |
 | `apps/api/src/**` | `@app/api test` + `typecheck`; `test:int` do arquivo afetado se tocar fila, webhook ou banco |
 | `packages/ai/**` (prompt ou schema de extração) | `@app/ai test` + `@app/core test extraction` + `@app/ai eval` (**só com o OK do usuário**, gasta crédito; compara com `baseline.json`) |
-| `apps/web/**` | `@app/web typecheck` + `@app/web test` (+ `pnpm --filter @app/web build` se mudou rota/config) |
+| `apps/web/**` | `@app/web typecheck` + `@app/web test` + `@app/web test:e2e` (+ `API_URL=http://localhost:4010 pnpm --filter @app/web exec next build` se mudou rota/config) |
 | Só docs/regras do Claude | nada |
 | Mudança ampla ou fechamento de etapa | `pnpm typecheck && pnpm lint && pnpm test && pnpm test:int` |
 
@@ -108,4 +111,6 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 - Insert direto por SQL em teste precisa de `id` gerado com `uuidv7()` de `@app/db`; sem isso: `null value in column "id"`.
 - `pnpm test` não roda `*.int.test.ts`; passar no unitário não prova isolamento nem fila.
 - O `eval`, o `extract` e qualquer teste "ao vivo" chamam a API real e custam dinheiro. Os testes automáticos nunca chamam: IA, transcrição e mídia são roteirizadas (`createFake*` em `@app/ai`).
+- O E2E do web (`test:e2e`) sobe o web na porta 3100 e uma API falsa na 4010 (`apps/web/e2e/fake-api.mjs`); com `CI=true` roda `next build` + `next start`, sem `CI` usa `next dev`. Precisa do Chromium (`pnpm --filter @app/web exec playwright install chromium`). `*.spec.ts` é do Playwright e o Vitest os ignora (`exclude: e2e/**`).
+- Se `.next/types` apontar para página removida e o `typecheck` do web acusar `Cannot find module '../../app/...'`, apague `apps/web/.next` (saída de build, ignorada pelo git).
 - Python e `sed` no Windows gravam CRLF: depois de editar arquivo por script, rode `pnpm exec biome check --write <arquivo>` (o hook só formata o que passa pelo Write/Edit).
