@@ -1,4 +1,4 @@
-import type { Role } from "../permissions";
+import type { Actor, AdditionalPermission, MembershipStatus, Role } from "../permissions";
 
 /** Vínculo de um telefone com um restaurante, como o cadastro o guarda. */
 export interface SenderMembership {
@@ -8,8 +8,17 @@ export interface SenderMembership {
   readonly userId: string;
   readonly userName: string;
   readonly role: Role;
-  /** Nulo = todas as unidades do restaurante. */
-  readonly unitId: string | null;
+  /** Convidado, ativo ou desativado (RF05.R8). Desativado é tratado como número desconhecido. */
+  readonly status: MembershipStatus;
+  /** TODAS as unidades do restaurante, inclusive as criadas depois (RF05.R5). */
+  readonly allUnits: boolean;
+  /** Unidades de acesso quando não são TODAS. */
+  readonly unitIds: readonly string[];
+  /** Unidade padrão do vínculo (RF05.R6); nula quando o vínculo vale para todas e não escolheu. */
+  readonly defaultUnitId: string | null;
+  readonly permissions: readonly AdditionalPermission[];
+  /** O Dono liberou o painel (RF05.R3). */
+  readonly panelAccess: boolean;
   /** Unidades do restaurante, para achar a padrão quando o vínculo vale para todas. */
   readonly tenantUnitIds: readonly string[];
   readonly createdAt: Date;
@@ -36,7 +45,9 @@ export type SenderResolution =
  */
 export function resolveSender(memberships: readonly SenderMembership[]): SenderResolution {
   const active = memberships
-    .filter((membership) => membership.deactivatedAt === null)
+    .filter(
+      (membership) => membership.status !== "deactivated" && membership.deactivatedAt === null,
+    )
     .toSorted(
       (a, b) =>
         a.createdAt.getTime() - b.createdAt.getTime() ||
@@ -52,7 +63,23 @@ export function resolveSender(memberships: readonly SenderMembership[]): SenderR
   };
 }
 
+/** Unidades em que o colaborador pode lançar e consultar (RF05.R5). */
+export function accessibleUnitIds(membership: SenderMembership): readonly string[] {
+  return membership.allUnits ? membership.tenantUnitIds : membership.unitIds;
+}
+
 function defaultUnitId(membership: SenderMembership): string | null {
-  if (membership.unitId !== null) return membership.unitId;
-  return membership.tenantUnitIds.length === 1 ? (membership.tenantUnitIds[0] ?? null) : null;
+  if (membership.defaultUnitId !== null) return membership.defaultUnitId;
+  const accessible = accessibleUnitIds(membership);
+  return accessible.length === 1 ? (accessible[0] ?? null) : null;
+}
+
+/** O ator para `can()`: papel, permissões adicionais e unidades de acesso do vínculo. */
+export function senderToActor(sender: SenderMembership): Actor {
+  return {
+    role: sender.role,
+    permissions: sender.permissions,
+    units: sender.allUnits ? "all" : sender.unitIds,
+    panelAccess: sender.panelAccess,
+  };
 }

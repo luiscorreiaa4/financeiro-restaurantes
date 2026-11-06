@@ -6,6 +6,8 @@ import { resolveAmount } from "./resolve-amount";
 /** Datas mais antigas que isso são aceitas, mas destacadas (RF12.R2, sinal DATA_ANTIGA). */
 export const OLD_DATE_DAYS = 60;
 export const MAX_DESCRIPTION_LENGTH = 200;
+/** Despesa de equipamento ou reforma acima disto (R$ 1.500,00) pergunta antes de gravar (RF12.R23, DD-09). */
+export const INVESTMENT_QUESTION_THRESHOLD_CENTS = 150_000;
 
 /**
  * Campos que, se faltarem, fazem o sistema perguntar antes de gravar.
@@ -21,15 +23,27 @@ export const ESSENTIAL_FIELDS: readonly MissingField[] = [
 ];
 
 /** Sinais que não impedem a gravação (RF12.R13). `possible_duplicate` e `category_to_review` vêm da gravação. */
-export type EntryFlag = "category_to_review" | "possible_duplicate" | "old_date";
+export type EntryFlag =
+  | "category_to_review"
+  | "channel_to_review"
+  | "possible_duplicate"
+  | "old_date";
 
 /** Por que o lançamento não pôde ser gravado ainda. */
-export type PendingReason = MissingField | "amount_inconsistent" | "future_date";
+export type PendingReason =
+  | MissingField
+  | "amount_inconsistent"
+  | "future_date"
+  | "investment_choice";
 
 export interface ReadyEntry {
   readonly extracted: ExtractedEntry;
   readonly amountCents: Money;
   readonly occurredOn: BusinessDate;
+  /** Data de pagamento; igual à de competência quando a mensagem não traz outra (RF12.R21). */
+  readonly paidOn: BusinessDate;
+  /** Pedidos da receita, ou nulo (RF12.R22). */
+  readonly orders: number | null;
   readonly description: string;
   readonly flags: readonly EntryFlag[];
 }
@@ -59,6 +73,13 @@ const LONG_NUMBER = /\b\d(?:[ -]?\d){12,18}\b/g;
 export function sanitizeDescription(raw: string): string {
   const cleaned = raw.replace(LONG_NUMBER, "").replace(CPF, "").replace(/\s+/g, " ").trim();
   return [...cleaned].slice(0, MAX_DESCRIPTION_LENGTH).join("").trim();
+}
+
+/** Pedidos só na receita, inteiro e maior que zero; qualquer outra coisa é ignorada (RF12.R22). */
+function validOrders(extracted: ExtractedEntry): number | null {
+  const { orders } = extracted;
+  if (extracted.type !== "revenue" || orders === null) return null;
+  return Number.isInteger(orders) && orders > 0 ? orders : null;
 }
 
 function toDayNumber(date: BusinessDate): number {
@@ -120,6 +141,18 @@ export function interpretExtraction(result: ExtractionResult, today: BusinessDat
       occurredOn = today;
     }
 
+    // Equipamento ou reforma acima do limite: pergunta antes de gravar (RF12.R23).
+    if (
+      amountCents !== null &&
+      extracted.type === "expense" &&
+      extracted.asset_kind !== null &&
+      extracted.asset_decision === null &&
+      amountCents > INVESTMENT_QUESTION_THRESHOLD_CENTS
+    ) {
+      reasons.push("investment_choice");
+      onlyModelReasons = false;
+    }
+
     if (reasons.length > 0 || amountCents === null) {
       pending.push({ extracted, reasons, ...(inconsistency ? { inconsistency } : {}) });
       continue;
@@ -128,6 +161,8 @@ export function interpretExtraction(result: ExtractionResult, today: BusinessDat
       extracted,
       amountCents,
       occurredOn,
+      paidOn: extracted.paid_on ?? occurredOn,
+      orders: validOrders(extracted),
       description,
       flags: daysBefore(occurredOn, today) > OLD_DATE_DAYS ? ["old_date"] : [],
     });

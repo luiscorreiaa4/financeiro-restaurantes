@@ -7,7 +7,7 @@ import * as schema from "../schema";
 const tables = Object.values(schema).filter((value) => is(value, PgTable)) as PgTable[];
 
 describe("schema do banco (checagens estáticas, sem Postgres)", () => {
-  it("define as 18 tabelas do modelo de dados", () => {
+  it("define as 21 tabelas do modelo de dados", () => {
     expect(tables.map(getTableName).sort()).toEqual(
       [
         "ai_usage",
@@ -17,12 +17,15 @@ describe("schema do banco (checagens estáticas, sem Postgres)", () => {
         "entry_versions",
         "fiscal_documents",
         "inbound_messages",
+        "membership_units",
         "memberships",
         "outbound_messages",
         "payment_methods",
         "pending_questions",
         "sales_channels",
         "suppliers",
+        "tax_rules",
+        "tax_settings",
         "tenants",
         "units",
         "users",
@@ -68,6 +71,6 @@ describe("schema do banco (checagens estáticas, sem Postgres)", () => {
     const { checks } = getTableConfig(schema.memberships);
     const role = checks.find((check) => check.name === "memberships_role_check");
     expect(role).toBeDefined();
-    expect(ROLES).toEqual(["owner", "manager", "staff"]);
+    expect(ROLES).toEqual(["owner", "manager", "staff", "accountant"]);
   });
 });

@@ -37,6 +37,10 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Schema de extração (Zod) | `packages/core/src/entry/extraction.test.ts` | `pnpm --filter @app/core test extraction` |
 | Permissões e papéis | `packages/core/src/permissions/permissions.test.ts` | `pnpm --filter @app/core test permissions` |
 | Telefone | `packages/core/src/phone/phone.test.ts` | `pnpm --filter @app/core test phone` |
+| Acesso do colaborador: unidades de acesso, unidade padrão, Dono ativo, convite do contador | `packages/core/src/access/*.test.ts` | `pnpm --filter @app/core test access` |
+| Cadastros: unidade (apelidos, CNPJ, UF, última ativa) e subcategoria (herança, dois níveis) | `packages/core/src/registry/*.test.ts` | `pnpm --filter @app/core test registry` |
+| Imposto estimado por regime, vigência e arredondamento | `packages/core/src/tax/tax.test.ts` | `pnpm --filter @app/core test tax` |
+| Campos novos do lançamento: data de pagamento, pedidos, canal padrão, investimento, lixeira | `packages/core/src/entry/entry-e11.test.ts` | `pnpm --filter @app/core test entry-e11` |
 | Conversa: comandos, roteamento, remetente | `packages/core/src/conversation/*.test.ts` | `pnpm --filter @app/core test conversation` |
 | Erros de domínio tipados | `packages/core/src/errors/errors.test.ts` | `pnpm --filter @app/core test errors` |
 | Core não importa infra; sem ciclos (ArchUnitTS) | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
@@ -53,6 +57,11 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Processamento de mensagem (idempotência) | `packages/db/test/inbound-processing.int.test.ts` | `pnpm --filter @app/db test:int inbound-processing` |
 | Conversa (estado/roteamento no banco) | `packages/db/test/conversation.int.test.ts` | `pnpm --filter @app/db test:int conversation` |
 | Seed de desenvolvimento | `packages/db/test/dev-seed.int.test.ts` | `pnpm --filter @app/db test:int dev-seed` |
+| Migração das unidades de acesso (`unit_id` → lista, sem perder acesso) | `packages/db/test/membership-access-migration.int.test.ts` | `pnpm --filter @app/db test:int membership-access` |
+| Migração das unidades e cadastros de apoio (tipos, cartão padrão, "Não informado") | `packages/db/test/catalog-migration.int.test.ts` | `pnpm --filter @app/db test:int catalog-migration` |
+| Migração dos campos do lançamento (`paid_on`, canal da receita, lixeira) | `packages/db/test/entry-fields-migration.int.test.ts` | `pnpm --filter @app/db test:int entry-fields` |
+| Convite do contador e aceite do aviso de folha | `packages/db/test/access-repo.int.test.ts` | `pnpm --filter @app/db test:int access-repo` |
+| Imposto estimado: configuração, auditoria e regras (`TaxRepo`) | `packages/db/test/tax-repo.int.test.ts` | `pnpm --filter @app/db test:int tax-repo` |
 | Sem ciclos entre arquivos (ArchUnitTS, unitário) | `packages/db/src/architecture.test.ts` | `pnpm --filter @app/db test architecture` |
 
 ### API, webhook e workers (`@app/api`)

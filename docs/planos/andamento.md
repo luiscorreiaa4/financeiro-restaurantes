@@ -14,7 +14,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 |---|---|
 | Fundação (fase 0) | Pronta. Falta só rodar o CI no GitHub |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
-| Canal WhatsApp E10 a E14 | A fazer. **E11 é a próxima** (agora ampliada); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
+| Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; faltam `trocar unidade`/`trocar empresa`/empresa citada e rodar os evals com uma chave Anthropic válida); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
 | Painel web F0 a F13 | Nada feito. **F0 pode começar já**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
@@ -69,7 +69,12 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 ### Que já estão na E10 e na E11
 
 - E10: `CloudMessageSender` e `MetaMediaDownloader` na composição (`CHANNEL_MODE=whatsapp`), janela de 24 h, templates, `parar` e `voltar` (P14), cotas e alerta de custo (RF21), S3 e retenção de 90 dias do áudio, consulta à SEFAZ, ffmpeg no servidor, decisão D4 (build), Sentry, backup, staging e produção.
-- E11: `trocar unidade`, `trocar empresa`, empresa citada no texto (RF11.R5), canal do tipo `APLICATIVO`.
+- E11: ~~canal do tipo `APLICATIVO`~~ (feito em 06/11/2026).
+- **E11, pendentes (mudança `e11-modelo-de-dados`, tarefas 3.8 e 7.3):**
+  - [ ] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): falta decidir onde guardar a escolha. Proposta em `openspec/changes/e11-modelo-de-dados/design.md` ("Open Questions"); decidir, registrar em `decisoes.md` e só então implementar.
+  - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline: a `ANTHROPIC_API_KEY` do `.env` está inválida (401). Trocar a chave primeiro.
+  - [ ] Contador criado só por e-mail: `users.phone_e164` é obrigatório hoje (ajustar na F1/F13).
+  - Depois de fechar as três: `/opsx:archive e11-modelo-de-dados`, marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
 
 ## 6. Painel
 

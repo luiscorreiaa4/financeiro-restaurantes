@@ -1,4 +1,5 @@
 export * from "../schema";
+export * from "./access-repo";
 export * from "./client";
 export * from "./dev-seed";
 export * from "./entry-store";
@@ -9,6 +10,7 @@ export * from "./inbound-sender-repo";
 export * from "./outbound-message-repo";
 export * from "./sender-directory";
 export * from "./system-categories";
+export * from "./tax-repo";
 export * from "./tenant-conversation-repo";
 export * from "./usage-guard-store";
 export * from "./uuid";

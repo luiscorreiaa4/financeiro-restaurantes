@@ -12,6 +12,8 @@ export const CASE_CATEGORIES = [
   "typo",
   "out_of_scope",
   "amount_format",
+  /** Campos do E11: data de pagamento, pedidos e investimento (RF12.CA11 a CA14). */
+  "e11",
 ] as const;
 
 const ExpectedEntrySchema = z.object({
@@ -19,6 +21,10 @@ const ExpectedEntrySchema = z.object({
   amount_cents: z.number().int().positive(),
   /** Ausente = hoje (a interpretação do sistema preenche). */
   occurred_on: z.iso.date().optional(),
+  /** Data de pagamento esperada (RF12.R21); ausente = não pontuada. */
+  paid_on: z.iso.date().optional(),
+  /** Pedidos esperados (RF12.R22); ausente = não pontuados. */
+  orders: z.number().int().positive().optional(),
   quantity: z.number().optional(),
   /** Campos opcionais: só são pontuados quando o caso os traz. */
   category: z.string().optional(),

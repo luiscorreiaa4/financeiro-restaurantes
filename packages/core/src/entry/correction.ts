@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { type Money, money } from "../money";
 import { normalizeUnit } from "./build-drafts";
-import { type CatalogSnapshot, normalizeName, resolveFeeRule } from "./catalog";
+import {
+  type CatalogSnapshot,
+  findPaymentMethod,
+  findSalesChannel,
+  normalizeName,
+  resolveFeeRule,
+} from "./catalog";
 import type { Entry, EntryFields } from "./entry";
 import { daysBefore, sanitizeDescription } from "./interpret";
 
@@ -105,8 +111,7 @@ export function planCorrection(
     let channel = catalog.salesChannels.find((item) => item.id === entry.salesChannelId);
     let feeChanged = false;
     if (changes.payment_method_hint !== null) {
-      const key = normalizeName(changes.payment_method_hint);
-      const found = catalog.paymentMethods.find((item) => normalizeName(item.name) === key);
+      const found = findPaymentMethod(catalog, changes.payment_method_hint);
       if (found) {
         paymentMethod = found;
         patch.paymentMethodId = found.id;
@@ -114,8 +119,7 @@ export function planCorrection(
       } else if (!unresolved.includes("payment_method")) unresolved.push("payment_method");
     }
     if (changes.sales_channel_hint !== null && entry.type === "revenue") {
-      const key = normalizeName(changes.sales_channel_hint);
-      const found = catalog.salesChannels.find((item) => normalizeName(item.name) === key);
+      const found = findSalesChannel(catalog, changes.sales_channel_hint);
       if (found) {
         channel = found;
         patch.salesChannelId = found.id;

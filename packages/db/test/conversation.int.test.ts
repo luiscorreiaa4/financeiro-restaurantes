@@ -48,9 +48,44 @@ describe("SenderDirectory", () => {
       tenantName: "Restaurante A",
       userId: a.userId,
       role: "owner",
-      unitId: null,
+      status: "active",
+      allUnits: true,
+      unitIds: [],
+      defaultUnitId: null,
+      permissions: [],
       tenantUnitIds: [a.unitId],
       deactivatedAt: null,
+    });
+  });
+
+  it("devolve a lista de unidades de acesso, a unidade padrão e as permissões do vínculo", async () => {
+    const praia = uuidv7();
+    const userId = uuidv7();
+    const membershipId = uuidv7();
+    await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Praia')", [
+      praia,
+      a.tenantId,
+    ]);
+    await db.admin.query(
+      "insert into users (id, name, phone_e164) values ($1, 'Gerente da Praia', '+5511900001234')",
+      [userId],
+    );
+    await db.admin.query(
+      `insert into memberships (id, tenant_id, user_id, role, default_unit_id, permissions, status)
+       values ($1, $2, $3, 'manager', $4, '["VER_FOLHA"]', 'invited')`,
+      [membershipId, a.tenantId, userId, praia],
+    );
+    await db.admin.query(
+      "insert into membership_units (id, tenant_id, membership_id, unit_id) values ($1, $2, $3, $4)",
+      [uuidv7(), a.tenantId, membershipId, praia],
+    );
+    const found = await directory().findMemberships(["+5511900001234"]);
+    expect(found[0]).toMatchObject({
+      status: "invited",
+      allUnits: false,
+      unitIds: [praia],
+      defaultUnitId: praia,
+      permissions: ["VER_FOLHA"],
     });
   });
 
@@ -90,6 +125,7 @@ describe("SenderDirectory", () => {
     );
     const found = await directory().findMemberships([b.phone]);
     expect(found[0]?.deactivatedAt).toEqual(new Date("2026-10-01T12:00:00Z"));
+    expect(found[0]?.status).toBe("deactivated");
     await db.admin.query("update memberships set deactivated_at = null where tenant_id = $1", [
       b.tenantId,
     ]);
@@ -173,6 +209,52 @@ describe("TenantConversationRepo", () => {
         [user],
       );
       expect(rows).toEqual([{ source: "first_message", inbound_message_id: first.id }]);
+    });
+
+    it("a primeira mensagem ativa o vínculo convidado e registra o consentimento (RF05.CA07)", async () => {
+      const user = uuidv7();
+      await db.admin.query(
+        "insert into users (id, name, phone_e164) values ($1, 'Convidado', $2)",
+        [user, "+5511911113333"],
+      );
+      await db.admin.query(
+        "insert into memberships (id, tenant_id, user_id, role, status) values ($1, $2, $3, 'staff', 'invited')",
+        [uuidv7(), a.tenantId, user],
+      );
+      const first = await receive();
+      await createInboundSenderRepo(ingestDb()).assignSender(first.id, {
+        tenantId: a.tenantId,
+        userId: user,
+      });
+      await repo().recordOptIn({ tenantId: a.tenantId, userId: user, inboundMessageId: first.id });
+      const { rows } = await db.admin.query(
+        "select status from memberships where tenant_id = $1 and user_id = $2",
+        [a.tenantId, user],
+      );
+      expect(rows).toEqual([{ status: "active" }]);
+    });
+
+    it("não reativa vínculo desativado", async () => {
+      const user = uuidv7();
+      await db.admin.query("insert into users (id, name, phone_e164) values ($1, 'Saiu', $2)", [
+        user,
+        "+5511911114444",
+      ]);
+      await db.admin.query(
+        "insert into memberships (id, tenant_id, user_id, role, status, deactivated_at) values ($1, $2, $3, 'staff', 'deactivated', now())",
+        [uuidv7(), a.tenantId, user],
+      );
+      const first = await receive();
+      await createInboundSenderRepo(ingestDb()).assignSender(first.id, {
+        tenantId: a.tenantId,
+        userId: user,
+      });
+      await repo().recordOptIn({ tenantId: a.tenantId, userId: user, inboundMessageId: first.id });
+      const { rows } = await db.admin.query(
+        "select status from memberships where tenant_id = $1 and user_id = $2",
+        [a.tenantId, user],
+      );
+      expect(rows).toEqual([{ status: "deactivated" }]);
     });
 
     it("exige que a mensagem de origem seja do mesmo tenant", async () => {

@@ -3,7 +3,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, withTenant } from "../src/client";
 import { asTenant, attempt, startTestDatabase, type TestDatabase } from "./database";
-import { createTenant, insertsFor, TABLES, type TenantFixture } from "./fixtures";
+import { createTenant, GLOBAL_TABLES, insertsFor, TABLES, type TenantFixture } from "./fixtures";
 
 const RLS_VIOLATION_OR_NO_PRIVILEGE = "42501";
 
@@ -42,7 +42,11 @@ describe("isolamento entre tenants, tabela por tabela", () => {
     expect(Object.keys(insertsFor(b)).sort()).toEqual([...TABLES]);
   });
 
-  describe.each([...TABLES])("%s", (table) => {
+  const tenantTables = TABLES.filter(
+    (table) => !(GLOBAL_TABLES as readonly string[]).includes(table),
+  );
+
+  describe.each([...tenantTables])("%s", (table) => {
     it("tenant A não lê linhas do tenant B, mas lê as próprias", async () => {
       const foreign = ownedBy(table, b);
       const own = ownedBy(table, a);
@@ -93,6 +97,27 @@ describe("isolamento entre tenants, tabela por tabela", () => {
           error: RLS_VIOLATION_OR_NO_PRIVILEGE,
         });
       });
+    });
+  });
+});
+
+describe("tabelas globais (sem tenant_id)", () => {
+  it.each([...GLOBAL_TABLES])("%s: todos leem, o papel app não grava", async (table) => {
+    await asTenant(db.app, a.tenantId, async (client) => {
+      const seen = await client.query(`select count(*)::int as n from ${table}`);
+      expect(seen.rows[0].n).toBeGreaterThan(0);
+      const { sql: insert, params } = insertsFor(a)[table] ?? { sql: "", params: [] };
+      expect(await attempt(client, insert, params)).toEqual({
+        error: RLS_VIOLATION_OR_NO_PRIVILEGE,
+      });
+      for (const statement of [`update ${table} set id = id`, `delete from ${table}`]) {
+        expect(await attempt(client, statement)).toEqual({ error: RLS_VIOLATION_OR_NO_PRIVILEGE });
+      }
+    });
+    // Outro tenant lê as mesmas linhas.
+    await asTenant(db.app, b.tenantId, async (client) => {
+      const seen = await client.query(`select count(*)::int as n from ${table}`);
+      expect(seen.rows[0].n).toBeGreaterThan(0);
     });
   });
 });
@@ -154,7 +179,8 @@ describe("RLS no banco", () => {
 
 describe("query sem withTenant", () => {
   it("o papel app, sem tenant definido, não vê nenhuma linha", async () => {
-    for (const table of TABLES) {
+    // Tabelas globais (regras do sistema, sem dado de cliente) são legíveis de propósito.
+    for (const table of TABLES.filter((t) => !(GLOBAL_TABLES as readonly string[]).includes(t))) {
       const { rows } = await db.app.query(`select count(*)::int as n from ${table}`);
       expect(rows[0].n, table).toBe(0);
     }

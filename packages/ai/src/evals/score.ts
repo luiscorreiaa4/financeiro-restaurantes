@@ -40,6 +40,8 @@ export interface EntryScore {
   readonly supplierOk: boolean | null;
   readonly paymentOk: boolean | null;
   readonly channelOk: boolean | null;
+  readonly paidOnOk: boolean | null;
+  readonly ordersOk: boolean | null;
   /** Acerto exato: todos os campos pontuados do lançamento certos. */
   readonly exact: boolean;
 }
@@ -75,6 +77,8 @@ function scoreEntry(expected: ExpectedEntry, observed: ReadyEntry | undefined): 
   const supplierOk = hint("supplier_hint", expected.supplier);
   const paymentOk = hint("payment_method_hint", expected.payment);
   const channelOk = hint("sales_channel_hint", expected.channel);
+  const paidOnOk = expected.paid_on === undefined ? null : observed?.paidOn === expected.paid_on;
+  const ordersOk = expected.orders === undefined ? null : observed?.orders === expected.orders;
   const checks = [
     typeOk,
     amountOk,
@@ -84,6 +88,8 @@ function scoreEntry(expected: ExpectedEntry, observed: ReadyEntry | undefined): 
     supplierOk,
     paymentOk,
     channelOk,
+    paidOnOk,
+    ordersOk,
   ];
   return {
     typeOk,
@@ -94,6 +100,8 @@ function scoreEntry(expected: ExpectedEntry, observed: ReadyEntry | undefined): 
     supplierOk,
     paymentOk,
     channelOk,
+    paidOnOk,
+    ordersOk,
     exact: checks.every((check) => check !== false),
   };
 }

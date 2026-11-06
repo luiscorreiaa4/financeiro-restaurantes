@@ -11,6 +11,16 @@ const m = (cents: number): Money => {
   return result.value;
 };
 
+const PAYMENT = {
+  type: "other",
+  aliases: [],
+  status: "active",
+  isDefaultCard: false,
+  feePercentBp: 0,
+  feeFixedCents: 0,
+} as const;
+const CHANNEL = { type: "other", aliases: [], status: "active", feePercentBp: 0 } as const;
+
 const CATALOG: CatalogSnapshot = {
   categories: [
     { id: "cat-carnes", name: "Carnes e peixes", kind: "expense" },
@@ -20,14 +30,45 @@ const CATALOG: CatalogSnapshot = {
   ],
   suppliers: [{ id: "forn-atacadao", name: "Atacadão", aliases: ["atacadao loja 2"] }],
   paymentMethods: [
-    { id: "pg-pix", name: "Pix", feePercentBp: 0, feeFixedCents: 0 },
-    { id: "pg-credito", name: "Crédito", feePercentBp: 320, feeFixedCents: 0 },
+    { ...PAYMENT, id: "pg-pix", name: "Pix", type: "pix" },
+    {
+      ...PAYMENT,
+      id: "pg-credito",
+      name: "Crédito",
+      type: "credit",
+      feePercentBp: 320,
+      isDefaultCard: true,
+    },
+    {
+      ...PAYMENT,
+      id: "pg-debito",
+      name: "Débito",
+      type: "debit",
+      aliases: ["deb"],
+      feePercentBp: 150,
+    },
   ],
   salesChannels: [
-    { id: "canal-salao", name: "Salão", feePercentBp: 0 },
-    { id: "canal-ifood", name: "iFood", feePercentBp: 2300 },
+    { ...CHANNEL, id: "canal-salao", name: "Salão", type: "dine_in" },
+    {
+      ...CHANNEL,
+      id: "canal-ifood",
+      name: "iFood",
+      type: "app",
+      aliases: ["ifood app"],
+      feePercentBp: 2300,
+    },
+    { ...CHANNEL, id: "canal-parceiro", name: "Parceiro", type: "other", feePercentBp: 500 },
   ],
-  units: [{ id: "unit-1", name: "Centro" }],
+  units: [
+    {
+      id: "unit-1",
+      name: "Centro",
+      aliases: [],
+      status: "active",
+      defaultSalesChannelId: "canal-salao",
+    },
+  ],
 };
 
 const ready = (overrides: Partial<ExtractedEntry> = {}, amount = 45000): ReadyEntry => ({
@@ -35,6 +76,10 @@ const ready = (overrides: Partial<ExtractedEntry> = {}, amount = 45000): ReadyEn
     type: "expense",
     description: "Camarão",
     occurred_on: null,
+    paid_on: null,
+    orders: null,
+    asset_kind: null,
+    asset_decision: null,
     quantity: null,
     quantity_unit: null,
     unit_price_cents: null,
@@ -48,6 +93,8 @@ const ready = (overrides: Partial<ExtractedEntry> = {}, amount = 45000): ReadyEn
   },
   amountCents: m(amount),
   occurredOn: "2026-10-30",
+  paidOn: "2026-10-30",
+  orders: null,
   description: overrides.description ?? "Camarão",
   flags: [],
 });
@@ -99,7 +146,7 @@ describe("montagem dos rascunhos de lançamento", () => {
     const { drafts } = plan([ready({ type: "revenue", category_hint: "Carnes e peixes" })]);
     expect(drafts[0]?.draft).toMatchObject({
       categoryId: "cat-outras-r",
-      flags: ["category_to_review"],
+      flags: ["category_to_review", "channel_to_review"],
     });
   });
 
@@ -134,6 +181,70 @@ describe("montagem dos rascunhos de lançamento", () => {
       ),
     ]).drafts[0]?.draft;
     expect(draft).toMatchObject({ salesChannelId: "canal-ifood", feePercentBp: 2300 });
+  });
+
+  it("'cartão' usa a forma marcada como cartão padrão da empresa, não uma pelo nome (RF12.R8)", () => {
+    const catalog: CatalogSnapshot = {
+      ...CATALOG,
+      paymentMethods: CATALOG.paymentMethods.map((method) => ({
+        ...method,
+        isDefaultCard: method.id === "pg-debito",
+      })),
+    };
+    const draft = plan([ready({ type: "revenue", payment_method_hint: "cartão" }, 10000)], {
+      catalog,
+    }).drafts[0]?.draft;
+    expect(draft).toMatchObject({ paymentMethodId: "pg-debito", feePercentBp: 150 });
+  });
+
+  it("sem cartão padrão, 'cartão' fica sem forma em vez de chutar uma", () => {
+    const catalog: CatalogSnapshot = {
+      ...CATALOG,
+      paymentMethods: CATALOG.paymentMethods.map((method) => ({ ...method, isDefaultCard: false })),
+    };
+    const draft = plan([ready({ type: "revenue", payment_method_hint: "cartão" }, 10000)], {
+      catalog,
+    }).drafts[0]?.draft;
+    expect(draft?.paymentMethodId).toBeNull();
+  });
+
+  it("só canal do tipo aplicativo substitui a taxa; outro canal com comissão não (RF09.R4)", () => {
+    const draft = plan([
+      ready(
+        { type: "revenue", sales_channel_hint: "Parceiro", payment_method_hint: "crédito" },
+        10000,
+      ),
+    ]).drafts[0]?.draft;
+    expect(draft).toMatchObject({ salesChannelId: "canal-parceiro", feePercentBp: 320 });
+  });
+
+  it("apelidos da forma de pagamento e do canal também casam (RF08, RF09)", () => {
+    const draft = plan([
+      ready(
+        { type: "revenue", sales_channel_hint: "iFood App", payment_method_hint: "DEB" },
+        10000,
+      ),
+    ]).drafts[0]?.draft;
+    expect(draft).toMatchObject({ salesChannelId: "canal-ifood", paymentMethodId: "pg-debito" });
+  });
+
+  it("forma e canal inativos não são usados pela IA (RF08.R5)", () => {
+    const catalog: CatalogSnapshot = {
+      ...CATALOG,
+      paymentMethods: CATALOG.paymentMethods.map((method) => ({
+        ...method,
+        status: method.id === "pg-pix" ? ("inactive" as const) : ("active" as const),
+      })),
+      salesChannels: CATALOG.salesChannels.map((channel) => ({
+        ...channel,
+        status: channel.id === "canal-salao" ? ("inactive" as const) : ("active" as const),
+      })),
+    };
+    const draft = plan(
+      [ready({ type: "revenue", sales_channel_hint: "Salão", payment_method_hint: "pix" }, 10000)],
+      { catalog },
+    ).drafts[0]?.draft;
+    expect(draft).toMatchObject({ paymentMethodId: null, salesChannelId: null });
   });
 
   it("canal só vale em receita", () => {
@@ -215,16 +326,21 @@ describe("regra de taxa da receita (RF08.R3, RF09.R4, P06)", () => {
   const card = { feePercentBp: 320, feeFixedCents: 30 };
 
   it("usa a taxa da forma quando o canal não tem comissão", () => {
-    expect(resolveFeeRule({ paymentMethod: card, salesChannel: { feePercentBp: 0 } })).toEqual(
-      card,
-    );
+    expect(
+      resolveFeeRule({ paymentMethod: card, salesChannel: { type: "app", feePercentBp: 0 } }),
+    ).toEqual(card);
   });
 
-  it("canal com comissão substitui a forma e nunca soma", () => {
-    expect(resolveFeeRule({ paymentMethod: card, salesChannel: { feePercentBp: 2300 } })).toEqual({
-      feePercentBp: 2300,
-      feeFixedCents: 0,
-    });
+  it("canal aplicativo com comissão substitui a forma e nunca soma", () => {
+    expect(
+      resolveFeeRule({ paymentMethod: card, salesChannel: { type: "app", feePercentBp: 2300 } }),
+    ).toEqual({ feePercentBp: 2300, feeFixedCents: 0 });
+  });
+
+  it("comissão em canal que não é aplicativo não substitui a forma (RF09.R4)", () => {
+    expect(
+      resolveFeeRule({ paymentMethod: card, salesChannel: { type: "dine_in", feePercentBp: 500 } }),
+    ).toEqual(card);
   });
 
   it("sem forma nem canal não há taxa", () => {

@@ -39,3 +39,11 @@
 {"id":"v01","category":"amount_format","text":"paguei 1.250 de manutenção","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":125000,"category":"Manutenção"}]}}
 {"id":"v02","category":"amount_format","text":"paguei R$ 2.350,75 pro fornecedor Ambev","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":235075,"supplier":"Ambev"}]}}
 {"id":"v03","category":"amount_format","text":"uns 50 reais de gelo, dinheiro","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":5000,"payment":"Dinheiro"}]}}
+# Campos do E11: data de pagamento (R21), pedidos (R22) e investimento (R23). Hoje é 2026-10-30.
+{"id":"e01","category":"e11","text":"paguei 600 de gás, vence dia 20","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":60000,"paid_on":"2026-11-20","category":"Gás"}]}}
+{"id":"e02","category":"e11","text":"paguei a conta de luz de 420, vence amanhã","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":42000,"paid_on":"2026-10-31","category":"Energia"}]}}
+{"id":"e03","category":"e11","text":"vendi 800 hoje em 32 pedidos","expected":{"intent":"register","ready":[{"type":"revenue","amount_cents":80000,"orders":32}]}}
+{"id":"e04","category":"e11","text":"vendi 1500 no salão, foram 50 pedidos","expected":{"intent":"register","ready":[{"type":"revenue","amount_cents":150000,"orders":50,"channel":"Salão"}]}}
+{"id":"e05","category":"e11","text":"comprei um forno 2.800","expected":{"intent":"register","ready":[],"asks":true}}
+{"id":"e06","category":"e11","text":"ar-condicionado 1.200","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":120000}]}}
+{"id":"e07","category":"e11","text":"vendi 800 hoje","expected":{"intent":"register","ready":[{"type":"revenue","amount_cents":80000}]}}

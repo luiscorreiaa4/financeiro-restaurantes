@@ -31,6 +31,29 @@ describe("seed de desenvolvimento", () => {
       "select (select count(*)::int from tenants) as tenants, (select count(*)::int from memberships) as memberships",
     );
     expect(rows[0]).toEqual({ tenants: 2, memberships: 6 });
+    const links = await db.admin.query("select count(*)::int as n from membership_units");
+    expect(links.rows[0].n).toBe(4);
+  });
+
+  it("grava cadastros de apoio completos: tipos, cartão padrão, 'Não informado' e canal padrão", async () => {
+    await seedDevData(createDatabase(db.admin), "development");
+    const { rows } = await db.admin.query(
+      `select
+         (select count(*)::int from payment_methods where name = 'Não informada') as no_method,
+         (select count(*)::int from sales_channels where name = 'Não informado') as no_channel,
+         (select count(*)::int from payment_methods where is_default_card and type = 'credit') as card,
+         (select count(*)::int from sales_channels where type = 'app' and name = 'iFood') as app,
+         (select count(*)::int from units where default_sales_channel_id is not null and city is not null and uf is not null) as units_ready,
+         (select count(*)::int from units) as units`,
+    );
+    expect(rows[0]).toEqual({
+      no_method: 2,
+      no_channel: 2,
+      card: 2,
+      app: 2,
+      units_ready: 3,
+      units: 3,
+    });
   });
 
   it("cada telefone cai no caso de teste prometido", async () => {
@@ -43,9 +66,18 @@ describe("seed de desenvolvimento", () => {
     if (owner.kind === "known") expect(owner.sender.role).toBe("owner");
 
     const manager = await resolve(DEV_PHONES.manager);
-    if (manager.kind === "known") expect(manager.sender.role).toBe("manager");
+    expect(manager).toMatchObject({ kind: "known" });
+    if (manager.kind === "known") {
+      expect(manager.sender.role).toBe("manager");
+      expect(manager.sender.allUnits).toBe(false);
+      expect(manager.sender.unitIds).toHaveLength(2);
+    }
     const staff = await resolve(DEV_PHONES.staff);
-    if (staff.kind === "known") expect(staff.sender.role).toBe("staff");
+    expect(staff).toMatchObject({ kind: "known" });
+    if (staff.kind === "known") {
+      expect(staff.sender.role).toBe("staff");
+      expect(staff.sender.unitIds).toHaveLength(1);
+    }
 
     const two = await resolve(DEV_PHONES.twoRestaurants);
     expect(two).toMatchObject({ kind: "known", tenantCount: 2 });

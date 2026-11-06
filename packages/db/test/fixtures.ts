@@ -26,18 +26,27 @@ export const TABLES = [
   "entry_versions",
   "fiscal_documents",
   "inbound_messages",
+  "membership_units",
   "memberships",
   "outbound_messages",
   "payment_methods",
   "pending_questions",
   "sales_channels",
   "suppliers",
+  "tax_rules",
+  "tax_settings",
   "tenants",
   "units",
   "users",
   "whatsapp_opt_ins",
   "whatsapp_status_events",
 ] as const;
+
+/**
+ * Tabelas sem `tenant_id`, lidas por todos e gravadas só pelo administrador (migrations e seed).
+ * O meta-teste de isolamento não as trata por tenant: tem um teste próprio de somente leitura.
+ */
+export const GLOBAL_TABLES = ["tax_rules"] as const;
 
 let phoneCounter = 0;
 
@@ -68,11 +77,26 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     f.userId,
     f.phone,
   ]);
-  await run("insert into memberships (id, tenant_id, user_id, role) values ($1, $2, $3, 'owner')", [
-    uuidv7(),
-    f.tenantId,
-    f.userId,
+  await run(
+    "insert into memberships (id, tenant_id, user_id, role, all_units) values ($1, $2, $3, 'owner', true)",
+    [uuidv7(), f.tenantId, f.userId],
+  );
+  // Um gerente com lista de unidades de acesso (`membership_units`).
+  const managerId = uuidv7();
+  const managerMembershipId = uuidv7();
+  await run("insert into users (id, name, phone_e164) values ($1, 'Gerente', $2)", [
+    managerId,
+    `+5521${String(900000000 + phoneCounter + Math.floor(Math.random() * 1e6))}`,
   ]);
+  await run(
+    `insert into memberships (id, tenant_id, user_id, role, default_unit_id)
+     values ($1, $2, $3, 'manager', $4)`,
+    [managerMembershipId, f.tenantId, managerId, f.unitId],
+  );
+  await run(
+    "insert into membership_units (id, tenant_id, membership_id, unit_id) values ($1, $2, $3, $4)",
+    [uuidv7(), f.tenantId, managerMembershipId, f.unitId],
+  );
   await run(
     `insert into categories (id, tenant_id, name, kind, dre_group)
      values ($1, $2, 'Categoria própria', 'expense', 'outras')`,
@@ -96,9 +120,9 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     [f.inboundMessageId, f.tenantId, f.userId, f.waMessageId],
   );
   await run(
-    `insert into entries (id, tenant_id, unit_id, type, occurred_on, description, amount_cents,
+    `insert into entries (id, tenant_id, unit_id, type, occurred_on, paid_on, description, amount_cents,
        net_cents, category_id, inbound_message_id, created_by)
-     values ($1, $2, $3, 'expense', '2026-10-27', 'Mercado', 10000, 10000, $4, $5, $6)`,
+     values ($1, $2, $3, 'expense', '2026-10-27', '2026-10-27', 'Mercado', 10000, 10000, $4, $5, $6)`,
     [f.entryId, f.tenantId, f.unitId, f.categoryId, f.inboundMessageId, f.userId],
   );
   await run(
@@ -140,6 +164,18 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
      values ($1, $2, $3, 'first_message', $4)`,
     [uuidv7(), f.tenantId, f.userId, f.inboundMessageId],
   );
+  await run(
+    `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)
+     values ($1, $2, '2026-01-01', true, 'simples_nacional', '{"rbt12Cents": 24000000}', $3)`,
+    [uuidv7(), f.tenantId, f.userId],
+  );
+  // Regra de EXEMPLO (global): os valores reais dependem de P16 e P17 [PROVISÓRIO].
+  await run(
+    `insert into tax_rules (id, regime, valid_from, components)
+     values ($1, 'mei', '2020-01-01', '[{"label":"DAS-MEI","formula":{"kind":"fixed_monthly","amountCents":7190}}]')
+     on conflict (regime, valid_from) do nothing`,
+    [uuidv7()],
+  );
   return f;
 }
 
@@ -163,6 +199,11 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
       sql: "insert into memberships (id, tenant_id, user_id, role) values ($1, $2, $3, 'staff')",
       params: [id(), f.tenantId, f.userId],
     },
+    membership_units: {
+      sql: `insert into membership_units (id, tenant_id, membership_id, unit_id)
+            values ($1, $2, (select id from memberships where tenant_id = $2 limit 1), $3)`,
+      params: [id(), f.tenantId, f.unitId],
+    },
     categories: {
       sql: "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, $2, 'Intrusa', 'expense', 'outras')",
       params: [id(), f.tenantId],
@@ -184,8 +225,8 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
       params: [id(), f.tenantId, `wamid.${id()}`],
     },
     entries: {
-      sql: `insert into entries (id, tenant_id, unit_id, type, occurred_on, description, amount_cents, net_cents, created_by)
-            values ($1, $2, $3, 'expense', '2026-10-27', 'Intruso', 100, 100, $4)`,
+      sql: `insert into entries (id, tenant_id, unit_id, type, occurred_on, paid_on, description, amount_cents, net_cents, created_by)
+            values ($1, $2, $3, 'expense', '2026-10-27', '2026-10-27', 'Intruso', 100, 100, $4)`,
       params: [id(), f.tenantId, f.unitId, f.userId],
     },
     entry_versions: {
@@ -213,6 +254,16 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     outbound_messages: {
       sql: "insert into outbound_messages (id, tenant_id, wa_message_id, to_wa_id, purpose, text) values ($1, $2, $3, '5511900000000', 'notice', 'Intruso')",
       params: [id(), f.tenantId, `dev.out.${id()}`],
+    },
+    tax_settings: {
+      sql: `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)
+            values ($1, $2, '2027-01-01', false, 'mei', '{}', $3)`,
+      params: [id(), f.tenantId, f.userId],
+    },
+    tax_rules: {
+      sql: `insert into tax_rules (id, regime, valid_from, components)
+            values ($1, 'mei', '2031-01-01', '[]')`,
+      params: [id()],
     },
     fiscal_documents: {
       sql: `insert into fiscal_documents (id, tenant_id, access_key, inbound_message_id, source, created_by)

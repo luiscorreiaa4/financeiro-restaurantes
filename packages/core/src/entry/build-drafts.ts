@@ -2,14 +2,14 @@ import { NO_FEE } from "../money";
 import {
   type CatalogCategory,
   type CatalogSnapshot,
+  findPaymentMethod,
+  findSalesChannel,
   normalizeName,
   resolveFeeRule,
 } from "./catalog";
 import type { EntryDraft } from "./entry";
 import type { EntryFlag, ReadyEntry } from "./interpret";
 
-/** "Cartão" sem especificar usa a forma de cartão padrão da empresa (RF12.R8). */
-export const DEFAULT_CARD_PAYMENT_NAME = "Crédito";
 const FALLBACK_CATEGORY = { expense: "Outras despesas", revenue: "Outras receitas" } as const;
 
 /** Lançamento recente de outra mensagem, para o sinal POSSIVEL_DUPLICIDADE (RF12.R13). */
@@ -95,6 +95,38 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
     return { id: byName(FALLBACK_CATEGORY[kind])?.id ?? null, review: true };
   };
 
+  /** Decisão "investimento" do colaborador (RF12.R23): categoria do tipo investimento. */
+  const findInvestmentCategory = (hint: string | null) => {
+    const investments = catalog.categories.filter((category) => category.kind === "investment");
+    const matched =
+      hint === null
+        ? undefined
+        : investments.find((category) => normalizeName(category.name) === normalizeName(hint));
+    if (matched) return { id: matched.id, review: false };
+    const [first] = investments;
+    return first ? { id: first.id, review: true } : null;
+  };
+
+  const unit = catalog.units.find((candidate) => candidate.id === input.unitId);
+  const activeChannels = catalog.salesChannels.filter((channel) => channel.status === "active");
+
+  /**
+   * Canal da receita (DD-08, RF09.Obs3): o citado; senão o canal padrão da unidade, com o sinal
+   * CANAL_A_REVISAR; empresa com um só canal ativo usa esse, sem sinal. Último recurso, para
+   * unidades anteriores à E11 sem canal padrão: "Não informado", também com o sinal.
+   */
+  const resolveRevenueChannel = (hint: string | null) => {
+    const cited = hint === null || hint.trim() === "" ? null : findSalesChannel(catalog, hint);
+    if (cited) return { channel: cited, review: false };
+    const [only] = activeChannels;
+    if (activeChannels.length === 1 && only) return { channel: only, review: false };
+    const fallback =
+      activeChannels.find((channel) => channel.id === unit?.defaultSalesChannelId) ??
+      activeChannels.find((channel) => normalizeName(channel.name) === "nao informado") ??
+      null;
+    return { channel: fallback, review: true };
+  };
+
   const findSupplier = (hint: string | null): string | null => {
     if (hint === null || hint.trim() === "") return null;
     const key = normalizeName(hint);
@@ -112,25 +144,21 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
     return id;
   };
 
-  const findPayment = (hint: string | null) => {
-    if (hint === null || hint.trim() === "") return null;
-    const key = normalizeName(hint);
-    const wanted = key === "cartao" ? normalizeName(DEFAULT_CARD_PAYMENT_NAME) : key;
-    return catalog.paymentMethods.find((method) => normalizeName(method.name) === wanted) ?? null;
-  };
-
-  const findChannel = (hint: string | null) => {
-    if (hint === null || hint.trim() === "") return null;
-    const key = normalizeName(hint);
-    return catalog.salesChannels.find((channel) => normalizeName(channel.name) === key) ?? null;
-  };
+  const findPayment = (hint: string | null) =>
+    hint === null || hint.trim() === "" ? null : findPaymentMethod(catalog, hint);
 
   const drafts = ready.map((entry, position) => {
     const { extracted } = entry;
-    const category = findCategory(extracted.category_hint, extracted.type);
+    const investment =
+      extracted.type === "expense" && extracted.asset_decision === "investment"
+        ? findInvestmentCategory(extracted.category_hint)
+        : null;
+    const category = investment ?? findCategory(extracted.category_hint, extracted.type);
     const supplierId = findSupplier(extracted.supplier_hint);
     const paymentMethod = findPayment(extracted.payment_method_hint);
-    const channel = extracted.type === "revenue" ? findChannel(extracted.sales_channel_hint) : null;
+    const revenueChannel =
+      extracted.type === "revenue" ? resolveRevenueChannel(extracted.sales_channel_hint) : null;
+    const channel = revenueChannel?.channel ?? null;
     const fee =
       extracted.type === "revenue"
         ? resolveFeeRule({ paymentMethod, salesChannel: channel })
@@ -138,6 +166,7 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
 
     const flags: EntryFlag[] = [...entry.flags];
     if (category.review) flags.push("category_to_review");
+    if (revenueChannel?.review) flags.push("channel_to_review");
     const key = normalizeName(entry.description);
     const duplicate = input.recent.some(
       (other) =>
@@ -155,6 +184,8 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
       unitId: input.unitId,
       type: extracted.type,
       occurredOn: entry.occurredOn,
+      paidOn: entry.paidOn,
+      orders: entry.orders,
       description: entry.description,
       quantity: extracted.quantity,
       quantityUnit,

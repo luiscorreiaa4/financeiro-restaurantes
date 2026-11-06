@@ -70,6 +70,10 @@ const extracted = (overrides: Partial<ExtractedEntry> = {}): ExtractedEntry => (
   type: "expense",
   description: "Camarão",
   occurred_on: null,
+  paid_on: null,
+  orders: null,
+  asset_kind: null,
+  asset_decision: null,
   quantity: null,
   quantity_unit: null,
   unit_price_cents: null,
@@ -1063,5 +1067,144 @@ describe("lida e digitando (RF11.Obs3)", () => {
     });
     await w.say(OWNER, "ajuda");
     expect(events).toEqual([]);
+  });
+});
+
+describe("campos novos do lançamento pelo WhatsApp (E11: RF12.R21 a R23, DD-02, DD-08, DD-13)", () => {
+  const entryDetails = async () =>
+    (
+      await db.admin.query<{
+        type: string;
+        occurred_on: string;
+        paid_on: string;
+        orders: number | null;
+        flags: string[];
+        channel: string | null;
+        category_kind: string | null;
+      }>(
+        `select e.type, to_char(e.occurred_on, 'YYYY-MM-DD') as occurred_on,
+                to_char(e.paid_on, 'YYYY-MM-DD') as paid_on, e.orders, e.flags,
+                c.name as channel, k.kind as category_kind
+           from entries e
+           left join sales_channels c on c.id = e.sales_channel_id
+           left join categories k on k.id = e.category_id
+          order by e.created_at, e.position`,
+      )
+    ).rows;
+
+  it("data de pagamento: 'vence dia 20' guarda a competência de hoje e o pagamento no dia 20 (RF12.CA11)", async () => {
+    const w = world({
+      extractions: [
+        { result: register([extracted({ description: "Carne", paid_on: "2099-01-20" })]) },
+      ],
+    });
+    await w.say(OWNER, "paguei a carne 450, vence dia 20");
+    const [entry] = await entryDetails();
+    expect(entry?.paid_on).toBe("2099-01-20");
+    expect(entry?.occurred_on).not.toBe("2099-01-20");
+  });
+
+  it("sem data de pagamento, ela é igual à de competência (RF12.CA11)", async () => {
+    const w = world({ extractions: [{ result: register([extracted()]) }] });
+    await w.say(OWNER, "camarão 450");
+    const [entry] = await entryDetails();
+    expect(entry?.paid_on).toBe(entry?.occurred_on);
+  });
+
+  it("receita sem canal vai para o canal padrão da unidade, com sinal, e a confirmação cita o canal (RF12.CA12)", async () => {
+    const w = world({
+      extractions: [
+        {
+          result: register([
+            extracted({ type: "revenue", description: "Vendas", total_cents: 80000 }),
+          ]),
+        },
+      ],
+    });
+    await w.say(OWNER, "vendi 800 hoje");
+    const [entry] = await entryDetails();
+    expect(entry).toMatchObject({ type: "revenue", channel: "Salão" });
+    expect(entry?.flags).toContain("channel_to_review");
+    const confirmation = await lastReply();
+    expect(confirmation?.text).toContain("Salão");
+    expect(confirmation?.text).toContain("Canal a revisar");
+  });
+
+  it("receita com canal citado não recebe o sinal de canal", async () => {
+    const w = world({
+      extractions: [
+        {
+          result: register([
+            extracted({ type: "revenue", description: "Vendas", sales_channel_hint: "iFood" }),
+          ]),
+        },
+      ],
+    });
+    await w.say(OWNER, "vendi 450 no ifood");
+    const [entry] = await entryDetails();
+    expect(entry).toMatchObject({ channel: "iFood" });
+    expect(entry?.flags).not.toContain("channel_to_review");
+  });
+
+  it("pedidos: 'vendi 800 em 32 pedidos' guarda 32 pedidos (RF12.CA14)", async () => {
+    const w = world({
+      extractions: [
+        {
+          result: register([
+            extracted({ type: "revenue", description: "Vendas", total_cents: 80000, orders: 32 }),
+          ]),
+        },
+      ],
+    });
+    await w.say(OWNER, "vendi 800 em 32 pedidos");
+    const [entry] = await entryDetails();
+    expect(entry?.orders).toBe(32);
+  });
+
+  it("equipamento acima de R$ 1.500 pergunta antes de gravar (RF12.CA13)", async () => {
+    const w = world({
+      extractions: [
+        {
+          result: register([
+            extracted({ description: "Forno", asset_kind: "equipment", total_cents: 280000 }),
+          ]),
+        },
+      ],
+    });
+    await w.say(OWNER, "comprei um forno 2.800");
+    expect(await entryRows()).toHaveLength(0);
+    const reply = await lastReply();
+    expect(reply?.purpose).toBe("question");
+    expect(reply?.text).toContain("equipamento (investimento) ou despesa do mês?");
+  });
+
+  it("equipamento até R$ 1.500 é gravado direto como despesa (RF12.CA13)", async () => {
+    const w = world({
+      extractions: [
+        {
+          result: register([
+            extracted({
+              description: "Ar-condicionado",
+              asset_kind: "equipment",
+              total_cents: 120000,
+            }),
+          ]),
+        },
+      ],
+    });
+    await w.say(OWNER, "ar-condicionado 1.200");
+    expect(await entryRows()).toHaveLength(1);
+  });
+
+  it("unidade inativa não recebe lançamento e o colaborador é avisado (RF04.CA03)", async () => {
+    await db.admin.query("update units set status = 'inactive' where name = 'Matriz'");
+    try {
+      const w = world({ extractions: [{ result: register([extracted()]) }] });
+      await w.say(OWNER, "camarão 450");
+      expect(await entryRows()).toHaveLength(0);
+      expect((await lastReply())?.text).toContain("inativa");
+    } finally {
+      await db.admin.query("update units set status = 'active' where name = 'Matriz'");
+    }
   });
 });

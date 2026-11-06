@@ -38,6 +38,7 @@ function insertEntry(overrides: Record<string, unknown> = {}) {
     unit_id: a.unitId,
     type: "expense",
     occurred_on: "2026-10-27",
+    paid_on: "2026-10-27",
     description: "Teste",
     amount_cents: 1000,
     fee_cents: 0,

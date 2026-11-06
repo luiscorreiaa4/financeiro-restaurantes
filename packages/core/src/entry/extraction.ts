@@ -23,6 +23,14 @@ export const ExtractedEntrySchema = z.object({
   type: z.enum(["expense", "revenue"]),
   description: z.string(),
   occurred_on: z.iso.date().nullable(),
+  /** Data de pagamento ou recebimento, só quando a mensagem a traz (RF12.R21). */
+  paid_on: z.iso.date().nullable(),
+  /** Número de vendas ou pedidos de uma receita (RF12.R22). A IA só extrai; não calcula ticket. */
+  orders: z.number().nullable(),
+  /** Equipamento ou reforma, quando a despesa parece investimento (RF12.R23). */
+  asset_kind: z.enum(["equipment", "renovation"]).nullable(),
+  /** Resposta do colaborador à pergunta de investimento; nula enquanto não respondeu. */
+  asset_decision: z.enum(["investment", "expense"]).nullable(),
   quantity: z.number().nullable(),
   quantity_unit: z.string().nullable(),
   unit_price_cents: z.number().int().nullable(),

@@ -9,7 +9,7 @@ import type { EntryFlag } from "./interpret";
 import { quantityToMilli } from "./quantity";
 
 export type EntryType = "expense" | "revenue";
-export type Channel = "whatsapp" | "web" | "import" | "system";
+export type Channel = "whatsapp" | "web" | "import" | "email" | "system";
 export type VersionAction = "create" | "update" | "delete" | "restore";
 
 /** Campos editáveis de um lançamento. A taxa é guardada como regra para poder recalcular. */
@@ -17,9 +17,13 @@ export interface EntryFields {
   readonly unitId: string;
   readonly type: EntryType;
   readonly occurredOn: BusinessDate;
+  /** Data de pagamento ou recebimento; igual à de competência por padrão (RF12.R21, DD-02). */
+  readonly paidOn: BusinessDate;
   readonly description: string;
   readonly quantity: number | null;
   readonly quantityUnit: string | null;
+  /** Pedidos da receita (RF12.R22, DD-13). */
+  readonly orders: number | null;
   readonly amountCents: Money;
   readonly feePercentBp: number;
   readonly feeFixedCents: number;
@@ -30,7 +34,10 @@ export interface EntryFields {
 }
 
 /** Entrada para criar um lançamento: campos + origem. Taxa e líquido são calculados aqui. */
-export interface EntryDraft extends EntryFields {
+export interface EntryDraft extends Omit<EntryFields, "paidOn" | "orders"> {
+  /** Padrão: a data de competência. */
+  readonly paidOn?: BusinessDate | null;
+  readonly orders?: number | null;
   /** Obrigatório quando o canal é `whatsapp` (regra 5: todo lançamento guarda a origem). */
   readonly inboundMessageId: string | null;
   /** Sinais de revisão (RF12.R13); não impedem a gravação. */
@@ -49,8 +56,16 @@ export interface Entry extends EntryFields {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | null;
+  /** Quem excluiu, o motivo e até quando é restaurável (RF24). */
+  readonly deletedBy: string | null;
+  readonly deleteReason: string | null;
+  readonly restorableUntil: BusinessDate | null;
   readonly version: number;
 }
+
+/** A lixeira guarda o lançamento restaurável por 30 dias (RF24.R2). */
+export const RESTORE_WINDOW_DAYS = 30;
+const DELETE_REASON_MAX = 200;
 
 export interface ChangeContext {
   readonly actorId: string;
@@ -86,6 +101,9 @@ type EntryError = Extract<
       | "InvalidFeeRate"
       | "FeeExceedsAmount"
       | "InvalidQuantity"
+      | "InvalidOrders"
+      | "SalesChannelRequired"
+      | "InvalidDeleteReason"
       | "InvalidBusinessDate"
       | "InvalidId"
       | "OriginMissing"
@@ -99,9 +117,11 @@ const FIELD_KEYS = [
   "unitId",
   "type",
   "occurredOn",
+  "paidOn",
   "description",
   "quantity",
   "quantityUnit",
+  "orders",
   "amountCents",
   "feePercentBp",
   "feeFixedCents",
@@ -117,7 +137,17 @@ function validateFields(
   if (!isBusinessDate(fields.occurredOn)) {
     return fail("InvalidBusinessDate", { value: fields.occurredOn });
   }
+  if (!isBusinessDate(fields.paidOn)) return fail("InvalidBusinessDate", { value: fields.paidOn });
   if (fields.amountCents <= 0) return fail("AmountNotPositive");
+  if (fields.orders !== null) {
+    if (fields.type !== "revenue" || !Number.isInteger(fields.orders) || fields.orders <= 0) {
+      return fail("InvalidOrders", { value: fields.orders });
+    }
+  }
+  // Toda receita tem canal (DD-08); o canal padrão da unidade cobre a mensagem sem canal.
+  if (fields.type === "revenue" && fields.salesChannelId === null) {
+    return fail("SalesChannelRequired");
+  }
   if (fields.quantity !== null) {
     const quantity = quantityToMilli(fields.quantity);
     if (!quantity.ok) return quantity;
@@ -135,11 +165,17 @@ export function createEntry(
   if (context.channel === "whatsapp" && draft.inboundMessageId === null) {
     return fail("OriginMissing");
   }
-  const calculated = validateFields(draft);
+  const fields: EntryFields = {
+    ...draft,
+    paidOn: draft.paidOn ?? draft.occurredOn,
+    orders: draft.orders ?? null,
+  };
+  const calculated = validateFields(fields);
   if (!calculated.ok) return calculated;
 
   const entry: Entry = {
     ...draft,
+    ...fields,
     flags: draft.flags ?? [],
     id: context.id,
     tenantId: context.tenantId,
@@ -150,6 +186,9 @@ export function createEntry(
     createdAt: context.at,
     updatedAt: context.at,
     deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+    restorableUntil: null,
     version: 1,
   };
   return ok({ entry, version: toVersion("create", null, entry, context) });
@@ -184,11 +223,19 @@ export function editEntry(
 export function softDeleteEntry(
   entry: Entry,
   context: ChangeContext,
+  options: { readonly reason?: string | null } = {},
 ): Result<EntryChange, EntryError> {
   if (entry.deletedAt !== null) return fail("EntryAlreadyDeleted");
+  const reason = options.reason?.trim() ? options.reason.trim() : null;
+  if (reason !== null && [...reason].length > DELETE_REASON_MAX) {
+    return fail("InvalidDeleteReason");
+  }
   const next: Entry = {
     ...entry,
     deletedAt: context.at,
+    deletedBy: context.actorId,
+    deleteReason: reason,
+    restorableUntil: addDays(context.at, RESTORE_WINDOW_DAYS),
     updatedAt: context.at,
     version: entry.version + 1,
   };
@@ -204,10 +251,35 @@ export function restoreEntry(
   const next: Entry = {
     ...entry,
     deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+    restorableUntil: null,
     updatedAt: context.at,
     version: entry.version + 1,
   };
   return ok({ entry: next, version: toVersion("restore", entry, next, context) });
+}
+
+/** Data (UTC) de `days` dias depois de `at`, como data de negócio. */
+function addDays(at: Date, days: number): BusinessDate {
+  const date = new Date(at.getTime() + days * 86_400_000);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Marca como revisado: tira os sinais de revisão e registra a versão (RF12.R13). */
+export function markEntryReviewed(
+  entry: Entry,
+  context: ChangeContext,
+): Result<EntryChange, EntryError> {
+  if (entry.deletedAt !== null) return fail("EntryDeleted");
+  if (entry.flags.length === 0) return fail("NothingToChange");
+  const next: Entry = {
+    ...entry,
+    flags: [],
+    updatedAt: context.at,
+    version: entry.version + 1,
+  };
+  return ok({ entry: next, version: toVersion("update", entry, next, context) });
 }
 
 function pickFields(entry: Entry): EntryFields {
@@ -215,9 +287,11 @@ function pickFields(entry: Entry): EntryFields {
     unitId: entry.unitId,
     type: entry.type,
     occurredOn: entry.occurredOn,
+    paidOn: entry.paidOn,
     description: entry.description,
     quantity: entry.quantity,
     quantityUnit: entry.quantityUnit,
+    orders: entry.orders,
     amountCents: entry.amountCents,
     feePercentBp: entry.feePercentBp,
     feeFixedCents: entry.feeFixedCents,

@@ -1,3 +1,4 @@
+export * from "./access";
 export * from "./conversation";
 export * from "./entry";
 export * from "./errors";
@@ -6,3 +7,5 @@ export * from "./money";
 export * from "./permissions";
 export * from "./phone";
 export type * from "./ports";
+export * from "./registry";
+export * from "./tax";

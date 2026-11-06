@@ -4,6 +4,7 @@ import {
   type EntryDraft,
   editEntry,
   money,
+  restoreEntry,
   softDeleteEntry,
 } from "@app/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -204,8 +205,27 @@ describe("EntryStore: catálogo e duplicidade", () => {
     const catalog = await store().loadCatalog(a.tenantId);
     expect(catalog.categories.map((category) => category.id)).toContain(a.categoryId);
     expect(catalog.categories.map((category) => category.id)).not.toContain(b.categoryId);
-    expect(catalog.units).toEqual([{ id: a.unitId, name: "Matriz" }]);
+    expect(catalog.units).toEqual([
+      {
+        id: a.unitId,
+        name: "Matriz",
+        aliases: [],
+        status: "active",
+        defaultSalesChannelId: null,
+      },
+    ]);
     expect(catalog.paymentMethods.map((method) => method.name)).toContain("Pix");
+    expect(catalog.paymentMethods.find((method) => method.name === "Pix")).toMatchObject({
+      type: "other",
+      aliases: [],
+      status: "active",
+      isDefaultCard: false,
+    });
+    expect(catalog.salesChannels.find((channel) => channel.name === "Salão")).toMatchObject({
+      type: "other",
+      aliases: [],
+      status: "active",
+    });
   });
 
   it("lista os lançamentos ativos recentes e ignora os da lixeira", async () => {
@@ -499,5 +519,69 @@ describe("EntryStore: uso de IA e envio idempotente", () => {
     // Avisos continuam livres: uma mensagem pode gerar mais de um aviso.
     await outbound.save(message("dev.out.3", "notice"));
     await outbound.save(message("dev.out.4", "notice"));
+  });
+});
+
+describe("EntryStore: lixeira com rastro e restauração (RF24, RF25.R4)", () => {
+  it("excluir e restaurar gera duas versões novas e preserva os dados do lançamento", async () => {
+    const f = await createTenant(db.admin, "Restaurante Lixeira");
+    const inboundId = await inbound(f, "lixeira");
+    const created = newEntry(f, inboundId, { description: "Para a lixeira" });
+    await store().register({
+      tenantId: f.tenantId,
+      userId: f.userId,
+      inboundMessageId: inboundId,
+      entries: [{ position: 0, change: created }],
+      newSuppliers: [],
+      usage: [],
+    });
+
+    const at = new Date("2026-11-06T15:00:00Z");
+    const deleted = softDeleteEntry(
+      created.entry,
+      { actorId: f.userId, channel: "web", at },
+      { reason: "lançado em duplicidade" },
+    );
+    if (!deleted.ok) throw new Error("exclusão falhou");
+    await store().applyChanges(f.tenantId, [deleted.value]);
+
+    const inTrash = await db.admin.query(
+      `select deleted_by, delete_reason, to_char(restorable_until, 'YYYY-MM-DD') as until
+         from entries where id = $1`,
+      [created.entry.id],
+    );
+    expect(inTrash.rows[0]).toEqual({
+      deleted_by: f.userId,
+      delete_reason: "lançado em duplicidade",
+      until: "2026-12-06",
+    });
+
+    const restored = restoreEntry(deleted.value.entry, { actorId: f.userId, channel: "web", at });
+    if (!restored.ok) throw new Error("restauração falhou");
+    await store().applyChanges(f.tenantId, [restored.value]);
+
+    const back = await db.admin.query(
+      `select description, amount_cents, deleted_at, deleted_by, delete_reason, restorable_until, version
+         from entries where id = $1`,
+      [created.entry.id],
+    );
+    expect(back.rows[0]).toEqual({
+      description: "Para a lixeira",
+      amount_cents: String(created.entry.amountCents),
+      deleted_at: null,
+      deleted_by: null,
+      delete_reason: null,
+      restorable_until: null,
+      version: 3,
+    });
+    const versions = await db.admin.query(
+      "select version, action from entry_versions where entry_id = $1 order by version",
+      [created.entry.id],
+    );
+    expect(versions.rows).toEqual([
+      { version: 1, action: "create" },
+      { version: 2, action: "delete" },
+      { version: 3, action: "restore" },
+    ]);
   });
 });

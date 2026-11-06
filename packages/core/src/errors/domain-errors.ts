@@ -27,6 +27,44 @@ export type DomainError =
   | { readonly code: "EntryNotDeleted" }
   | { readonly code: "NothingToChange" }
   | { readonly code: "PermissionDenied"; readonly role: string; readonly action: string }
+  | {
+      readonly code: "InvalidPermission";
+      readonly role: string;
+      readonly permission: string;
+    }
+  | { readonly code: "DefaultUnitOutsideAccess"; readonly unitId: string }
+  | { readonly code: "DefaultUnitRequired" }
+  | { readonly code: "NoUnitAccess" }
+  | { readonly code: "UnitOutsideTenant"; readonly unitId: string }
+  | { readonly code: "OwnerNeedsAllUnits" }
+  | { readonly code: "AccountantNeedsAllUnits" }
+  | { readonly code: "EmailRequiredForPanel" }
+  | { readonly code: "LastActiveOwner" }
+  | { readonly code: "TaxRuleNotFound"; readonly regime: string; readonly month: string }
+  | { readonly code: "TaxParamMissing"; readonly param: string }
+  | { readonly code: "TaxSettingsInvalid"; readonly reason: "regime_required" }
+  | { readonly code: "InvalidOrders"; readonly value: number }
+  | { readonly code: "SalesChannelRequired" }
+  | { readonly code: "InvalidDeleteReason" }
+  | {
+      readonly code: "InvalidUnit";
+      readonly field: "name" | "aliases" | "cnpj" | "city" | "uf";
+      readonly reason: "invalid" | "duplicate" | "too_many" | "required";
+    }
+  | {
+      readonly code: "InvalidCategory";
+      readonly field: "name" | "parent" | "nature" | "supportWords";
+      readonly reason:
+        | "invalid"
+        | "duplicate"
+        | "too_many"
+        | "too_deep"
+        | "not_system"
+        | "inactive";
+    }
+  | { readonly code: "LastActiveUnit" }
+  | { readonly code: "UnitInactive"; readonly unitId: string }
+  | { readonly code: "PayrollNoticeNotAccepted" }
   | { readonly code: "InvalidPhone"; readonly reason: "empty" | "length" | "area_code" | "number" }
   | { readonly code: "DuplicateMessage"; readonly waMessageId: string }
   | { readonly code: "ExtractionInvalid"; readonly detail: string }

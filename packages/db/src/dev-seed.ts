@@ -1,4 +1,13 @@
-import { memberships, paymentMethods, salesChannels, tenants, units, users } from "../schema";
+import { eq } from "drizzle-orm";
+import {
+  memberships,
+  membershipUnits,
+  paymentMethods,
+  salesChannels,
+  tenants,
+  units,
+  users,
+} from "../schema";
 import type { Database } from "./client";
 
 export class DevSeedInProductionError extends Error {
@@ -43,8 +52,9 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
   await db
     .insert(units)
     .values([
-      { id: id(11), tenantId: DEMO, name: "Matriz" },
-      { id: id(12), tenantId: DEMO_2, name: "Filial" },
+      { id: id(11), tenantId: DEMO, name: "Matriz", aliases: ["centro"], city: "Maceió", uf: "AL" },
+      { id: id(13), tenantId: DEMO, name: "Praia", aliases: ["litoral"], city: "Maceió", uf: "AL" },
+      { id: id(12), tenantId: DEMO_2, name: "Filial", city: "Recife", uf: "PE" },
     ])
     .onConflictDoNothing();
 
@@ -62,17 +72,19 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
   // [PROVISÓRIO – P07] formas de pagamento e canais padrão, com taxas de exemplo para o chat.
   const defaults = (tenant: string, base: number) => ({
     payments: [
-      { name: "Dinheiro", feePercentBp: 0 },
-      { name: "Pix", feePercentBp: 0 },
-      { name: "Débito", feePercentBp: 150 },
-      { name: "Crédito", feePercentBp: 320 },
-      { name: "Voucher", feePercentBp: 0 },
+      { name: "Dinheiro", type: "cash", feePercentBp: 0 },
+      { name: "Pix", type: "pix", feePercentBp: 0 },
+      { name: "Débito", type: "debit", feePercentBp: 150 },
+      { name: "Crédito", type: "credit", feePercentBp: 320, isDefaultCard: true },
+      { name: "Voucher", type: "voucher", feePercentBp: 0 },
+      { name: "Não informada", type: "other", feePercentBp: 0 },
     ].map((method, index) => ({ id: id(base + index), tenantId: tenant, ...method })),
     channels: [
-      { name: "Salão", feePercentBp: 0 },
-      { name: "Delivery próprio", feePercentBp: 0 },
-      { name: "iFood", feePercentBp: 2300 },
-      { name: "Retirada", feePercentBp: 0 },
+      { name: "Salão", type: "dine_in", feePercentBp: 0 },
+      { name: "Delivery próprio", type: "own_delivery", feePercentBp: 0 },
+      { name: "iFood", type: "app", feePercentBp: 2300 },
+      { name: "Retirada", type: "pickup", feePercentBp: 0 },
+      { name: "Não informado", type: "other", feePercentBp: 0 },
     ].map((channel, index) => ({ id: id(base + 10 + index), tenantId: tenant, ...channel })),
   });
   for (const [tenant, base] of [
@@ -82,26 +94,85 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
     const { payments, channels } = defaults(tenant, base);
     await db.insert(paymentMethods).values(payments).onConflictDoNothing();
     await db.insert(salesChannels).values(channels).onConflictDoNothing();
+    // Canal padrão da receita de cada unidade: o Salão (RF04.R6).
+    await db
+      .update(units)
+      .set({ defaultSalesChannelId: id(base + 10) })
+      .where(eq(units.tenantId, tenant));
   }
 
   const earlier = new Date("2026-01-01T12:00:00Z");
   const later = new Date("2026-06-01T12:00:00Z");
+  // Dono e "dona dos dois" têm TODAS as unidades; gerente e atendente, uma lista (RF05.R5).
   await db
     .insert(memberships)
     .values([
-      { id: id(31), tenantId: DEMO, userId: id(21), role: "owner", createdAt: earlier },
-      { id: id(32), tenantId: DEMO, userId: id(22), role: "manager", createdAt: earlier },
-      { id: id(33), tenantId: DEMO, userId: id(23), role: "staff", createdAt: earlier },
-      { id: id(34), tenantId: DEMO, userId: id(24), role: "owner", createdAt: earlier },
-      { id: id(35), tenantId: DEMO_2, userId: id(24), role: "owner", createdAt: later },
+      {
+        id: id(31),
+        tenantId: DEMO,
+        userId: id(21),
+        role: "owner",
+        allUnits: true,
+        defaultUnitId: id(11),
+        panelAccess: true,
+        createdAt: earlier,
+      },
+      {
+        id: id(32),
+        tenantId: DEMO,
+        userId: id(22),
+        role: "manager",
+        defaultUnitId: id(11),
+        panelAccess: true,
+        createdAt: earlier,
+      },
+      {
+        id: id(33),
+        tenantId: DEMO,
+        userId: id(23),
+        role: "staff",
+        defaultUnitId: id(11),
+        createdAt: earlier,
+      },
+      {
+        id: id(34),
+        tenantId: DEMO,
+        userId: id(24),
+        role: "owner",
+        allUnits: true,
+        defaultUnitId: id(11),
+        panelAccess: true,
+        createdAt: earlier,
+      },
+      {
+        id: id(35),
+        tenantId: DEMO_2,
+        userId: id(24),
+        role: "owner",
+        allUnits: true,
+        panelAccess: true,
+        createdAt: later,
+      },
       {
         id: id(36),
         tenantId: DEMO,
         userId: id(25),
         role: "staff",
+        status: "deactivated",
+        defaultUnitId: id(11),
         createdAt: earlier,
         deactivatedAt: later,
       },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(membershipUnits)
+    .values([
+      { id: id(41), tenantId: DEMO, membershipId: id(32), unitId: id(11) },
+      { id: id(42), tenantId: DEMO, membershipId: id(32), unitId: id(13) },
+      { id: id(43), tenantId: DEMO, membershipId: id(33), unitId: id(11) },
+      { id: id(44), tenantId: DEMO, membershipId: id(36), unitId: id(11) },
     ])
     .onConflictDoNothing();
 }

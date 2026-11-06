@@ -44,7 +44,7 @@ const draft = (overrides: Partial<EntryDraft> = {}): EntryDraft => ({
   categoryId: null,
   supplierId: null,
   paymentMethodId: null,
-  salesChannelId: null,
+  salesChannelId: "canal-salao",
   inboundMessageId: "01890a5d-ac96-774b-bcce-b302099a805c",
   ...overrides,
 });

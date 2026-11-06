@@ -37,6 +37,8 @@ export const AUDIO_UNINTELLIGIBLE_TEXT =
 export const IMAGE_TOO_BIG_TEXT = "Essa imagem passou de 5 MB. Pode mandar uma foto menor?";
 export const RECEIPT_UNREADABLE_TEXT =
   "Não consegui ler os valores da nota, então não registrei nada. Pode mandar uma foto mais nítida ou digitar os valores?";
+export const UNIT_INACTIVE_TEXT =
+  "Essa unidade está inativa e não recebe novos lançamentos. Fale com o responsável pelo restaurante.";
 export const UNIT_MISSING_TEXT =
   "Não encontrei um restaurante cadastrado para registrar. Fale com o suporte.";
 
@@ -60,6 +62,11 @@ function quantityText(entry: Entry): string {
   return `, ${number}${entry.quantityUnit ? ` ${entry.quantityUnit.toLowerCase()}` : ""}`;
 }
 
+function channelText(entry: Entry, catalog: CatalogSnapshot): string | null {
+  const channel = catalog.salesChannels.find((item) => item.id === entry.salesChannelId)?.name;
+  return channel ? `no canal ${channel}` : null;
+}
+
 /** Uma linha por lançamento (RF16.R2): descrição, quantidade, valor, categoria, data, forma e líquido. */
 export function entryLine(entry: Entry, catalog: CatalogSnapshot): string {
   const category = catalog.categories.find((item) => item.id === entry.categoryId)?.name;
@@ -70,14 +77,19 @@ export function entryLine(entry: Entry, catalog: CatalogSnapshot): string {
     `em ${shortDate(entry.occurredOn)}`,
     payment ?? null,
     entry.type === "revenue" && entry.feeCents > 0 ? `líquido ${brl(entry.netCents)}` : null,
+    entry.type === "revenue" ? channelText(entry, catalog) : null,
   ].filter((part): part is string => part !== null);
   return `• ${parts.join(" ")}`;
 }
 
-function warningLine(flag: EntryFlag, entry: Entry): string {
+function warningLine(flag: EntryFlag, entry: Entry, catalog: CatalogSnapshot): string {
   switch (flag) {
     case "category_to_review":
       return `⚠️ Categoria a revisar: ${entry.description}`;
+    case "channel_to_review": {
+      const channel = catalog.salesChannels.find((item) => item.id === entry.salesChannelId)?.name;
+      return `⚠️ Canal a revisar: ${entry.description} (registrei no canal ${channel ?? "padrão"})`;
+    }
     case "possible_duplicate":
       return `⚠️ Possível duplicidade: ${entry.description}`;
     case "old_date":
@@ -113,7 +125,9 @@ export function confirmationText(input: {
     const total = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
     lines.push(`… e mais ${entries.length - shown.length} lançamentos. Total: ${brl(total)}`);
   }
-  const warnings = entries.flatMap((entry) => entry.flags.map((flag) => warningLine(flag, entry)));
+  const warnings = entries.flatMap((entry) =>
+    entry.flags.map((flag) => warningLine(flag, entry, catalog)),
+  );
   if (warnings.length > 0) lines.push("", ...warnings);
   lines.push(
     "",
@@ -172,6 +186,8 @@ const reasonText = (pending: PendingEntry, reason: PendingReason): string => {
       return `${name} foi uma despesa ou uma venda?`;
     case "occurred_on":
       return `Qual foi a data de ${name}?`;
+    case "investment_choice":
+      return `${name} (${brl(pending.extracted.total_cents ?? 0)}): é equipamento (investimento) ou despesa do mês?`;
     case "description":
       return "O que foi esse lançamento?";
     default:

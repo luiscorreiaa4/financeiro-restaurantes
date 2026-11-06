@@ -1,6 +1,6 @@
 import type { TenantExtractionContext } from "@app/core";
 import { describe, expect, it } from "vitest";
-import { buildSystem, buildUserText } from "./prompt";
+import { buildSystem, buildUserText, SYSTEM_RULES } from "./prompt";
 
 const context: TenantExtractionContext = {
   categories: ["Carnes", "Bebidas", "Bebidas"],
@@ -8,6 +8,18 @@ const context: TenantExtractionContext = {
   units: ["Centro"],
   paymentMethods: ["Pix"],
 };
+
+describe("prompt de extração: campos do E11", () => {
+  it("ensina a data de pagamento, os pedidos e o equipamento sem pedir conta à IA", () => {
+    expect(SYSTEM_RULES).toContain("paid_on");
+    expect(SYSTEM_RULES).toContain("orders");
+    expect(SYSTEM_RULES).toContain("asset_kind");
+    expect(SYSTEM_RULES).toContain("asset_decision");
+    // A IA só extrai: o ticket médio e o limite de R$ 1.500 são do sistema.
+    expect(SYSTEM_RULES).toMatch(/NUNCA calcule o ticket médio/);
+    expect(SYSTEM_RULES).not.toContain("150000");
+  });
+});
 
 describe("prompt de extração", () => {
   it("mantém idêntico o prefixo cacheável entre duas mensagens do mesmo tenant", () => {

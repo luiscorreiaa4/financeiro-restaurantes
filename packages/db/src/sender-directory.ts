@@ -1,6 +1,12 @@
-import type { Role, SenderDirectory, SenderMembership } from "@app/core";
+import type {
+  AdditionalPermission,
+  MembershipStatus,
+  Role,
+  SenderDirectory,
+  SenderMembership,
+} from "@app/core";
 import { eq, inArray } from "drizzle-orm";
-import { memberships, tenants, units, users } from "../schema";
+import { memberships, membershipUnits, tenants, units, users } from "../schema";
 import type { Database } from "./client";
 
 /**
@@ -20,7 +26,11 @@ export function createSenderDirectory(db: Database): SenderDirectory {
           userId: memberships.userId,
           userName: users.name,
           role: memberships.role,
-          unitId: memberships.unitId,
+          status: memberships.status,
+          allUnits: memberships.allUnits,
+          defaultUnitId: memberships.defaultUnitId,
+          permissions: memberships.permissions,
+          panelAccess: memberships.panelAccess,
           createdAt: memberships.createdAt,
           deactivatedAt: memberships.deactivatedAt,
         })
@@ -36,9 +46,23 @@ export function createSenderDirectory(db: Database): SenderDirectory {
         .from(units)
         .where(inArray(units.tenantId, tenantIds));
 
+      const accessRows = await db
+        .select({ membershipId: membershipUnits.membershipId, unitId: membershipUnits.unitId })
+        .from(membershipUnits)
+        .where(
+          inArray(
+            membershipUnits.membershipId,
+            rows.map((row) => row.membershipId),
+          ),
+        );
+
       return rows.map((row) => ({
         ...row,
         role: row.role as Role,
+        // A data de desativação também vale: o vínculo desativado nunca conta como ativo.
+        status: (row.deactivatedAt === null ? row.status : "deactivated") as MembershipStatus,
+        permissions: row.permissions as AdditionalPermission[],
+        unitIds: accessRows.filter((a) => a.membershipId === row.membershipId).map((a) => a.unitId),
         tenantUnitIds: unitRows.filter((unit) => unit.tenantId === row.tenantId).map((u) => u.id),
       }));
     },

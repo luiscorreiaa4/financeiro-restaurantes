@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSender, type SenderMembership } from "./sender";
+import { accessibleUnitIds, resolveSender, type SenderMembership, senderToActor } from "./sender";
 
 const TENANT_A = "0190a1b2-0000-7000-8000-00000000000a";
 const TENANT_B = "0190a1b2-0000-7000-8000-00000000000b";
@@ -12,7 +12,12 @@ function membership(overrides: Partial<SenderMembership> = {}): SenderMembership
     userId: "0190a1b2-2000-7000-8000-000000000001",
     userName: "Dono",
     role: "owner",
-    unitId: null,
+    status: "active",
+    allUnits: true,
+    unitIds: [],
+    defaultUnitId: null,
+    permissions: [],
+    panelAccess: true,
     tenantUnitIds: [],
     createdAt: new Date("2026-01-10T12:00:00Z"),
     deactivatedAt: null,
@@ -80,20 +85,73 @@ describe("resolveSender", () => {
     expect(result).toMatchObject({ kind: "known", tenantCount: 1 });
   });
 
-  describe("unidade padrão", () => {
-    it("vínculo preso a uma unidade usa essa unidade", () => {
-      const result = resolveSender([membership({ unitId: "u1", tenantUnitIds: ["u1", "u2"] })]);
+  it("vínculo com situação desativada é tratado como desconhecido (RF05.CA05)", () => {
+    expect(resolveSender([membership({ status: "deactivated" })])).toEqual({ kind: "unknown" });
+  });
+
+  it("vínculo convidado já é conhecido: a primeira mensagem o ativa (RF05.CA07)", () => {
+    const result = resolveSender([membership({ status: "invited" })]);
+    expect(result).toMatchObject({ kind: "known" });
+  });
+
+  describe("unidade padrão (RF05.R6)", () => {
+    it("usa a unidade padrão do vínculo", () => {
+      const result = resolveSender([
+        membership({
+          allUnits: false,
+          unitIds: ["u1", "u2"],
+          defaultUnitId: "u2",
+          tenantUnitIds: ["u1", "u2", "u3"],
+        }),
+      ]);
+      expect(result).toMatchObject({ kind: "known", defaultUnitId: "u2" });
+    });
+
+    it("com uma única unidade de acesso, ela é a padrão", () => {
+      const result = resolveSender([
+        membership({ allUnits: false, unitIds: ["u1"], tenantUnitIds: ["u1", "u2"] }),
+      ]);
       expect(result).toMatchObject({ kind: "known", defaultUnitId: "u1" });
     });
 
-    it("vínculo para todas as unidades de um restaurante com uma só unidade usa essa unidade", () => {
-      const result = resolveSender([membership({ unitId: null, tenantUnitIds: ["u1"] })]);
+    it("todas as unidades de um restaurante com uma só unidade usam essa unidade", () => {
+      const result = resolveSender([membership({ tenantUnitIds: ["u1"] })]);
       expect(result).toMatchObject({ kind: "known", defaultUnitId: "u1" });
     });
 
-    it("vínculo para todas as unidades de um restaurante com várias fica sem unidade padrão", () => {
-      const result = resolveSender([membership({ unitId: null, tenantUnitIds: ["u1", "u2"] })]);
+    it("todas as unidades de um restaurante com várias ficam sem unidade padrão", () => {
+      const result = resolveSender([membership({ tenantUnitIds: ["u1", "u2"] })]);
       expect(result).toMatchObject({ kind: "known", defaultUnitId: null });
     });
+  });
+});
+
+describe("accessibleUnitIds", () => {
+  it("TODAS vale para todas as unidades do restaurante, inclusive as novas", () => {
+    expect(accessibleUnitIds(membership({ tenantUnitIds: ["u1", "u2"] }))).toEqual(["u1", "u2"]);
+  });
+
+  it("lista vale só para as unidades listadas", () => {
+    const sender = membership({ allUnits: false, unitIds: ["u1"], tenantUnitIds: ["u1", "u2"] });
+    expect(accessibleUnitIds(sender)).toEqual(["u1"]);
+  });
+});
+
+describe("senderToActor", () => {
+  it("vínculo com TODAS vale para todas as unidades", () => {
+    const actor = senderToActor(membership({ role: "manager" }));
+    expect(actor).toMatchObject({ role: "manager", units: "all", permissions: [] });
+  });
+
+  it("vínculo com lista vale só para as unidades dela", () => {
+    const actor = senderToActor(membership({ role: "staff", allUnits: false, unitIds: ["u1"] }));
+    expect(actor.units).toEqual(["u1"]);
+  });
+
+  it("leva as permissões adicionais e a liberação do painel", () => {
+    const actor = senderToActor(
+      membership({ role: "manager", permissions: ["VER_FOLHA"], panelAccess: false }),
+    );
+    expect(actor).toMatchObject({ permissions: ["VER_FOLHA"], panelAccess: false });
   });
 });

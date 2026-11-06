@@ -8,6 +8,10 @@ const entry = (overrides: Partial<ExtractedEntry> = {}): ExtractedEntry => ({
   type: "expense",
   description: "Camarão",
   occurred_on: null,
+  paid_on: null,
+  orders: null,
+  asset_kind: null,
+  asset_decision: null,
   quantity: null,
   quantity_unit: null,
   unit_price_cents: null,
@@ -175,6 +179,81 @@ describe("pontuação por campo e por lançamento", () => {
   it("extração que falhou conta como inválida e erra a intenção", () => {
     const score = scoreCase(evalCase(), null, META);
     expect(score).toMatchObject({ failed: true, intentOk: false, askOk: false });
+  });
+});
+
+describe("casos do E11: data de pagamento, pedidos e investimento (RF12.CA11 a CA14)", () => {
+  const withExpected = (ready: EvalCase["expected"]["ready"], asks = false): EvalCase =>
+    evalCase({ expected: { intent: "register", ready, asks } });
+
+  it("pontua a data de pagamento quando o caso a espera", () => {
+    const wanted = withExpected([{ type: "expense", amount_cents: 60000, paid_on: "2026-11-20" }]);
+    const hit = scoreCase(
+      wanted,
+      observe(register([entry({ total_cents: 60000, paid_on: "2026-11-20" })])),
+      META,
+    );
+    const miss = scoreCase(
+      wanted,
+      observe(register([entry({ total_cents: 60000, paid_on: null })])),
+      META,
+    );
+    expect(hit.entries[0]?.paidOnOk).toBe(true);
+    expect(hit.entries[0]?.exact).toBe(true);
+    expect(miss.entries[0]?.paidOnOk).toBe(false);
+    expect(miss.entries[0]?.exact).toBe(false);
+  });
+
+  it("sem data de pagamento esperada, o campo não é pontuado", () => {
+    const score = scoreCase(
+      evalCase(),
+      observe(register([entry({ payment_method_hint: "Pix" })])),
+      META,
+    );
+    expect(score.entries[0]?.paidOnOk).toBeNull();
+    expect(score.entries[0]?.ordersOk).toBeNull();
+  });
+
+  it("pontua os pedidos da receita", () => {
+    const wanted = withExpected([{ type: "revenue", amount_cents: 80000, orders: 32 }]);
+    const hit = scoreCase(
+      wanted,
+      observe(register([entry({ type: "revenue", total_cents: 80000, orders: 32 })])),
+      META,
+    );
+    const miss = scoreCase(
+      wanted,
+      observe(register([entry({ type: "revenue", total_cents: 80000, orders: null })])),
+      META,
+    );
+    expect(hit.entries[0]?.ordersOk).toBe(true);
+    expect(miss.entries[0]?.ordersOk).toBe(false);
+  });
+
+  it("equipamento acima de R$ 1.500 conta como pergunta do sistema, e abaixo disso como lançamento pronto", () => {
+    const oven = observe(
+      register([entry({ description: "Forno", asset_kind: "equipment", total_cents: 280000 })]),
+    );
+    expect(oven).toMatchObject({ asks: true });
+    expect(oven.ready).toHaveLength(0);
+    const aircon = observe(
+      register([entry({ description: "Ar", asset_kind: "equipment", total_cents: 120000 })]),
+    );
+    expect(aircon).toMatchObject({ asks: false });
+    expect(aircon.ready).toHaveLength(1);
+  });
+
+  it("o dataset traz os casos CA11 a CA14", () => {
+    const cases = loadDataset();
+    const ids = cases.filter((item) => item.category === "e11").map((item) => item.id);
+    expect(ids.length).toBeGreaterThanOrEqual(5);
+    expect(cases.some((item) => item.expected.ready.some((r) => r.paid_on !== undefined))).toBe(
+      true,
+    );
+    expect(cases.some((item) => item.expected.ready.some((r) => r.orders !== undefined))).toBe(
+      true,
+    );
+    expect(cases.some((item) => item.category === "e11" && item.expected.asks)).toBe(true);
   });
 });
 

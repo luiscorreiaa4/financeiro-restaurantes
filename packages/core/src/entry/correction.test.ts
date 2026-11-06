@@ -16,6 +16,16 @@ const m = (cents: number) => {
 };
 
 const TODAY = "2026-10-30";
+const PAYMENT = {
+  type: "other",
+  aliases: [],
+  status: "active",
+  isDefaultCard: false,
+  feePercentBp: 0,
+  feeFixedCents: 0,
+} as const;
+const CHANNEL = { type: "other", aliases: [], status: "active", feePercentBp: 0 } as const;
+
 const CATALOG: CatalogSnapshot = {
   categories: [
     { id: "cat-carnes", name: "Carnes e peixes", kind: "expense" },
@@ -23,12 +33,12 @@ const CATALOG: CatalogSnapshot = {
   ],
   suppliers: [],
   paymentMethods: [
-    { id: "pg-pix", name: "Pix", feePercentBp: 0, feeFixedCents: 0 },
-    { id: "pg-credito", name: "Crédito", feePercentBp: 320, feeFixedCents: 0 },
+    { ...PAYMENT, id: "pg-pix", name: "Pix", type: "pix" },
+    { ...PAYMENT, id: "pg-credito", name: "Crédito", type: "credit", feePercentBp: 320 },
   ],
   salesChannels: [
-    { id: "canal-salao", name: "Salão", feePercentBp: 0 },
-    { id: "canal-ifood", name: "iFood", feePercentBp: 2300 },
+    { ...CHANNEL, id: "canal-salao", name: "Salão", type: "dine_in" },
+    { ...CHANNEL, id: "canal-ifood", name: "iFood", type: "app", feePercentBp: 2300 },
   ],
   units: [],
 };
@@ -51,7 +61,7 @@ function entry(
       categoryId: null,
       supplierId: null,
       paymentMethodId: null,
-      salesChannelId: null,
+      salesChannelId: overrides.type === "revenue" ? "canal-salao" : null,
       inboundMessageId: "in-1",
       ...overrides,
     },

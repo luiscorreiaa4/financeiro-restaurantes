@@ -19,10 +19,15 @@ import { inboundMessages } from "./messages";
 import { tenantId, units, users } from "./tenants";
 
 export const ENTRY_TYPES = ["expense", "revenue"] as const;
-export const CHANNELS = ["whatsapp", "web", "import", "system"] as const;
+export const CHANNELS = ["whatsapp", "web", "import", "email", "system"] as const;
 export const VERSION_ACTIONS = ["create", "update", "delete", "restore"] as const;
 /** Sinais que não impedem a gravação (RF12.R13). */
-export const ENTRY_FLAGS = ["category_to_review", "possible_duplicate", "old_date"] as const;
+export const ENTRY_FLAGS = [
+  "category_to_review",
+  "channel_to_review",
+  "possible_duplicate",
+  "old_date",
+] as const;
 
 /**
  * Lançamento. Nunca é apagado: `deleted_at` marca o soft delete e cada mudança gera uma
@@ -37,9 +42,13 @@ export const entries = pgTable(
     unitId: uuid("unit_id").notNull(),
     type: text("type").notNull(),
     occurredOn: pgDate("occurred_on", { mode: "string" }).notNull(),
+    /** Data de pagamento ou recebimento; igual a `occurred_on` quando não informada (RF12.R21). */
+    paidOn: pgDate("paid_on", { mode: "string" }).notNull(),
     description: text("description").notNull(),
     quantity: numeric("quantity", { precision: 14, scale: 3, mode: "number" }),
     quantityUnit: text("quantity_unit"),
+    /** Pedidos da receita, opcional (RF12.R22, DD-13). */
+    orders: integer("orders"),
     amountCents: cents("amount_cents").notNull(),
     feePercentBp: integer("fee_percent_bp").notNull().default(0),
     feeFixedCents: cents("fee_fixed_cents").notNull().default(0),
@@ -64,6 +73,10 @@ export const entries = pgTable(
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** Quem excluiu, o motivo e até quando é restaurável (RF24). */
+    deletedBy: uuid("deleted_by").references(() => users.id),
+    deleteReason: text("delete_reason"),
+    restorableUntil: pgDate("restorable_until", { mode: "string" }),
   },
   (t) => [
     unique("entries_tenant_id_id_unique").on(t.tenantId, t.id),
@@ -103,6 +116,19 @@ export const entries = pgTable(
       .where(sql`${t.confirmationWaMessageId} is not null`),
     oneOf("entries_type_check", "type", ENTRY_TYPES),
     check("entries_amount_check", sql`${t.amountCents} > 0`),
+    check(
+      "entries_orders_check",
+      sql`${t.orders} is null or (${t.orders} > 0 and ${t.type} = 'revenue')`,
+    ),
+    // Toda receita tem canal (DD-08).
+    check(
+      "entries_revenue_channel_check",
+      sql`${t.type} <> 'revenue' or ${t.salesChannelId} is not null`,
+    ),
+    check(
+      "entries_delete_reason_check",
+      sql`${t.deleteReason} is null or char_length(${t.deleteReason}) <= 200`,
+    ),
     check("entries_fee_check", sql`${t.feeCents} >= 0 and ${t.feeCents} <= ${t.amountCents}`),
     check("entries_net_check", sql`${t.netCents} = ${t.amountCents} - ${t.feeCents}`),
     check("entries_fee_percent_check", sql`${t.feePercentBp} between 0 and 10000`),

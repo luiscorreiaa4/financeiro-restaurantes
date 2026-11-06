@@ -1,11 +1,14 @@
 import {
   type AiUsageRecord,
+  type CatalogStatus,
   type Entry,
   type EntryChange,
   type EntryFlag,
   type EntryStore,
   money,
+  type PaymentMethodType,
   type PendingQuestionRecord,
+  type SalesChannelType,
 } from "@app/core";
 import { and, desc, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
 import {
@@ -41,9 +44,11 @@ function toEntry(row: EntryRow): Entry {
     unitId: row.unitId,
     type: row.type as Entry["type"],
     occurredOn: row.occurredOn,
+    paidOn: row.paidOn,
     description: row.description,
     quantity: row.quantity,
     quantityUnit: row.quantityUnit,
+    orders: row.orders,
     amountCents: asMoney(row.amountCents),
     feePercentBp: row.feePercentBp,
     feeFixedCents: row.feeFixedCents,
@@ -60,6 +65,9 @@ function toEntry(row: EntryRow): Entry {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt,
+    deletedBy: row.deletedBy,
+    deleteReason: row.deleteReason,
+    restorableUntil: row.restorableUntil,
     version: row.version,
   };
 }
@@ -71,9 +79,11 @@ function entryValues(entry: Entry, position: number) {
     unitId: entry.unitId,
     type: entry.type,
     occurredOn: entry.occurredOn,
+    paidOn: entry.paidOn,
     description: entry.description,
     quantity: entry.quantity,
     quantityUnit: entry.quantityUnit,
+    orders: entry.orders,
     amountCents: entry.amountCents,
     feePercentBp: entry.feePercentBp,
     feeFixedCents: entry.feeFixedCents,
@@ -91,6 +101,9 @@ function entryValues(entry: Entry, position: number) {
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
     deletedAt: entry.deletedAt,
+    deletedBy: entry.deletedBy,
+    deleteReason: entry.deleteReason,
+    restorableUntil: entry.restorableUntil,
   };
 }
 
@@ -168,6 +181,10 @@ export function createEntryStore(db: Database): EntryStore {
               name: paymentMethods.name,
               feePercentBp: paymentMethods.feePercentBp,
               feeFixedCents: paymentMethods.feeFixedCents,
+              type: paymentMethods.type,
+              aliases: paymentMethods.aliases,
+              status: paymentMethods.status,
+              isDefaultCard: paymentMethods.isDefaultCard,
             })
             .from(paymentMethods)
             .where(eq(paymentMethods.tenantId, tenantId)),
@@ -176,11 +193,20 @@ export function createEntryStore(db: Database): EntryStore {
               id: salesChannels.id,
               name: salesChannels.name,
               feePercentBp: salesChannels.feePercentBp,
+              type: salesChannels.type,
+              aliases: salesChannels.aliases,
+              status: salesChannels.status,
             })
             .from(salesChannels)
             .where(eq(salesChannels.tenantId, tenantId)),
           tx
-            .select({ id: units.id, name: units.name })
+            .select({
+              id: units.id,
+              name: units.name,
+              aliases: units.aliases,
+              status: units.status,
+              defaultSalesChannelId: units.defaultSalesChannelId,
+            })
             .from(units)
             .where(eq(units.tenantId, tenantId)),
         ]);
@@ -190,9 +216,17 @@ export function createEntryStore(db: Database): EntryStore {
             kind: row.kind as "revenue" | "expense" | "investment" | "deduction",
           })),
           suppliers: supplierRows.map((row) => ({ ...row, aliases: row.aliases ?? [] })),
-          paymentMethods: paymentRows,
-          salesChannels: channelRows,
-          units: unitRows,
+          paymentMethods: paymentRows.map((row) => ({
+            ...row,
+            type: row.type as PaymentMethodType,
+            status: row.status as CatalogStatus,
+          })),
+          salesChannels: channelRows.map((row) => ({
+            ...row,
+            type: row.type as SalesChannelType,
+            status: row.status as CatalogStatus,
+          })),
+          units: unitRows.map((row) => ({ ...row, status: row.status as CatalogStatus })),
         };
       });
     },
@@ -337,9 +371,11 @@ export function createEntryStore(db: Database): EntryStore {
               unitId: entry.unitId,
               type: entry.type,
               occurredOn: entry.occurredOn,
+              paidOn: entry.paidOn,
               description: entry.description,
               quantity: entry.quantity,
               quantityUnit: entry.quantityUnit,
+              orders: entry.orders,
               amountCents: entry.amountCents,
               feePercentBp: entry.feePercentBp,
               feeFixedCents: entry.feeFixedCents,
@@ -353,6 +389,9 @@ export function createEntryStore(db: Database): EntryStore {
               version: entry.version,
               updatedAt: entry.updatedAt,
               deletedAt: entry.deletedAt,
+              deletedBy: entry.deletedBy,
+              deleteReason: entry.deleteReason,
+              restorableUntil: entry.restorableUntil,
             })
             .where(
               and(

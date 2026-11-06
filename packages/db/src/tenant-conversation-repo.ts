@@ -1,6 +1,6 @@
 import type { OutboundPurpose, TenantConversationRepo } from "@app/core";
 import { and, eq, gt } from "drizzle-orm";
-import { outboundMessages, pendingQuestions, whatsappOptIns } from "../schema";
+import { memberships, outboundMessages, pendingQuestions, whatsappOptIns } from "../schema";
 import { type Database, withTenant } from "./client";
 import { uuidv7 } from "./uuid";
 
@@ -8,14 +8,25 @@ import { uuidv7 } from "./uuid";
 export function createTenantConversationRepo(db: Database): TenantConversationRepo {
   return {
     async recordOptIn({ tenantId, userId, inboundMessageId }) {
-      const rows = await withTenant(db, tenantId, (tx) =>
-        tx
+      return withTenant(db, tenantId, async (tx) => {
+        const rows = await tx
           .insert(whatsappOptIns)
           .values({ id: uuidv7(), tenantId, userId, source: "first_message", inboundMessageId })
           .onConflictDoNothing()
-          .returning({ id: whatsappOptIns.id }),
-      );
-      return rows.length > 0;
+          .returning({ id: whatsappOptIns.id });
+        // CONVIDADO vira ATIVO na primeira mensagem (RF05.R8, CA07); desativado não volta.
+        await tx
+          .update(memberships)
+          .set({ status: "active" })
+          .where(
+            and(
+              eq(memberships.tenantId, tenantId),
+              eq(memberships.userId, userId),
+              eq(memberships.status, "invited"),
+            ),
+          );
+        return rows.length > 0;
+      });
     },
 
     async findReplyTarget(tenantId, waMessageId) {

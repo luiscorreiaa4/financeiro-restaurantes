@@ -112,7 +112,9 @@ Notas:
 
 ## Divergências entre o modelo de dados atual e os requisitos
 
-Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026. **Nenhuma destas divergências foi corrigida nesta rodada** (só documentação). Cada linha diz o que falta, o RF que exige e a etapa que resolve. Etapas E11 a E13 e F9, F10 são novas (ver os planos). Valores marcados `[PROVISÓRIO – Pxx]` em `requisitos.md` ficam em configuração ou constante única.
+Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026. As linhas abaixo são o retrato de 29/10/2026; o que a E11 fechou está no parágrafo de atualização logo depois. Cada linha diz o que falta, o RF que exige e a etapa que resolve. Etapas E11 a E13 e F9, F10 são novas (ver os planos). Valores marcados `[PROVISÓRIO – Pxx]` em `requisitos.md` ficam em configuração ou constante única.
+
+**Atualização de 06/11/2026 (E11, mudança `e11-modelo-de-dados`).** Fechadas no `core` e no `db` (migrations 0006 a 0010): quarto papel `accountant`, permissões adicionais e a matriz 2.3 como teste; lista de unidades de acesso (`membership_units`), unidade padrão, situação do vínculo, painel e convite; aceite do aviso de folha na `audit_log`; unidade com apelidos, CNPJ, município, UF, status e canal padrão da receita; tipo, apelidos e status de forma de pagamento e canal, cartão padrão, "Não informada" e "Não informado"; Exige Quantidade, palavras de apoio e status da categoria; `entries.paid_on`, `orders`, receita com canal obrigatório, sinal `channel_to_review`, motivo e autor da exclusão e `restorable_until`; canal `email`; `tax_settings` e `tax_rules`. **Continuam abertas** (nas telas e etapas indicadas nas tabelas abaixo): herança da subcategoria só no domínio (sem constraint), unicidade de apelidos só no domínio, `trocar unidade`, `trocar empresa` e a empresa citada no texto (tarefa 3.8 da E11, que pede estado novo de conversa), o cadastro de usuário só por e-mail do contador (`users.phone_e164` ainda é obrigatório; F1 e F13) e a lista de colunas de `tenants` e `users` do autocadastro (F1, F9).
 
 ### Papéis e permissões (`packages/core`)
 

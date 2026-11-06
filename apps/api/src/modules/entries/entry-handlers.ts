@@ -26,6 +26,7 @@ import {
   planCorrection,
   type QrCodeReader,
   type ReplyTarget,
+  senderToActor,
   softDeleteEntry,
   type TenantExtractionContext,
   type Transcriber,
@@ -56,6 +57,7 @@ import {
   placeLabel,
   questionText,
   RECEIPT_UNREADABLE_TEXT,
+  UNIT_INACTIVE_TEXT,
   UNIT_MISSING_TEXT,
   undoText,
   unresolvedText,
@@ -244,6 +246,13 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
       await context.reply(UNIT_MISSING_TEXT, "notice");
       return;
     }
+    // Unidade inativa não recebe lançamento (RF04.R5, CA03).
+    const chosenUnit = catalog.units.find((unit) => unit.id === unitId);
+    if (chosenUnit && chosenUnit.status !== "active") {
+      await recordUsage();
+      await context.reply(UNIT_INACTIVE_TEXT, "notice");
+      return;
+    }
 
     // Foto de nota: valor ilegível nunca é inventado (RF14.Obs1, CA05): nada é gravado.
     if (input.receipt && interpretation.pending.length > 0) {
@@ -377,8 +386,8 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
     action: "entry:edit" | "entry:delete",
   ): boolean {
     const { sender } = context;
-    if (sender.unitId !== null && entry.unitId !== sender.unitId) return false;
-    return can(sender.role, action, {
+    return can(senderToActor(sender), action, {
+      unitId: entry.unitId,
       isOwnEntry: entry.createdBy === sender.userId,
     });
   }
