@@ -16,7 +16,7 @@ Legenda de confiança, usada em todo o documento:
 
 ## Como retomar este plano (leia primeiro)
 
-**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** da tabela abaixo (respeitando as dependências da seção 9). Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
+**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** da tabela abaixo (respeitando as dependências da seção 9). Abra a etapa como mudança do OpenSpec (`/opsx:propose <etapa>`), conforme o DD-17. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
 
 | Etapa | Status | Observação |
 |---|---|---|

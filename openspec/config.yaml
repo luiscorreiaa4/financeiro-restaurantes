@@ -1,0 +1,57 @@
+schema: spec-driven
+
+context: |
+  Idioma: pt-BR. Todos os artefatos (proposal, design, tasks, specs) em português do Brasil.
+  Mantenha em inglês os títulos estruturais do OpenSpec e as palavras SHALL/MUST.
+  Código, nomes de tabelas e identificadores em inglês (ver glossário no CLAUDE.md).
+
+  Produto: controle financeiro gerencial para restaurantes, alimentado por WhatsApp
+  (texto, áudio e foto) e com painel web PWA. Não é sistema fiscal.
+
+  FONTE DA VERDADE: as regras de negócio NÃO são copiadas para o OpenSpec.
+    1. docs/requisitos.md (v1.1): o quê e as regras (RFnn.Rn, critérios de aceite CAnn).
+    2. docs/decisoes.md: o porquê (D, DE, DN, DD).
+    3. docs/arquitetura.md: o como (stack, modelo de dados, divergências atuais).
+    4. docs/planos/canal-whatsapp.md (E1 a E14) e docs/planos/painel.md (F0 a F13): ordem de execução.
+  Em conflito, vale a ordem acima. Mudança de regra entra primeiro em decisoes.md e requisitos.md
+  (subindo a versão) e só depois no OpenSpec. Localize o RF com Grep pelo título "### RFnn";
+  não leia requisitos.md inteiro, ele é grande.
+
+  Stack: TypeScript strict; monorepo pnpm + Turborepo; Fastify + Zod; pg-boss; PostgreSQL 16 com RLS
+  por tenant; Drizzle; Next.js (App Router) + Tailwind + shadcn/ui; Better Auth; Vitest e Testcontainers.
+  Pacotes: apps/api, apps/web, packages/{db,core,ai,whatsapp,config}. packages/core não importa infra.
+
+  Regras inegociáveis (detalhe no CLAUDE.md): dinheiro em centavos inteiros; toda tabela de cliente
+  com tenant_id e RLS (teste de isolamento obrigatório); a IA nunca faz conta; nada é apagado
+  (soft delete + entry_versions); todo lançamento guarda a origem; webhook responde 200 em menos de 1 s
+  e processa de forma assíncrona e idempotente; salvar direto e confirmar sempre; custo de IA medido
+  em ai_usage; segredos só em variáveis de ambiente validadas com Zod.
+
+  Pendências [PROVISÓRIO – Pxx] de requisitos.md valem como proposta escrita ao lado; isole o valor
+  em configuração ou constante única com o ID no comentário. Não trate como bloqueio.
+
+rules:
+  proposal:
+    - Cite os RFs, regras (RFnn.Rn) e decisões (DDnn, DEnn) que a mudança entrega; não repita o texto das regras.
+    - Diga qual etapa dos planos (E ou F) a mudança cumpre e o que fica fora dela.
+    - Se a mudança contradiz requisitos.md ou decisoes.md, aponte o trecho e pare para decidir antes de seguir.
+  specs:
+    - Escreva cenários (WHEN/THEN) a partir dos critérios de aceite (CAnn) do requisitos.md, citando o ID.
+    - Não invente regra de negócio nova; se faltar, registre como pergunta aberta.
+  design:
+    - Siga docs/arquitetura.md e aponte divergências do modelo atual que a mudança fecha.
+    - Para tabela nova ou alterada, inclua migration revisada, política RLS e teste de isolamento.
+  tasks:
+    - Uma tarefa por entrega verificável, com o teste escrito primeiro (TDD).
+    - Termine com a tarefa "pnpm typecheck && pnpm lint && pnpm test".
+    - Se mexer em packages/ai (prompt ou schema), inclua rodar "pnpm --filter @app/ai eval".
+    - Inclua a tarefa de atualizar a tabela de progresso do plano e o docs/planos/andamento.md.
+
+operations:
+  apply:
+    guidance:
+      - Implemente em mudanças pequenas e verificáveis; commits em Conventional Commits.
+      - Dados de teste só via "pnpm db:seed:dev"; o WhatsApp real só na E10.
+  archive:
+    guidance:
+      - Ao arquivar, confira que decisoes.md, requisitos.md e o plano da etapa continuam coerentes com o que foi entregue.

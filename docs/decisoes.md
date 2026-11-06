@@ -83,7 +83,7 @@ Tomadas com os sócios ao elaborar o [`requisitos.md`](requisitos.md).
 
 ## 5. Decisões da reunião de descoberta (05/11/2026)
 
-Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o que ficou aberto em [`DESCOBERTA.md`](DESCOBERTA.md). Onde há conflito com decisão anterior, vale esta seção.
+Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o que ficou aberto em [`DESCOBERTA.md`](DESCOBERTA.md). O DD-17 (06/11/2026) registra a escolha do OpenSpec. Onde há conflito com decisão anterior, vale esta seção.
 
 | ID | Data | Decisão | Motivo | Onde se aplica | Situação |
 |---|---|---|---|---|---|
@@ -103,3 +103,4 @@ Tomadas pelo Matheus e pelo Luís em sessão de descoberta. Resumo completo e o 
 | DD-14 | 05/11/2026 | **Tolerância zero** de arredondamento na conciliação: diferença de 1 centavo entre o líquido calculado e o valor externo marca o lançamento para revisão. O arredondamento da taxa continua meio-para-cima. | Decisão do Matheus. | RF35, RF08.R3 | Vigente. Substitui a proposta de 1 centavo do DE-01 |
 | DD-15 | 05/11/2026 | **P06 e P07 seguem provisórias:** vale a proposta escrita (canal APLICATIVO com comissão substitui a taxa da forma de pagamento; listas padrão de formas e canais); o Matheus decide depois do piloto. | Sem dados reais de taxas ainda. | RF08, RF09 | Vigente, provisória (P06, P07) |
 | DD-16 | 05/11/2026 | **Prazo:** o Luís confirmou que o prazo comporta todo o escopo acima antes do piloto. Nenhum corte previsto; se o prazo apertar, reabrir esta decisão. | Registro do risco assumido: o MVP cresceu em imposto, contador, importações e indicadores. | Todo o MVP | Vigente |
+| DD-17 | 06/11/2026 | **OpenSpec** é o fluxo de especificação por mudança (`/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:archive`), no lugar do Spec Kit citado em `planos/guia/contabilidade-restaurante-plano-do-zero.md`. Instalado e configurado em `openspec/` (contexto e regras em `openspec/config.yaml`). Taskmaster e Spec Kit não serão usados. O OpenSpec **referencia** `requisitos.md` e `decisoes.md` e não copia regra de negócio (DN-12 continua valendo). | É mais leve e feito para projeto que já existe; o Spec Kit criaria `constitution` e specs próprios e duplicaria a fonte de regras. | Todas as etapas E e F a partir da E11; `CLAUDE.md`, `andamento.md`, guias | Vigente |

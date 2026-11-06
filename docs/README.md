@@ -34,6 +34,8 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 
 ## Como manter
 
+- Fluxo de cada etapa: OpenSpec (DD-17). As mudanças ficam em `openspec/changes/` (na raiz do repositório) e referenciam os RF; elas não substituem `requisitos.md`.
+
 - Regra nova ou mudança de regra: primeiro em `decisoes.md` e `requisitos.md` (subindo a versão no topo), depois nos planos, que só citam o ID.
 - Etapa concluída: atualizar a tabela de progresso do plano e o `planos/andamento.md`.
 - Documento de trabalho que terminou (um passo a passo cumprido, um subplano vencido): resumir o que importa em `andamento.md` ou no plano e apagar. O histórico fica no git.

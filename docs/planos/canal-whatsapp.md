@@ -16,7 +16,7 @@ Legenda de confiança, usada em todo o documento:
 
 **Nome do módulo:** "canal WhatsApp" é o caminho completo da mensagem até o lançamento gravado: recebimento (webhook), fila, identificação, **IA** (um passo do caminho), gravação e confirmação. Não é só "a API" (`apps/api` também serve o painel) nem só "a IA" (`packages/ai` é uma parte pequena do plano). Vive em `apps/api`, `packages/whatsapp`, `packages/ai`, `packages/core` e `packages/db`.
 
-**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** na tabela abaixo. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
+**Para continuar em uma sessão nova:** leia `CLAUDE.md`, depois este arquivo, e execute a **primeira etapa com status "A fazer"** na tabela abaixo. Abra a etapa como mudança do OpenSpec (`/opsx:propose <etapa>`), conforme o DD-17. Ao terminar uma etapa, atualize a tabela e o campo "Atualizado em".
 
 | Etapa | Status | Observação |
 |---|---|---|

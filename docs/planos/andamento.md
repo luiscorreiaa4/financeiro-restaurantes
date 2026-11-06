@@ -33,12 +33,13 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 
 ## 3. Próximos passos
 
-1. **E11 (canal): modelo de dados dos requisitos.** Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-2. **F0 (painel): fundação do web.** Pode andar em paralelo. Antes, planejar F0 e F1 com [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt).
-3. **Rodar o CI no GitHub.**
-4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
-5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
-6. **Matheus (novas pendências da reunião de 05/11/2026):** P16 (parâmetros e fórmulas de imposto por regime e se a estimativa entra no Resultado), P17 (vigências da reforma tributária), P18 (regras do XML manual), P01 (lista de categorias com Natureza FIXA/VARIAVEL), P03 (planos e preços), P04 (essenciais, agora com canal e pedidos). Detalhe em [`../DESCOBERTA.md`](../DESCOBERTA.md).
+1. **OpenSpec (fluxo de cada etapa) — antes de abrir qualquer etapa nova do canal ou do painel.** Instalado e iniciado em 05/11/2026 (`openspec/`, comandos `/opsx:*` em `.claude/`, contexto em `openspec/config.yaml`; decisão DD-17). Falta o Luís: (a) conferir `openspec/config.yaml` e os comandos criados em `.claude/commands/opsx/` e `.claude/skills/openspec-*`; (b) decidir sobre a telemetria anônima (`openspec config set telemetry.enabled false`); (c) rodar `/opsx:explore` e depois `/opsx:propose e11-modelo-de-dados` para provar o fluxo na E11; (d) arquivar com `/opsx:archive` ao concluir e conferir que `requisitos.md`, `decisoes.md` e o plano continuam coerentes. Regra: o OpenSpec **referencia** RF e CA do `requisitos.md`, não copia regra. Guia: [`guia/02-claude-code-skills-plugins-mcps.md`](guia/02-claude-code-skills-plugins-mcps.md).
+2. **E11 (canal): modelo de dados dos requisitos**, como primeira mudança do OpenSpec (`e11-modelo-de-dados`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
+3. **F0 (painel): fundação do web**, só depois do passo 1. Pode andar em paralelo com a E11. Antes, planejar F0 e F1 com [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt) e abrir como mudança do OpenSpec (`/opsx:propose f0-fundacao-web`). As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
+4. **Rodar o CI no GitHub.**
+5. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
+6. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
+7. **Matheus (novas pendências da reunião de 05/11/2026):** P16 (parâmetros e fórmulas de imposto por regime e se a estimativa entra no Resultado), P17 (vigências da reforma tributária), P18 (regras do XML manual), P01 (lista de categorias com Natureza FIXA/VARIAVEL), P03 (planos e preços), P04 (essenciais, agora com canal e pedidos). Detalhe em [`../DESCOBERTA.md`](../DESCOBERTA.md).
 
 ## 4. Travado por fora 🔴
 
