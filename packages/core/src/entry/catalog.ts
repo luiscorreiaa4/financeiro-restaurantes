@@ -104,6 +104,32 @@ export function findUnit(
 }
 
 /**
+ * Unidade em que o lançamento cai (DE-25). Ordem: a unidade citada no texto, a dica da IA
+ * (`unit_hint`), a padrão do vínculo e, sem padrão, a primeira unidade **ativa e de acesso** do
+ * cadastro. Unidade fora do acesso do vínculo nunca é usada. A padrão inativa é devolvida de
+ * propósito: quem chama recusa o lançamento (RF04.R5), em vez de escolher outra sem avisar.
+ */
+export function pickUnit(input: {
+  readonly catalog: CatalogSnapshot;
+  readonly citedUnitId: string | null;
+  readonly hint: string | null;
+  readonly defaultUnitId: string | null;
+  readonly accessibleIds: readonly string[];
+}): string | null {
+  const { catalog, accessibleIds } = input;
+  const exists = (id: string | null): id is string =>
+    id !== null && accessibleIds.includes(id) && catalog.units.some((unit) => unit.id === id);
+  if (exists(input.citedUnitId)) return input.citedUnitId;
+  const hinted = input.hint === null ? null : findUnit(catalog, input.hint, accessibleIds);
+  if (hinted) return hinted.id;
+  if (exists(input.defaultUnitId)) return input.defaultUnitId;
+  return (
+    catalog.units.find((unit) => unit.status === "active" && accessibleIds.includes(unit.id))?.id ??
+    null
+  );
+}
+
+/**
  * Taxa da receita (RF08.R3 e RF09.R4). `[PROVISÓRIO – P06]`: canal do tipo aplicativo com comissão
  * maior que zero substitui a taxa da forma de pagamento; as duas nunca são somadas.
  * Despesa nunca tem taxa; quem chama não passa forma nem canal para ela.

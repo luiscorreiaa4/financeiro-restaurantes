@@ -294,3 +294,33 @@ describe("empresa e unidade citadas no texto (RF11.R5)", () => {
     expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: PRAIA });
   });
 });
+
+describe("unidade do lançamento (DE-25)", () => {
+  const STAFF = DEV_PHONES.staff.replace("+", "");
+  const MATRIZ = "0190a000-0000-7000-8000-000000000011";
+
+  it("a unidade que a IA reconhece vale quando a mensagem a cita", async () => {
+    const w = world([{ result: register("Praia") }]);
+    await w.say(OWNER, "gastei 100 de gás lá na praia");
+    expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: PRAIA });
+    expect((await lastReply())?.text).toContain("Registrado (Praia)");
+  });
+
+  it("a unidade casada no texto vale mais que a dica da IA", async () => {
+    const w = world([{ result: register("Matriz") }]);
+    await w.say(TWO, "gastei 100 de gás no litoral");
+    expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: PRAIA });
+  });
+
+  it("dica que não casa com nenhuma unidade usa a padrão", async () => {
+    const w = world([{ result: register("Cozinha") }]);
+    await w.say(OWNER, "gastei 100 de gás na cozinha");
+    expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: MATRIZ });
+  });
+
+  it("dica de unidade fora do acesso do colaborador usa a padrão dele", async () => {
+    const w = world([{ result: register("Praia") }]);
+    await w.say(STAFF, "gastei 100 de gás na praia");
+    expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: MATRIZ });
+  });
+});
