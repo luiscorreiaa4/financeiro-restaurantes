@@ -10,6 +10,7 @@ import {
   boolean,
   check,
   foreignKey,
+  integer,
   jsonb,
   pgPolicy,
   pgTable,
@@ -20,6 +21,7 @@ import {
 } from "drizzle-orm/pg-core";
 import {
   appRole,
+  authRole,
   createdAt,
   currentTenant,
   ingestCanRead,
@@ -79,10 +81,21 @@ export const users = pgTable(
     id: primaryId(),
     name: text("name").notNull(),
     email: text("email").unique(),
-    phoneE164: text("phone_e164").notNull().unique(),
+    /** Opcional: quem entra só pelo painel pode não ter WhatsApp (continua único quando existe). */
+    phoneE164: text("phone_e164").unique(),
+    /** Colunas do Better Auth. */
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    /** Bloqueio de senha (RF02): 5 erros seguidos travam por 15 min. */
+    failedPasswordAttempts: integer("failed_password_attempts").notNull().default(0),
+    passwordLockedUntil: timestamp("password_locked_until", { withTimezone: true }),
     createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  () => [
+  (t) => [
+    // E-mail guardado já normalizado (minúsculas, sem espaços nas pontas): o único é de verdade.
+    check("users_email_normalized_check", sql`${t.email} = lower(btrim(${t.email}))`),
     pgPolicy("users_same_tenant_select", {
       as: "permissive",
       for: "select",
@@ -93,6 +106,14 @@ export const users = pgTable(
       )`,
     }),
     ingestCanRead("users"),
+    // Login (Better Auth): acha o usuário e marca e-mail verificado/último acesso, sem tenant.
+    pgPolicy("users_auth_select", { for: "select", to: authRole, using: sql`true` }),
+    pgPolicy("users_auth_update", {
+      for: "update",
+      to: authRole,
+      using: sql`true`,
+      withCheck: sql`true`,
+    }),
   ],
 );
 
@@ -148,6 +169,8 @@ export const memberships = pgTable(
     ),
     tenantIsolation("memberships"),
     ingestCanRead("memberships"),
+    // O envio do código confere se há vínculo ativo (RF02.R1); só leitura.
+    pgPolicy("memberships_auth_select", { for: "select", to: authRole, using: sql`true` }),
   ],
 );
 

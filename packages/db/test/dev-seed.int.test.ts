@@ -1,7 +1,13 @@
 import { resolveSender } from "@app/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../src/client";
-import { DEV_PHONES, DevSeedInProductionError, seedDevData } from "../src/dev-seed";
+import {
+  DEV_EMAILS,
+  DEV_PASSWORD,
+  DEV_PHONES,
+  DevSeedInProductionError,
+  seedDevData,
+} from "../src/dev-seed";
 import { createSenderDirectory } from "../src/sender-directory";
 import { startTestDatabase, type TestDatabase } from "./database";
 
@@ -84,5 +90,23 @@ describe("seed de desenvolvimento", () => {
     if (two.kind === "known") expect(two.sender.tenantName).toBe("Restaurante Demo");
 
     expect(await resolve(DEV_PHONES.deactivated)).toEqual({ kind: "unknown" });
+  });
+
+  it("login do painel: todos com e-mail verificado e o dono com a senha conhecida de desenvolvimento", async () => {
+    await seedDevData(createDatabase(db.admin), "development");
+    const { rows } = await db.admin.query<{ email: string; email_verified: boolean }>(
+      "select email, email_verified from users order by email",
+    );
+    expect(rows.map((r) => r.email)).toEqual(Object.values(DEV_EMAILS).sort());
+    expect(rows.every((r) => r.email_verified)).toBe(true);
+
+    const accounts = await db.admin.query<{ email: string; password: string }>(
+      `select u.email, a.password from accounts a join users u on u.id = a.user_id
+        where a.provider_id = 'credential' and a.account_id = a.user_id::text`,
+    );
+    expect(accounts.rows.map((r) => r.email)).toEqual([DEV_EMAILS.owner]);
+    // Formato do Better Auth: sal (32 hex) e chave scrypt (128 hex); nunca a senha em claro.
+    expect(accounts.rows[0]?.password).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/);
+    expect(accounts.rows[0]?.password).not.toContain(DEV_PASSWORD);
   });
 });

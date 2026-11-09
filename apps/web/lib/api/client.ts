@@ -15,16 +15,17 @@ export class ApiError extends Error {
 
 export type ApiClient = {
   get<T>(path: string, schema: z.ZodType<T>): Promise<T>;
+  post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
 };
 
 export function createApiClient(options: { baseUrl: string; fetch?: typeof fetch }): ApiClient {
   const doFetch = options.fetch ?? fetch;
 
-  return {
-    async get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  async function request<T>(path: string, init: RequestInit, schema: z.ZodType<T>): Promise<T> {
+    {
       let response: Response;
       try {
-        response = await doFetch(`${options.baseUrl}${path}`, { credentials: "include" });
+        response = await doFetch(`${options.baseUrl}${path}`, { credentials: "include", ...init });
       } catch (cause) {
         throw new ApiError(`API indisponível: ${path}`, 0, cause);
       }
@@ -39,6 +40,20 @@ export function createApiClient(options: { baseUrl: string; fetch?: typeof fetch
         throw new ApiError(`Resposta fora do contrato: ${path}`, response.status, body);
       }
       return parsed.data;
-    },
+    }
+  }
+
+  return {
+    get: (path, schema) => request(path, {}, schema),
+    post: (path, body, schema) =>
+      request(
+        path,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        schema,
+      ),
   };
 }

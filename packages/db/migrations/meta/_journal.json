@@ -82,8 +82,22 @@
     {
       "idx": 11,
       "version": "7",
-      "when": 1794199610772,
-      "tag": "0011_preferred_company_and_choice_question",
+      "when": 1794199038282,
+      "tag": "0011_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794200762558,
+      "tag": "0012_auth_sessions_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794202917263,
+      "tag": "0013_preferred_company_and_choice_question",
       "breakpoints": true
     }
   ]

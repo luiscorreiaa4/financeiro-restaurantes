@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SignOutButton } from "@/features/auth/sign-out-button";
 import { NAV_ITEMS } from "@/lib/navigation";
 
 function NavLinks({ label, onNavigate }: { label: string; onNavigate?: () => void }) {
@@ -37,6 +38,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-svh flex-col md:flex-row">
       <aside className="hidden w-56 shrink-0 border-r p-4 md:block">
         <NavLinks label="Principal" />
+        <div className="mt-4">
+          <SignOutButton />
+        </div>
       </aside>
 
       <header className="flex items-center gap-2 border-b p-2 md:hidden">
@@ -51,7 +55,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </SheetContent>
         </Sheet>
-        <span className="text-sm font-medium">Finanças para restaurantes</span>
+        <span className="flex-1 text-sm font-medium">Finanças para restaurantes</span>
+        <SignOutButton />
       </header>
 
       <main className="min-w-0 flex-1 p-4">{children}</main>

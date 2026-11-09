@@ -43,6 +43,12 @@ export interface MessageSender {
   showTyping(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
 }
 
+export type AccessCodePurpose = "sign-in" | "email-verification" | "forget-password";
+
+export interface EmailSender {
+  sendAccessCode(message: { to: string; code: string; purpose: AccessCodePurpose }): Promise<void>;
+}
+
 export interface TenantExtractionContext {
   readonly categories: readonly string[];
   readonly suppliers: readonly string[];

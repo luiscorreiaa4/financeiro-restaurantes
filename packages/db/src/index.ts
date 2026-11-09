@@ -1,5 +1,6 @@
 export * from "../schema";
 export * from "./access-repo";
+export * from "./auth-store";
 export * from "./choice-store";
 export * from "./client";
 export * from "./dev-seed";

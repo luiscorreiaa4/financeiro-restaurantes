@@ -19,8 +19,10 @@ export interface TenantFixture {
 
 /** Todas as tabelas do schema public, em ordem alfabética. Tabela nova entra aqui e em `insertsFor`. */
 export const TABLES = [
+  "accounts",
   "ai_usage",
   "audit_log",
+  "auth_audit",
   "categories",
   "entries",
   "entry_versions",
@@ -32,12 +34,14 @@ export const TABLES = [
   "payment_methods",
   "pending_questions",
   "sales_channels",
+  "sessions",
   "suppliers",
   "tax_rules",
   "tax_settings",
   "tenants",
   "units",
   "users",
+  "verifications",
   "whatsapp_opt_ins",
   "whatsapp_status_events",
 ] as const;
@@ -47,6 +51,12 @@ export const TABLES = [
  * O meta-teste de isolamento não as trata por tenant: tem um teste próprio de somente leitura.
  */
 export const GLOBAL_TABLES = ["tax_rules"] as const;
+
+/**
+ * Tabelas de autenticação (Better Auth): sem `tenant_id`, só o papel `app_auth` acessa. O
+ * meta-teste de isolamento não as trata por tenant; `auth-migration.int.test.ts` as cobre.
+ */
+export const AUTH_TABLES = ["sessions", "accounts", "verifications", "auth_audit"] as const;
 
 let phoneCounter = 0;
 
@@ -169,6 +179,24 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
      values ($1, $2, '2026-01-01', true, 'simples_nacional', '{"rbt12Cents": 24000000}', $3)`,
     [uuidv7(), f.tenantId, f.userId],
   );
+  await run(
+    `insert into sessions (id, user_id, token, expires_at)
+     values ($1, $2, $3, now() + interval '1 day')`,
+    [uuidv7(), f.userId, `token.${uuidv7()}`],
+  );
+  await run(
+    `insert into accounts (id, account_id, provider_id, user_id, password)
+     values ($1, $2::text, 'credential', $2::uuid, 'salt:hash')`,
+    [uuidv7(), f.userId],
+  );
+  await run(
+    "insert into verifications (id, identifier, value, expires_at) values ($1, $2, 'hash', now() + interval '5 minutes')",
+    [uuidv7(), `otp-${uuidv7()}`],
+  );
+  await run(
+    "insert into auth_audit (id, user_id, email_hash, event) values ($1, $2, 'h', 'login')",
+    [uuidv7(), f.userId],
+  );
   // Regra de EXEMPLO (global): os valores reais dependem de P16 e P17 [PROVISÓRIO].
   await run(
     `insert into tax_rules (id, regime, valid_from, components)
@@ -259,6 +287,23 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
       sql: `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)
             values ($1, $2, '2027-01-01', false, 'mei', '{}', $3)`,
       params: [id(), f.tenantId, f.userId],
+    },
+    sessions: {
+      sql: `insert into sessions (id, user_id, token, expires_at)
+            values ($1, $2, $3, now() + interval '1 day')`,
+      params: [id(), f.userId, `token.${id()}`],
+    },
+    accounts: {
+      sql: "insert into accounts (id, account_id, provider_id, user_id) values ($1, 'x', 'credential', $2)",
+      params: [id(), f.userId],
+    },
+    verifications: {
+      sql: "insert into verifications (id, identifier, value, expires_at) values ($1, 'x', 'h', now())",
+      params: [id()],
+    },
+    auth_audit: {
+      sql: "insert into auth_audit (id, event) values ($1, 'login')",
+      params: [id()],
     },
     tax_rules: {
       sql: `insert into tax_rules (id, regime, valid_from, components)

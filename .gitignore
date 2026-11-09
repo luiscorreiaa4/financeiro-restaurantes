@@ -41,3 +41,6 @@ packages/ai/src/evals/last-run.json
 
 playwright-report/
 test-results/
+
+# E-mails de desenvolvimento (códigos de acesso)
+.dev-mail/

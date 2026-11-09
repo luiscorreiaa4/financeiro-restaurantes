@@ -66,8 +66,8 @@ Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual
 - Roteamento de modelos: o mais barato para lançamentos simples, o mais capaz só quando necessário (RNF08.R3).
 - Ciclo de vida da conta (teste, plano, encerramento): RF37.
 
-**Custos estimados (outubro de 2026):**
-- Variável: ~US$ 3 a 5 por restaurante/mês (WhatsApp de serviço é gratuito dentro da janela de 24 h; utilidade ~R$ 0,035 por mensagem; transcrição US$ 0,003–0,006/min; modelos pequenos custam centavos). Referência de acompanhamento: RNF08.R2.
+**Custos estimados (outubro de 2026).** Modelo completo, margem por preço e ponto de equilíbrio em [`custos-e-precificacao.md`](custos-e-precificacao.md):
+- Variável: ~US$ 3 a 5 por restaurante/mês (**revisar:** a Meta voltou a cobrar as mensagens de serviço dentro da janela de 24 h em 01/10/2026 (cerca de US$ 0,0068 por mensagem enviada, com 1.000 gratuitas por número por mês), o que dá de US$ 2 a US$ 5 por restaurante só de WhatsApp (ver `planos/contingencia-canal.md`, seção 2); utilidade ~R$ 0,035 por mensagem; transcrição US$ 0,003–0,006/min; modelos pequenos custam centavos). Referência de acompanhamento: RNF08.R2.
 - Fixo inicial: ~R$ 200 a 950/mês (infra, provedor, domínio, monitoramento).
 - Abertura: CNPJ, termos e política de privacidade com advogado, identidade visual: R$ 3 a 10 mil.
 - Desenvolvimento: feito pelos sócios.
@@ -94,7 +94,7 @@ Hoje, em restaurantes pequenos e médios, o preenchimento é quase sempre manual
 - **Precisão da transcrição** em ambiente barulhento (RF13, RNF07).
 - **Adoção:** o maior risco é o colaborador não criar o hábito de enviar. Validar cedo.
 - **Custo por mensagem** crescendo com uso intenso: monitorar desde o dia 1 (RNF08, RF38).
-- **Liberação da Meta** (app não publicado e erro 130497, pendência P15): o desenvolvimento segue pelo chat de terminal até a E10.
+- **Liberação da Meta** (app não publicado e erro 130497, pendência P15): o desenvolvimento segue pelo chat de terminal até a E10. Se o bloqueio durar, os planos alternativos (provedor intermediário, Telegram, painel como entrada) e o custo do Twilio estão em [`planos/contingencia-canal.md`](planos/contingencia-canal.md).
 
 ## 9. Pendências com o sócio contador
 
