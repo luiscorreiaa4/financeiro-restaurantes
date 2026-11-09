@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 import {
   appRole,
+  authCanInsert,
   cents,
   createdAt,
   currentTenant,
@@ -124,6 +125,7 @@ export const paymentMethods = pgTable(
     check("payment_methods_fee_percent_check", sql`${t.feePercentBp} between 0 and 10000`),
     check("payment_methods_fee_fixed_check", sql`${t.feeFixedCents} >= 0`),
     tenantIsolation("payment_methods"),
+    authCanInsert("payment_methods"),
   ],
 );
 
@@ -148,5 +150,6 @@ export const salesChannels = pgTable(
     unique("sales_channels_tenant_name_unique").on(t.tenantId, t.name),
     check("sales_channels_fee_percent_check", sql`${t.feePercentBp} between 0 and 10000`),
     tenantIsolation("sales_channels"),
+    authCanInsert("sales_channels"),
   ],
 );

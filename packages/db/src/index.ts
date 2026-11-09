@@ -11,6 +11,8 @@ export * from "./inbound-processing-repo";
 export * from "./inbound-sender-repo";
 export * from "./outbound-message-repo";
 export * from "./sender-directory";
+export * from "./signup-repo";
+export * from "./signup-store";
 export * from "./system-categories";
 export * from "./tax-repo";
 export * from "./tenant-conversation-repo";

@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { authRole, createdAt, oneOf, primaryId } from "./_shared";
 import { users } from "./tenants";
 
@@ -76,6 +86,11 @@ export const AUTH_EVENTS = [
   "login_failed",
   "password_locked",
   "logout",
+  // Autocadastro (F1b, RF01).
+  "signup_code_sent",
+  "signup_verified",
+  "signup_completed",
+  "company_created",
 ] as const;
 
 /** Histórico de acessos (RF02): só acréscimo, sem e-mail em claro (só hash). */
@@ -94,5 +109,46 @@ export const authAudit = pgTable(
     oneOf("auth_audit_event_check", "event", AUTH_EVENTS),
     pgPolicy("auth_audit_auth_select", { for: "select", to: authRole, using: sql`true` }),
     pgPolicy("auth_audit_auth_insert", { for: "insert", to: authRole, withCheck: sql`true` }),
+  ],
+);
+
+/** `code`: código de 6 dígitos enviado por e-mail; `notice`: e-mail já cadastrado recebe só um aviso. */
+export const SIGNUP_VERIFICATION_KINDS = ["code", "notice"] as const;
+
+/**
+ * Códigos do autocadastro (RF01) e o comprovante que libera a gravação da conta. Global, sem
+ * `tenant_id`: só o papel `app_auth` acessa. Código e comprovante só em hash.
+ */
+export const signupVerifications = pgTable(
+  "signup_verifications",
+  {
+    id: primaryId(),
+    /** Normalizado (minúsculas, sem espaços nas pontas), como `users.email`. */
+    email: text("email").notNull(),
+    kind: text("kind").notNull(),
+    /** Hash do código; nulo em `notice`. */
+    codeHash: text("code_hash"),
+    attempts: integer("attempts").notNull().default(0),
+    ip: text("ip"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Hash do comprovante devolvido depois do código certo. */
+    receiptHash: text("receipt_hash"),
+    receiptExpiresAt: timestamp("receipt_expires_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("signup_verifications_email_created_idx").on(t.email, t.createdAt),
+    index("signup_verifications_ip_created_idx").on(t.ip, t.createdAt),
+    oneOf("signup_verifications_kind_check", "kind", SIGNUP_VERIFICATION_KINDS),
+    check(
+      "signup_verifications_code_hash_check",
+      sql`(${t.kind} = 'code') = (${t.codeHash} is not null)`,
+    ),
+    check(
+      "signup_verifications_email_normalized_check",
+      sql`${t.email} = lower(btrim(${t.email}))`,
+    ),
+    fullAccess("signup_verifications"),
   ],
 );

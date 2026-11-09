@@ -33,8 +33,14 @@ async function asAuth<T>(fn: (client: import("pg").PoolClient) => Promise<T>): P
 }
 
 describe("meta: tabelas de autenticação", () => {
-  it("TABLES inclui as quatro tabelas novas e AUTH_TABLES as lista", () => {
-    expect([...AUTH_TABLES]).toEqual(["sessions", "accounts", "verifications", "auth_audit"]);
+  it("TABLES inclui as tabelas de autenticação e AUTH_TABLES as lista", () => {
+    expect([...AUTH_TABLES]).toEqual([
+      "sessions",
+      "accounts",
+      "verifications",
+      "auth_audit",
+      "signup_verifications",
+    ]);
     for (const table of AUTH_TABLES) expect(TABLES as readonly string[]).toContain(table);
   });
 });

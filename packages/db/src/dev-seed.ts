@@ -1,4 +1,5 @@
 import { randomBytes, scrypt } from "node:crypto";
+import { SIGNUP_DEFAULTS } from "@app/core";
 import { eq } from "drizzle-orm";
 import {
   accounts,
@@ -132,23 +133,22 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
     })
     .onConflictDoNothing();
 
-  // [PROVISÓRIO – P07] formas de pagamento e canais padrão, com taxas de exemplo para o chat.
+  // [PROVISÓRIO – P07] mesmos cadastros de uma conta nova (SIGNUP_DEFAULTS). As taxas abaixo
+  // valem só no desenvolvimento, para o chat ter o que calcular.
+  const DEV_FEES: Readonly<Record<string, number>> = { Débito: 150, Crédito: 320, iFood: 2300 };
   const defaults = (tenant: string, base: number) => ({
-    payments: [
-      { name: "Dinheiro", type: "cash", feePercentBp: 0 },
-      { name: "Pix", type: "pix", feePercentBp: 0 },
-      { name: "Débito", type: "debit", feePercentBp: 150 },
-      { name: "Crédito", type: "credit", feePercentBp: 320, isDefaultCard: true },
-      { name: "Voucher", type: "voucher", feePercentBp: 0 },
-      { name: "Não informada", type: "other", feePercentBp: 0 },
-    ].map((method, index) => ({ id: id(base + index), tenantId: tenant, ...method })),
-    channels: [
-      { name: "Salão", type: "dine_in", feePercentBp: 0 },
-      { name: "Delivery próprio", type: "own_delivery", feePercentBp: 0 },
-      { name: "iFood", type: "app", feePercentBp: 2300 },
-      { name: "Retirada", type: "pickup", feePercentBp: 0 },
-      { name: "Não informado", type: "other", feePercentBp: 0 },
-    ].map((channel, index) => ({ id: id(base + 10 + index), tenantId: tenant, ...channel })),
+    payments: SIGNUP_DEFAULTS.paymentMethods.map((method, index) => ({
+      id: id(base + index),
+      tenantId: tenant,
+      ...method,
+      feePercentBp: DEV_FEES[method.name] ?? method.feePercentBp,
+    })),
+    channels: SIGNUP_DEFAULTS.salesChannels.map((channel, index) => ({
+      id: id(base + 10 + index),
+      tenantId: tenant,
+      ...channel,
+      feePercentBp: DEV_FEES[channel.name] ?? channel.feePercentBp,
+    })),
   });
   for (const [tenant, base] of [
     [DEMO, 100],

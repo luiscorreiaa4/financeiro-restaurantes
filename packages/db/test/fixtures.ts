@@ -35,6 +35,7 @@ export const TABLES = [
   "pending_questions",
   "sales_channels",
   "sessions",
+  "signup_verifications",
   "suppliers",
   "tax_rules",
   "tax_settings",
@@ -56,7 +57,13 @@ export const GLOBAL_TABLES = ["tax_rules"] as const;
  * Tabelas de autenticação (Better Auth): sem `tenant_id`, só o papel `app_auth` acessa. O
  * meta-teste de isolamento não as trata por tenant; `auth-migration.int.test.ts` as cobre.
  */
-export const AUTH_TABLES = ["sessions", "accounts", "verifications", "auth_audit"] as const;
+export const AUTH_TABLES = [
+  "sessions",
+  "accounts",
+  "verifications",
+  "auth_audit",
+  "signup_verifications",
+] as const;
 
 let phoneCounter = 0;
 
@@ -197,6 +204,11 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     "insert into auth_audit (id, user_id, email_hash, event) values ($1, $2, 'h', 'login')",
     [uuidv7(), f.userId],
   );
+  await run(
+    `insert into signup_verifications (id, email, kind, code_hash, ip, expires_at)
+     values ($1, $2, 'code', 'hash', '127.0.0.1', now() + interval '10 minutes')`,
+    [uuidv7(), `cadastro.${uuidv7()}@exemplo.com`],
+  );
   // Regra de EXEMPLO (global): os valores reais dependem de P16 e P17 [PROVISÓRIO].
   await run(
     `insert into tax_rules (id, regime, valid_from, components)
@@ -303,6 +315,10 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     },
     auth_audit: {
       sql: "insert into auth_audit (id, event) values ($1, 'login')",
+      params: [id()],
+    },
+    signup_verifications: {
+      sql: "insert into signup_verifications (id, email, kind, expires_at) values ($1, 'x@x.com', 'notice', now())",
       params: [id()],
     },
     tax_rules: {

@@ -63,3 +63,16 @@ export const ingestCanRead = (table: string) =>
     to: ingestRole,
     using: sql`true`,
   });
+
+/**
+ * Autocadastro (F1b, RF01): o papel `app_auth` grava a conta nova numa transação só, com INSERT e
+ * sem SELECT nem RETURNING (os ids vêm da aplicação). As chaves estrangeiras são checadas pelo dono
+ * das tabelas e ignoram RLS, então não pedem leitura ao `app_auth`.
+ */
+export const authCanInsert = (table: string) =>
+  pgPolicy(`${table}_auth_insert`, {
+    as: "permissive",
+    for: "insert",
+    to: authRole,
+    withCheck: sql`true`,
+  });
