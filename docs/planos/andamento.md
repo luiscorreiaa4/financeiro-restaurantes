@@ -73,6 +73,12 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
   - [x] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): feito em 09/11/2026 (DE-25). A escolha mora no vínculo (`default_unit_id` e `preferred_at`), a lista numerada é pergunta pendente `choice` e a empresa citada é casada sem IA; áudio e foto não trocam de empresa pelo texto. Migration `0011`. Testes: `apps/api/test/switch-flow.int.test.ts` (RF19.CA03 e RF11.R5).
   - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline. A chave já foi corrigida, mas a rodada não aconteceu em 09/11/2026 (o worktree da E11 não tinha `.env`). Há casos novos (n01 a n04, `unit_hint`) e a regra 15 do prompt; a métrica `unitAccuracy` é informativa. Se nada piorar, `--update-baseline`.
   - [ ] Contador criado só por e-mail: `users.phone_e164` é obrigatório hoje (ajustar na F1/F13).
+  - [ ] Pendências menores do review da `trocar unidade`/`trocar empresa` (DE-25), nenhuma corrigida:
+    - "cancelar" com a lista numerada aberta responde "descartei o lançamento pendente" (`entry-handlers.ts`, `cancel`); precisa de texto próprio para `kind = choice`.
+    - Se o envio do "Pronto!" falhar e o job for repetido depois do `apply`, o número vai para a IA (a pergunta já está `answered`).
+    - `ChoiceStore.apply` fecha a pergunta sem filtrar `status = 'open'` e não exige unidade ativa na escolha (`choice-store.ts`).
+    - Nome de empresa com palavra comum ("Bar", "Sabor") pode desviar mensagens, além do apelido genérico já citado na DE-25.
+    - Roteiro manual do `pnpm dev:chat` (`trocar unidade`, `trocar empresa`, "no litoral") não foi exercitado; os mesmos cenários rodam em `switch-flow.int.test.ts`.
   - Depois de fechar as três (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar): marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
 
 ## 6. Painel
