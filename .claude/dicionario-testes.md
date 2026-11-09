@@ -44,6 +44,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Conversa: comandos, roteamento, remetente | `packages/core/src/conversation/*.test.ts` | `pnpm --filter @app/core test conversation` |
 | Acesso ao painel: regras de senha, bloqueio de 15 min e limite de envio de código | `packages/core/src/auth/auth-policy.test.ts` | `pnpm --filter @app/core test auth-policy` |
 | Sessão do painel: 12 h sem uso, 30 dias com "manter conectado", renovação a cada 5 min | `packages/core/src/auth/session-policy.test.ts` | `pnpm --filter @app/core test session-policy` |
+| Autocadastro (F1b, RF01): validação (obrigatórios, celular, senha fraca, CNPJ, UF, termos), padrões da conta (formas, canais, teste de 14 dias, versões dos termos, situações) e fuso por UF | `packages/core/src/signup/*.test.ts` | `pnpm --filter @app/core test signup` |
 | Erros de domínio tipados | `packages/core/src/errors/errors.test.ts` | `pnpm --filter @app/core test errors` |
 | Core não importa infra; sem ciclos (ArchUnitTS) | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
 
@@ -64,6 +65,8 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Migração dos campos do lançamento (`paid_on`, canal da receita, lixeira) | `packages/db/test/entry-fields-migration.int.test.ts` | `pnpm --filter @app/db test:int entry-fields` |
 | Convite do contador e aceite do aviso de folha | `packages/db/test/access-repo.int.test.ts` | `pnpm --filter @app/db test:int access-repo` |
 | Tabelas de login (`sessions` com `keep_connected`, `users.email` normalizado, `accounts`, `verifications`, `auth_audit`), `phone_e164` opcional e menor privilégio do papel `app_auth` | `packages/db/test/auth-migration.int.test.ts` | `pnpm --filter @app/db test:int auth-migration` |
+| Autocadastro no banco (F1b, RF01): colunas novas de `tenants`, CNPJ único entre contas não encerradas, `signup_verifications`, `app_auth` só com INSERT (sem SELECT nem RETURNING, chaves compostas incluídas) | `packages/db/test/signup-migration.int.test.ts` | `pnpm --filter @app/db test:int signup-migration` |
+| Código e comprovante do autocadastro (`signup-store`): limites por e-mail e IP, 3 erros, aviso como código errado, comprovante de uso único e corridas | `packages/db/test/signup-store.int.test.ts` | `pnpm --filter @app/db test:int signup-store` |
 | Imposto estimado: configuração, auditoria e regras (`TaxRepo`) | `packages/db/test/tax-repo.int.test.ts` | `pnpm --filter @app/db test:int tax-repo` |
 | Sem ciclos entre arquivos (ArchUnitTS, unitário) | `packages/db/src/architecture.test.ts` | `pnpm --filter @app/db test architecture` |
 
@@ -80,11 +83,15 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Worker pg-boss (retry, DLQ) | `apps/api/test/process-inbound-worker.int.test.ts` | `pnpm --filter @app/api test:int process-inbound-worker` |
 | Roteamento de mensagem com banco | `apps/api/test/route-inbound.int.test.ts` | `pnpm --filter @app/api test:int route-inbound` |
 | Fluxo completo: texto, pergunta, desfazer, correção, áudio, foto, limites, lida/digitando | `apps/api/test/entries-flow.int.test.ts` | `pnpm --filter @app/api test:int entries-flow` |
-| Envio de e-mail do código de acesso (adaptadores de memória e de arquivo) | `apps/api/src/infra/email/email-sender.test.ts` | `pnpm --filter @app/api test email-sender` |
+| Envio de e-mail do código de acesso e do aviso de conta existente (adaptadores de memória e de arquivo) | `apps/api/src/infra/email/email-sender.test.ts` | `pnpm --filter @app/api test email-sender` |
 | Mensagens de erro do login em pt-BR (`authError`) | `apps/api/src/http/auth/auth-messages.test.ts` | `pnpm --filter @app/api test auth-messages` |
 | Tarefas em segundo plano (envio do código fora da requisição) | `apps/api/src/infra/auth/background-tasks.test.ts` | `pnpm --filter @app/api test background-tasks` |
 | Composição: recusa o e-mail em arquivo com `NODE_ENV=production` | `apps/api/src/composition.test.ts` | `pnpm --filter @app/api test composition` |
 | Login do painel ponta a ponta (Better Auth): código, senha, bloqueio, limites de envio, sessão de 12 h/30 dias, vínculo desativado (também em `/api/auth/*`), corridas em paralelo, cookie `Secure`, `/api/me`, auditoria e logs sem e-mail | `apps/api/test/auth-login.int.test.ts` | `pnpm --filter @app/api test:int auth-login` |
+| Autocadastro: código e verificação de e-mail (`/api/signup/code` e `/verify`): resposta idêntica para e-mail novo, cadastrado ou limitado, aviso de conta existente, 3 tentativas, 5 min, limites por e-mail e IP, e-mail com caixa e espaços, código de login e de cadastro não se misturam, comprovante só com hash | `apps/api/test/signup-code.int.test.ts` | `pnpm --filter @app/api test:int signup-code` |
+| Autocadastro: gravação da conta (`POST /api/signup`, `signup-repo`): conta completa (CA07), sem comprovante (CA02), CNPJ simultâneo (CA04), celular em uso (CA05), termos (CA06), falha injetada desfaz tudo (CA08), celular E.164 (CA09), senha só em hash (CA10), CNPJ vazio vira null, comprovante paralelo e de outro e-mail, imposto desligado, sessão aberta e aceita por `/api/me` | `apps/api/test/signup-create.int.test.ts` | `pnpm --filter @app/api test:int signup-create` |
+| Autocadastro: "Criar outra empresa" (`POST /api/companies`, `signupRepo.createCompany`): sem sessão 401, empresa e vínculo de Dono para o usuário atual sem usuário novo, contador sem celular (`phone_required` e gravação), celular de outro (PHONE_TAKEN), celular existente mantido, `preferred_at` e empresa ativa do canal, CNPJ em uso, vínculo desativado em outra empresa | `apps/api/test/company-create.int.test.ts` | `pnpm --filter @app/api test:int company-create` |
+| Mensagens de erro do autocadastro em pt-BR (`signupError`) | `apps/api/src/http/signup/signup-messages.test.ts` | `pnpm --filter @app/api test signup-messages` |
 | Relógio, mídia (disco, downloader de dev, conversor ffmpeg, leitor de QR) | `apps/api/src/infra/clock.test.ts`, `apps/api/src/infra/media/media-infra.test.ts` | `pnpm --filter @app/api test infra` |
 
 ### WhatsApp, config, IA, web
@@ -98,7 +105,9 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Painel: cliente da API (`ApiError`, contrato Zod) e `QueryClient` | `apps/web/lib/api/client.test.ts`, `apps/web/lib/query/get-query-client.test.ts` | `pnpm --filter @app/web test lib/api` |
 | Painel: casca (navegação, menu do celular) e compatibilidade do Recharts | `apps/web/components/app-shell.test.tsx`, `apps/web/lib/charts/recharts-compat.test.tsx` | `pnpm --filter @app/web test app-shell` |
 | Painel: sessão no servidor (`getSession`, `requireSessionOrRedirect`), `proxy.ts` (cookie, rotas públicas) e tela de acesso (modos código e senha, contagem de 60 s, erros em português) | `apps/web/lib/auth/session.test.ts`, `apps/web/proxy.test.ts`, `apps/web/features/auth/login-form.test.tsx` | `pnpm --filter @app/web test auth` (e `test proxy`) |
+| Painel: autocadastro (F1b, RF01): e-mail e código com mensagem igual para qualquer e-mail, código incorreto e bloqueio com contagem, formulário único (nome da unidade pré-preenchido R7, CNPJ inválido CA01, aceite CA06, CNPJ/celular em uso CA04/CA05, comprovante vencido), "Criar outra empresa" (celular só com `phone_required`), boas-vindas (link `wa.me`, QR Code, sem número configurado), cliente `signup-api` e `NEXT_PUBLIC_WHATSAPP_NUMBER` | `apps/web/features/signup/*.test.ts(x)`, `apps/web/lib/env.test.ts` | `pnpm --filter @app/web test signup` |
 | Painel ponta a ponta (Playwright: casca, 404, cabeçalhos, rewrite de `/api/*`, login por código e senha, sair; desktop e celular) | `apps/web/e2e/smoke.spec.ts`, `apps/web/e2e/login.spec.ts` | `pnpm --filter @app/web test:e2e` (`... test:e2e login`) |
+| Autocadastro ponta a ponta (Playwright, API falsa: e-mail, código, formulário, `/bem-vindo`, "Criar outra empresa", sem rolagem horizontal no celular) | `apps/web/e2e/signup.spec.ts` | `pnpm --filter @app/web exec playwright test signup` (o `-- arquivo` do `test:e2e` roda todos) |
 
 ## Qual conjunto rodar, por tipo de mudança
 
