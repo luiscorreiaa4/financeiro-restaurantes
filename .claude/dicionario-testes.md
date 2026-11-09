@@ -42,6 +42,8 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Imposto estimado por regime, vigência e arredondamento | `packages/core/src/tax/tax.test.ts` | `pnpm --filter @app/core test tax` |
 | Campos novos do lançamento: data de pagamento, pedidos, canal padrão, investimento, lixeira | `packages/core/src/entry/entry-e11.test.ts` | `pnpm --filter @app/core test entry-e11` |
 | Conversa: comandos, roteamento, remetente | `packages/core/src/conversation/*.test.ts` | `pnpm --filter @app/core test conversation` |
+| Acesso ao painel: regras de senha, bloqueio de 15 min e limite de envio de código | `packages/core/src/auth/auth-policy.test.ts` | `pnpm --filter @app/core test auth-policy` |
+| Sessão do painel: 12 h sem uso, 30 dias com "manter conectado", renovação a cada 5 min | `packages/core/src/auth/session-policy.test.ts` | `pnpm --filter @app/core test session-policy` |
 | Erros de domínio tipados | `packages/core/src/errors/errors.test.ts` | `pnpm --filter @app/core test errors` |
 | Core não importa infra; sem ciclos (ArchUnitTS) | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
 
@@ -61,6 +63,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Migração das unidades e cadastros de apoio (tipos, cartão padrão, "Não informado") | `packages/db/test/catalog-migration.int.test.ts` | `pnpm --filter @app/db test:int catalog-migration` |
 | Migração dos campos do lançamento (`paid_on`, canal da receita, lixeira) | `packages/db/test/entry-fields-migration.int.test.ts` | `pnpm --filter @app/db test:int entry-fields` |
 | Convite do contador e aceite do aviso de folha | `packages/db/test/access-repo.int.test.ts` | `pnpm --filter @app/db test:int access-repo` |
+| Tabelas de login (`sessions` com `keep_connected`, `users.email` normalizado, `accounts`, `verifications`, `auth_audit`), `phone_e164` opcional e menor privilégio do papel `app_auth` | `packages/db/test/auth-migration.int.test.ts` | `pnpm --filter @app/db test:int auth-migration` |
 | Imposto estimado: configuração, auditoria e regras (`TaxRepo`) | `packages/db/test/tax-repo.int.test.ts` | `pnpm --filter @app/db test:int tax-repo` |
 | Sem ciclos entre arquivos (ArchUnitTS, unitário) | `packages/db/src/architecture.test.ts` | `pnpm --filter @app/db test architecture` |
 
@@ -77,6 +80,11 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Worker pg-boss (retry, DLQ) | `apps/api/test/process-inbound-worker.int.test.ts` | `pnpm --filter @app/api test:int process-inbound-worker` |
 | Roteamento de mensagem com banco | `apps/api/test/route-inbound.int.test.ts` | `pnpm --filter @app/api test:int route-inbound` |
 | Fluxo completo: texto, pergunta, desfazer, correção, áudio, foto, limites, lida/digitando | `apps/api/test/entries-flow.int.test.ts` | `pnpm --filter @app/api test:int entries-flow` |
+| Envio de e-mail do código de acesso (adaptadores de memória e de arquivo) | `apps/api/src/infra/email/email-sender.test.ts` | `pnpm --filter @app/api test email-sender` |
+| Mensagens de erro do login em pt-BR (`authError`) | `apps/api/src/http/auth/auth-messages.test.ts` | `pnpm --filter @app/api test auth-messages` |
+| Tarefas em segundo plano (envio do código fora da requisição) | `apps/api/src/infra/auth/background-tasks.test.ts` | `pnpm --filter @app/api test background-tasks` |
+| Composição: recusa o e-mail em arquivo com `NODE_ENV=production` | `apps/api/src/composition.test.ts` | `pnpm --filter @app/api test composition` |
+| Login do painel ponta a ponta (Better Auth): código, senha, bloqueio, limites de envio, sessão de 12 h/30 dias, vínculo desativado (também em `/api/auth/*`), corridas em paralelo, cookie `Secure`, `/api/me`, auditoria e logs sem e-mail | `apps/api/test/auth-login.int.test.ts` | `pnpm --filter @app/api test:int auth-login` |
 | Relógio, mídia (disco, downloader de dev, conversor ffmpeg, leitor de QR) | `apps/api/src/infra/clock.test.ts`, `apps/api/src/infra/media/media-infra.test.ts` | `pnpm --filter @app/api test infra` |
 
 ### WhatsApp, config, IA, web
@@ -89,7 +97,8 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Painel: formatação (`formatBRL`, datas de negócio), ambiente do web | `apps/web/lib/format/format.test.ts`, `apps/web/lib/env.test.ts` | `pnpm --filter @app/web test format` |
 | Painel: cliente da API (`ApiError`, contrato Zod) e `QueryClient` | `apps/web/lib/api/client.test.ts`, `apps/web/lib/query/get-query-client.test.ts` | `pnpm --filter @app/web test lib/api` |
 | Painel: casca (navegação, menu do celular) e compatibilidade do Recharts | `apps/web/components/app-shell.test.tsx`, `apps/web/lib/charts/recharts-compat.test.tsx` | `pnpm --filter @app/web test app-shell` |
-| Painel ponta a ponta (Playwright: casca, 404, cabeçalhos, rewrite de `/api/*`; desktop e celular) | `apps/web/e2e/smoke.spec.ts` | `pnpm --filter @app/web test:e2e` |
+| Painel: sessão no servidor (`getSession`, `requireSessionOrRedirect`), `proxy.ts` (cookie, rotas públicas) e tela de acesso (modos código e senha, contagem de 60 s, erros em português) | `apps/web/lib/auth/session.test.ts`, `apps/web/proxy.test.ts`, `apps/web/features/auth/login-form.test.tsx` | `pnpm --filter @app/web test auth` (e `test proxy`) |
+| Painel ponta a ponta (Playwright: casca, 404, cabeçalhos, rewrite de `/api/*`, login por código e senha, sair; desktop e celular) | `apps/web/e2e/smoke.spec.ts`, `apps/web/e2e/login.spec.ts` | `pnpm --filter @app/web test:e2e` (`... test:e2e login`) |
 
 ## Qual conjunto rodar, por tipo de mudança
 
@@ -111,6 +120,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 - Insert direto por SQL em teste precisa de `id` gerado com `uuidv7()` de `@app/db`; sem isso: `null value in column "id"`.
 - `pnpm test` não roda `*.int.test.ts`; passar no unitário não prova isolamento nem fila.
 - O `eval`, o `extract` e qualquer teste "ao vivo" chamam a API real e custam dinheiro. Os testes automáticos nunca chamam: IA, transcrição e mídia são roteirizadas (`createFake*` em `@app/ai`).
-- O E2E do web (`test:e2e`) sobe o web na porta 3100 e uma API falsa na 4010 (`apps/web/e2e/fake-api.mjs`); com `CI=true` roda `next build` + `next start`, sem `CI` usa `next dev`. Precisa do Chromium (`pnpm --filter @app/web exec playwright install chromium`). `*.spec.ts` é do Playwright e o Vitest os ignora (`exclude: e2e/**`).
+- O E2E do web (`test:e2e`) sobe o web na porta 3100 e uma API falsa na 4010 (`apps/web/e2e/fake-api.mjs`, que também finge o login: cookie `better-auth.session_token=sessao-falsa`, código `123456`, senha `demo12345`; as páginas do painel exigem esse cookie, então o `smoke.spec.ts` o injeta); com `CI=true` roda `next build` + `next start`, sem `CI` usa `next dev`. Precisa do Chromium (`pnpm --filter @app/web exec playwright install chromium`). `*.spec.ts` é do Playwright e o Vitest os ignora (`exclude: e2e/**`).
 - Se `.next/types` apontar para página removida e o `typecheck` do web acusar `Cannot find module '../../app/...'`, apague `apps/web/.next` (saída de build, ignorada pelo git).
+- No `auth-login.int.test.ts` o Better Auth usa `Date` para vencer código e sessão: o teste falsifica só `Date` (`vi.useFakeTimers({ toFake: ["Date"] })`) e anda o tempo com `vi.setSystemTime`; falsificar timers trava o pg e o `inject`. O envio do código roda em segundo plano: use `requestCode` (que chama `tasks.drain()`) antes de conferir `email.sent`.
 - Python e `sed` no Windows gravam CRLF: depois de editar arquivo por script, rode `pnpm exec biome check --write <arquivo>` (o hook só formata o que passa pelo Write/Edit).
