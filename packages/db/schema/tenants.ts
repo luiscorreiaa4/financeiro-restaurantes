@@ -112,6 +112,11 @@ export const memberships = pgTable(
     allUnits: boolean("all_units").notNull().default(false),
     /** Unidade usada quando o colaborador não diz qual (RF05.R6); deve estar entre as de acesso. */
     defaultUnitId: uuid("default_unit_id"),
+    /**
+     * Quando a pessoa escolheu este restaurante com `trocar empresa` (RF19, DE-25); o mais recente
+     * vale na hora de atribuir a mensagem. Nulo = nunca escolheu (vale o vínculo mais antigo).
+     */
+    preferredAt: timestamp("preferred_at", { withTimezone: true }),
     /** CONVIDADO, ATIVO ou DESATIVADO (RF05.R8). */
     status: text("status").notNull().default("active"),
     /** Lista de `ADDITIONAL_PERMISSIONS` (RF05.R7). */

@@ -488,6 +488,7 @@ export function createEntryStore(db: Database): EntryStore {
       const record: PendingQuestionRecord | null = row
         ? {
             id: row.id,
+            kind: row.kind as PendingQuestionRecord["kind"],
             inboundMessageId: row.inboundMessageId,
             draft: row.draft,
             question: row.question,

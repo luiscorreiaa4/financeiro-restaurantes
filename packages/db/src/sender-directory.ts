@@ -1,5 +1,6 @@
 import type {
   AdditionalPermission,
+  CatalogStatus,
   MembershipStatus,
   Role,
   SenderDirectory,
@@ -29,6 +30,7 @@ export function createSenderDirectory(db: Database): SenderDirectory {
           status: memberships.status,
           allUnits: memberships.allUnits,
           defaultUnitId: memberships.defaultUnitId,
+          preferredAt: memberships.preferredAt,
           permissions: memberships.permissions,
           panelAccess: memberships.panelAccess,
           createdAt: memberships.createdAt,
@@ -42,7 +44,13 @@ export function createSenderDirectory(db: Database): SenderDirectory {
 
       const tenantIds = [...new Set(rows.map((row) => row.tenantId))];
       const unitRows = await db
-        .select({ tenantId: units.tenantId, id: units.id })
+        .select({
+          tenantId: units.tenantId,
+          id: units.id,
+          name: units.name,
+          aliases: units.aliases,
+          status: units.status,
+        })
         .from(units)
         .where(inArray(units.tenantId, tenantIds));
 
@@ -64,6 +72,14 @@ export function createSenderDirectory(db: Database): SenderDirectory {
         permissions: row.permissions as AdditionalPermission[],
         unitIds: accessRows.filter((a) => a.membershipId === row.membershipId).map((a) => a.unitId),
         tenantUnitIds: unitRows.filter((unit) => unit.tenantId === row.tenantId).map((u) => u.id),
+        tenantUnits: unitRows
+          .filter((unit) => unit.tenantId === row.tenantId)
+          .map((u) => ({
+            id: u.id,
+            name: u.name,
+            aliases: u.aliases,
+            status: u.status as CatalogStatus,
+          })),
       }));
     },
   };
