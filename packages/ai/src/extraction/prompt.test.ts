@@ -21,6 +21,18 @@ describe("prompt de extração: campos do E11", () => {
   });
 });
 
+describe("prompt de extração: regressão dos evals a03 e a08 (E11)", () => {
+  it("data colada no gasto é occurred_on, mesmo futura, e não vira paid_on (RF12.CA07)", () => {
+    expect(SYSTEM_RULES).toContain("paguei 80 de gás amanhã");
+    expect(SYSTEM_RULES).toMatch(/paguei 80 de gás amanhã[^\n]*occurred_on/);
+  });
+
+  it("valor de carne sem o peso pede a quantidade (RF12.CA04)", () => {
+    expect(SYSTEM_RULES).toContain("paguei 350 de carne no débito");
+    expect(SYSTEM_RULES).toMatch(/paguei 350 de carne no débito[^\n]*quantity[^\n]*missing_fields/);
+  });
+});
+
 describe("prompt de extração: unidade citada (DE-25)", () => {
   it("pede unit_hint só quando a mensagem cita a unidade e proíbe deduzi-la", () => {
     expect(SYSTEM_RULES).toContain("unit_hint");

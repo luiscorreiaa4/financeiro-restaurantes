@@ -1,5 +1,5 @@
 {
-  "cases": 39,
+  "cases": 50,
   "invalidRate": 0,
   "intentAccuracy": 1,
   "entryExactRate": 1,
@@ -12,10 +12,11 @@
   "supplierAccuracy": 1,
   "paymentAccuracy": 1,
   "channelAccuracy": 1,
+  "unitAccuracy": 1,
   "askPrecision": 1,
   "askRecall": 1,
   "outOfScopeRefusalRate": 1,
-  "avgCostUsdMicros": 219,
-  "latencyP50Ms": 1423,
-  "latencyP95Ms": 4473
+  "avgCostUsdMicros": 204,
+  "latencyP50Ms": 1614,
+  "latencyP95Ms": 3893
 }
