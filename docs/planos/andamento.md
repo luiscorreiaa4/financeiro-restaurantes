@@ -14,7 +14,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 |---|---|
 | Fundação (fase 0) | Pronta. Falta só rodar o CI no GitHub |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
-| Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; faltam `trocar unidade`/`trocar empresa`/empresa citada e rodar os evals com uma chave Anthropic válida); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
+| Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto de 09/11/2026, DE-25; falta rodar os evals); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
 | Painel web F0 a F13 | **F0 feita (06/11/2026)**; F1 a F13 a fazer, **F1 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
@@ -70,8 +70,8 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 - E10: `CloudMessageSender` e `MetaMediaDownloader` na composição (`CHANNEL_MODE=whatsapp`), janela de 24 h, templates, `parar` e `voltar` (P14), cotas e alerta de custo (RF21), S3 e retenção de 90 dias do áudio, consulta à SEFAZ, ffmpeg no servidor, decisão D4 (build), Sentry, backup, staging e produção.
 - E11: ~~canal do tipo `APLICATIVO`~~ (feito em 06/11/2026).
 - **E11, pendentes (mudança `e11-modelo-de-dados`, tarefas 3.8 e 7.3):**
-  - [ ] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): falta decidir onde guardar a escolha. Proposta em `openspec/changes/e11-modelo-de-dados/design.md` ("Open Questions"); decidir, registrar em `decisoes.md` e só então implementar.
-  - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline: a `ANTHROPIC_API_KEY` do `.env` está inválida (401). Trocar a chave primeiro.
+  - [x] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): feito em 09/11/2026 (DE-25). A escolha mora no vínculo (`default_unit_id` e `preferred_at`), a lista numerada é pergunta pendente `choice` e a empresa citada é casada sem IA; áudio e foto não trocam de empresa pelo texto. Migration `0011`. Testes: `apps/api/test/switch-flow.int.test.ts` (RF19.CA03 e RF11.R5).
+  - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline. A chave já foi corrigida, mas a rodada não aconteceu em 09/11/2026 (o worktree da E11 não tinha `.env`). Há casos novos (n01 a n04, `unit_hint`) e a regra 15 do prompt; a métrica `unitAccuracy` é informativa. Se nada piorar, `--update-baseline`.
   - [ ] Contador criado só por e-mail: `users.phone_e164` é obrigatório hoje (ajustar na F1/F13).
   - Depois de fechar as três (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar): marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
 

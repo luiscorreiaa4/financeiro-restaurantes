@@ -38,7 +38,7 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 
 ### Canal WhatsApp
 
-- [~] **RF11** Identificação do remetente e consentimento: webhook, assinatura, idempotência, identificação por telefone, resposta a desconhecido, opt-in e roteamento (E3 a E5); faltam atribuição por empresa citada no texto (E11) e janela de 24 h (E10). O teste com mensagem real depende de P15
+- [~] **RF11** Identificação do remetente e consentimento: webhook, assinatura, idempotência, identificação por telefone, resposta a desconhecido, opt-in e roteamento (E3 a E5); a atribuição por empresa citada no texto veio na E11 (DE-25); falta a janela de 24 h (E10). O teste com mensagem real depende de P15
 - [~] **RF12** Lançamento por mensagem de texto: extração (E6) e gravação (E7). Lista de quantidade essencial provisória **[PROVISÓRIO – P04]**. Faltam, pela v1.1 dos requisitos: data de pagamento (R21), pedidos (R22), pergunta de investimento acima de R$ 1.500 (R23) e canal padrão da unidade com o sinal `CANAL_A_REVISAR` (E11 e ajuste de prompt da E6)
 - [~] **RF13** Lançamento por áudio: transcrição e limite de 3 min (E9); faltam teste com áudio real, S3 e retenção de 90 dias (E10)
 - [~] **RF14** Lançamento por foto de cupom ou nota: leitura por IA, QR da NFC-e sem duplicar, itens por categoria (E9); faltam a consulta à SEFAZ e o teste com foto real
@@ -46,7 +46,7 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 - [x] **RF16** Confirmação do lançamento, enviada uma vez por mensagem de origem (E7). Textos provisórios **[PROVISÓRIO – P08]**
 - [x] **RF17** Correção por resposta (reply): E7
 - [x] **RF18** Desfazer lançamento: E7
-- [~] **RF19** Comandos, ajuda, suporte e fora do escopo: `ajuda`, tipo não suportado e recusa de remetente existem (E5); `cancelar` e `suporte` (E7); faltam `trocar unidade`, `trocar empresa` (E11) e `parar` e `voltar` (E10) **[PROVISÓRIO – P08]**
+- [~] **RF19** Comandos, ajuda, suporte e fora do escopo: `ajuda`, tipo não suportado e recusa de remetente existem (E5); `cancelar` e `suporte` (E7); `trocar unidade` e `trocar empresa` vieram na E11 (DE-25); faltam `parar` e `voltar` (E10) **[PROVISÓRIO – P08]**
 - [~] **RF21** Limites de uso: mídia, mensagens por hora e por dia existem (E9); faltam cota mensal de consultas e alerta de custo (E10) **[PROVISÓRIO – P03]**
 - [~] **RNF07** Evals da IA: 39 casos e baseline (E8); faltam casos reais e rodar no CI
 - [x] Chat de desenvolvimento no terminal (`pnpm dev:chat`): texto, `/como`, `/reply`, `/custo`, `/audio`, `/foto` e `/sair`
