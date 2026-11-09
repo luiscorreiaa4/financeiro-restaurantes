@@ -28,6 +28,7 @@ const register = (entries: ExtractedEntry[], question: string | null = null): Ex
   intent: "register",
   entries,
   question,
+  unit_hint: null,
 });
 
 describe("interpretação da extração (RF12)", () => {
@@ -112,10 +113,16 @@ describe("interpretação da extração (RF12)", () => {
 
   it("repassa fora de escopo e a pergunta de intenção pouco clara", () => {
     expect(
-      interpretExtraction({ intent: "out_of_scope", entries: [], question: null }, TODAY),
+      interpretExtraction(
+        { intent: "out_of_scope", entries: [], question: null, unit_hint: null },
+        TODAY,
+      ),
     ).toEqual({ kind: "out_of_scope" });
     expect(
-      interpretExtraction({ intent: "unclear", entries: [], question: " Pode explicar? " }, TODAY),
+      interpretExtraction(
+        { intent: "unclear", entries: [], question: " Pode explicar? ", unit_hint: null },
+        TODAY,
+      ),
     ).toEqual({ kind: "unclear", question: "Pode explicar?" });
   });
 });

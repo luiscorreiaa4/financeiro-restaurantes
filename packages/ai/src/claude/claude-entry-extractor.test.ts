@@ -34,8 +34,14 @@ const valid: ExtractionResult = {
     },
   ],
   question: null,
+  unit_hint: null,
 };
-const unclear: ExtractionResult = { intent: "unclear", entries: [], question: "O que foi?" };
+const unclear: ExtractionResult = {
+  intent: "unclear",
+  entries: [],
+  question: "O que foi?",
+  unit_hint: null,
+};
 
 const run = (llm: ReturnType<typeof createFakeLlmClient>, text = "camarão 5kg 450 no pix") =>
   createClaudeEntryExtractor({ llm, models: MODELS }).extract({

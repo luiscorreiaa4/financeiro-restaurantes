@@ -49,7 +49,7 @@ function extracted(overrides: Partial<ExtractedEntry> = {}): ExtractedEntry {
 }
 
 function register(...entries: ExtractedEntry[]): ExtractionResult {
-  return { intent: "register", entries, question: null };
+  return { intent: "register", entries, question: null, unit_hint: null };
 }
 
 function interpretOne(overrides: Partial<ExtractedEntry>) {

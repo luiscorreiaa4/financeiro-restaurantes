@@ -21,6 +21,6 @@ export const EVAL_CONTEXT: TenantExtractionContext = {
     "Outras receitas",
   ],
   suppliers: ["Atacadão", "Ceasa", "Ambev"],
-  units: ["Restaurante Centro"],
+  units: ["Restaurante Centro", "Restaurante Praia"],
   paymentMethods: ["Dinheiro", "Pix", "Débito", "Crédito", "Voucher"],
 };

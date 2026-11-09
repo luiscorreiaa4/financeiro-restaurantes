@@ -89,6 +89,7 @@ const register = (entries: ExtractedEntry[], question: string | null = null): Ex
   intent: "register",
   entries,
   question,
+  unit_hint: null,
 });
 const noChanges: CorrectionChanges = {
   description: null,
@@ -422,7 +423,7 @@ describe("lançamento por mensagem de texto (E7)", () => {
 
   it("intenção fora do escopo recusa sem gravar nada, mas registra o custo", async () => {
     const w = world({
-      extractions: [{ result: { intent: "out_of_scope", entries: [], question: null } }],
+      extractions: [{ result: { intent: "out_of_scope", entries: [], question: null, unit_hint: null } }],
     });
     await w.say(OWNER, "qual a capital da França?");
     expect(await entryRows()).toEqual([]);
@@ -958,7 +959,7 @@ describe("lançamento por foto de nota (RF14)", () => {
   it("foto que não é documento financeiro cai no fora de escopo", async () => {
     const w = world({
       files: { "dev.media.i7": JPEG },
-      extractions: [{ result: { intent: "out_of_scope", entries: [], question: null } }],
+      extractions: [{ result: { intent: "out_of_scope", entries: [], question: null, unit_hint: null } }],
     });
     await w.sayMedia(OWNER, "image", "dev.media.i7");
     expect(await entryRows()).toEqual([]);

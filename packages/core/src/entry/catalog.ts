@@ -84,6 +84,26 @@ export function findSalesChannel(
 }
 
 /**
+ * Unidade citada na mensagem (DE-25): pelo nome ou apelido, só entre as ativas e de acesso do
+ * vínculo (`accessibleIds`). Unidade a que a pessoa não tem acesso nunca é devolvida.
+ */
+export function findUnit(
+  catalog: CatalogSnapshot,
+  hint: string,
+  accessibleIds: readonly string[],
+): CatalogUnit | null {
+  const key = normalizeName(hint);
+  return (
+    catalog.units.find(
+      (unit) =>
+        unit.status === "active" &&
+        accessibleIds.includes(unit.id) &&
+        matches(unit.name, unit.aliases, key),
+    ) ?? null
+  );
+}
+
+/**
  * Taxa da receita (RF08.R3 e RF09.R4). `[PROVISÓRIO – P06]`: canal do tipo aplicativo com comissão
  * maior que zero substitui a taxa da forma de pagamento; as duas nunca são somadas.
  * Despesa nunca tem taxa; quem chama não passa forma nem canal para ela.
