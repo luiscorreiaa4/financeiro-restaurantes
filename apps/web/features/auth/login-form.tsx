@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,6 +203,16 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       >
         {mode === "code" ? "Entrar com senha" : "Entrar com código"}
       </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Ainda não tem conta?{" "}
+        <Link
+          href="/cadastro"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Criar conta
+        </Link>
+      </p>
     </form>
   );
 }

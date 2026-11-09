@@ -41,6 +41,15 @@ describe("proxy de acesso", () => {
     }
   });
 
+  it("/cadastro, /termos e /privacidade passam sem cookie; /bem-vindo e /nova-empresa não", () => {
+    for (const path of ["/cadastro", "/cadastro/", "/termos", "/privacidade"]) {
+      expect(proxy(request(path)).headers.get("location"), path).toBeNull();
+    }
+    for (const path of ["/bem-vindo", "/nova-empresa", "/cadastros", "/termosx"]) {
+      expect(proxy(request(path)).status, path).toBe(307);
+    }
+  });
+
   it("no redirecionamento guarda também a busca da rota", () => {
     const response = proxy(request("/lancamentos?mes=2026-11"));
 

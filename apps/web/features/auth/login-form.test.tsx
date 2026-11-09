@@ -239,6 +239,12 @@ describe("formulário de acesso", () => {
     );
   });
 
+  it("tem o link 'Criar conta' para o cadastro", () => {
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    expect(screen.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/cadastro");
+  });
+
   it("a região de status já existe vazia antes do envio (leitores de tela anunciam a troca)", () => {
     render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
 

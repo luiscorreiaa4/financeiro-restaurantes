@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-import { parseWebEnv } from "./lib/env";
+import { parsePublicEnv, parseWebEnv } from "./lib/env";
+
+// Número de WhatsApp inválido derruba o build (falha cedo); ausente é aceito e a tela avisa.
+parsePublicEnv(process.env);
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
