@@ -48,6 +48,10 @@ No chat:
 | `/como 551187650001` e depois `ajuda` | Funciona sem o 9º dígito |
 | `/como 11987650005` e depois `ajuda` | Desativado: **a mesma resposta** do desconhecido |
 | `/como 11987650004` | Usuário em 2 restaurantes: lança no mais antigo |
+| `trocar unidade` (como Dono Demo, `/como 11987650001`), depois `2` | Lista numerada (Matriz, Praia); o 2 grava a Praia e confirma. `cancelar` com a lista aberta responde "deixei a troca de lado" |
+| `trocar empresa` (como `/como 11987650004`), depois `2`; depois `gastei 50 no litoral` | Escolhe o Demo 2; "no litoral" leva a mensagem de volta ao Demo, na unidade Praia |
+
+A **Contadora Demo** (`contadora@demo.dev`) não tem celular: entra só pelo painel (`/login`, por código) e o canal nunca a encontra. Um celular que só tenha vínculo de contador recebe a mesma resposta do desconhecido (DD-20, DE-26).
 
 Conferir: `select status, tenant_id from inbound_messages order by received_at desc` e `select count(*) from whatsapp_opt_ins`.
 

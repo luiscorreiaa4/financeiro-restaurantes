@@ -1,12 +1,18 @@
 import type { Env } from "@app/config/env";
 import Fastify from "fastify";
 import { type AuthRoutesDeps, authRoutes } from "./http/auth/auth-routes";
+import { type SignupRoutesDeps, signupRoutes } from "./http/signup/signup-routes";
 import { type WhatsAppWebhookDeps, whatsappWebhookRoutes } from "./http/webhooks/whatsapp";
 
 export interface AppDeps {
   readonly whatsapp?: WhatsAppWebhookDeps;
   /** Acesso ao painel (Better Auth): `/api/auth/*` e `/api/me`. */
   readonly auth?: AuthRoutesDeps;
+  /**
+   * Autocadastro do dono (F1b): `/api/signup/code`, `/api/signup/verify`, `/api/signup` e
+   * `/api/companies` ("Criar outra empresa", com sessão).
+   */
+  readonly signup?: SignupRoutesDeps;
   /** Destino dos logs; o padrão é stdout. Existe para os testes lerem o que foi registrado. */
   readonly logStream?: { write(line: string): void };
 }
@@ -31,6 +37,7 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL">, deps: AppDeps = {}) {
 
   if (deps.whatsapp) app.register(whatsappWebhookRoutes, { deps: deps.whatsapp });
   if (deps.auth) app.register(authRoutes, { deps: deps.auth });
+  if (deps.signup) app.register(signupRoutes, { deps: deps.signup });
 
   return app;
 }

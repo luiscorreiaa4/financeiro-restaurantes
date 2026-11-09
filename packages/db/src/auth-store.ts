@@ -38,6 +38,8 @@ export interface AuthStore {
   hasActiveMembership(userId: string): Promise<boolean>;
   /** `email` já normalizado (minúsculas, sem espaços nas pontas). */
   findUserByEmail(email: string): Promise<AuthUserState | null>;
+  /** Celular do usuário em E.164; `null` sem celular (contador convidado por e-mail, DD-20). */
+  findUserPhone(userId: string): Promise<string | null>;
   recordAudit(event: {
     event: AuthEvent;
     userId?: string;
@@ -130,6 +132,15 @@ export function createAuthStore(
         .where(eq(users.email, email))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+    async findUserPhone(userId) {
+      const rows = await db
+        .select({ phoneE164: users.phoneE164 })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      return rows[0]?.phoneE164 ?? null;
     },
 
     async recordAudit(event) {

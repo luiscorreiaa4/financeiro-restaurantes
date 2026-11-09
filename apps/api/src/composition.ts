@@ -25,6 +25,8 @@ import {
   createOutboundMessageRepo,
   createPool,
   createSenderDirectory,
+  createSignupRepo,
+  createSignupStore,
   createTenantConversationRepo,
   createUsageGuardStore,
   uuidv7,
@@ -49,6 +51,10 @@ import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
 import { createRouteInbound, defaultHandlers } from "./modules/inbound/route-inbound";
 import { createPendingAnswerRouter, createSwitchHandlers } from "./modules/inbound/switch-handlers";
+import { createCreateAccount } from "./modules/signup/create-account";
+import { createCreateCompany } from "./modules/signup/create-company";
+import { createRequestSignupCode } from "./modules/signup/request-signup-code";
+import { createVerifySignupCode } from "./modules/signup/verify-signup-code";
 
 export interface Composition {
   readonly deps: AppDeps;
@@ -76,6 +82,7 @@ export async function compose(
         ingest: createIngestWebhook({ repo, queue }),
       },
       auth: auth.deps,
+      signup: auth.signup,
     },
     async close() {
       await queue.stop();
@@ -84,8 +91,15 @@ export async function compose(
   };
 }
 
-/** Acesso ao painel (F1a): Better Auth sobre o papel `app_auth`. */
-function composeAuth(env: Env): { deps: NonNullable<AppDeps["auth"]>; close(): Promise<void> } {
+/**
+ * Acesso ao painel (F1a): Better Auth sobre o papel `app_auth`. O autocadastro (F1b) usa a
+ * mesma conexão, o mesmo envio de e-mail e a mesma fila em segundo plano.
+ */
+function composeAuth(env: Env): {
+  deps: NonNullable<AppDeps["auth"]>;
+  signup: NonNullable<AppDeps["signup"]>;
+  close(): Promise<void>;
+} {
   if (env.DATABASE_AUTH_URL === undefined) {
     throw new Error("DATABASE_AUTH_URL é obrigatória para o login do painel (papel app_auth)");
   }
@@ -95,7 +109,9 @@ function composeAuth(env: Env): { deps: NonNullable<AppDeps["auth"]>; close(): P
   const email = createAuthEmailSender(env);
   const pool = createPool(env.DATABASE_AUTH_URL);
   const clock = createSystemClock();
-  const store = createAuthStore(createDatabase(pool), clock);
+  const authDb = createDatabase(pool);
+  const store = createAuthStore(authDb, clock);
+  const signupStore = createSignupStore(authDb, clock);
   // Só o texto fixo das mensagens do Better Auth chega ao log (regra 9).
   const logger = createLogger(env.LOG_LEVEL);
   // Erro no envio do código: só o tipo do erro, sem mensagem (pode ter e-mail).
@@ -122,11 +138,48 @@ function composeAuth(env: Env): { deps: NonNullable<AppDeps["auth"]>; close(): P
       log: (level, message) => logger[level]({ component: "better-auth" }, message),
     }),
   );
+  const checkSession = createCheckSession({ gateway, access: store, clock });
+  const signupRepo = createSignupRepo(authDb);
   return {
     deps: {
       gateway,
-      checkSession: createCheckSession({ gateway, access: store, clock }),
+      checkSession,
       sessionBlocked: createSessionBlocked({ gateway, access: store }),
+    },
+    signup: {
+      requestCode: createRequestSignupCode({
+        store: signupStore,
+        users: store,
+        audit: store,
+        email,
+        clock,
+        background,
+        // Link do aviso de conta existente: da configuração, nunca da requisição.
+        loginUrl: new URL("/login", env.APP_URL).toString(),
+      }),
+      verifyCode: createVerifySignupCode({ store: signupStore, audit: store, clock }),
+      createAccount: createCreateAccount({
+        repo: signupRepo,
+        receipts: signupStore,
+        gateway,
+        clock,
+        newId: uuidv7,
+        // Só o tipo do erro (regra 9); a conta já existe e o painel leva ao login.
+        onSessionError: (error) =>
+          logger.error(
+            { errorName: error instanceof Error ? error.name : typeof error },
+            "falha ao abrir a sessão do cadastro",
+          ),
+      }),
+      companies: {
+        checkSession,
+        createCompany: createCreateCompany({
+          repo: signupRepo,
+          users: store,
+          clock,
+          newId: uuidv7,
+        }),
+      },
     },
     async close() {
       await background.drain();

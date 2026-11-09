@@ -14,9 +14,16 @@ import {
   validatePassword,
 } from "@app/core";
 import { type AuthStore, accounts, sessions, users, verifications } from "@app/db";
-import { betterAuth } from "better-auth";
+import { type BetterAuthPlugin, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
+import {
+  APIError,
+  createAuthEndpoint,
+  createAuthMiddleware,
+  getSessionFromCtx,
+  isAPIError,
+} from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import { emailOTP } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type pg from "pg";
@@ -351,6 +358,7 @@ export function createAuth(deps: CreateAuthDeps) {
       }),
     },
     plugins: [
+      signupSessionPlugin(),
       emailOTP({
         otpLength: 6,
         expiresIn: 300,
@@ -371,6 +379,31 @@ export function createAuth(deps: CreateAuthDeps) {
     ],
   });
   return auth;
+}
+
+/**
+ * Sessão aberta fora de uma rota do Better Auth (autocadastro, F1b). Endpoint só de servidor:
+ * nunca entra no roteador HTTP, só em `auth.api.openSignupSession`. Cria a sessão pelo
+ * adaptador interno (passa pelos `databaseHooks`: sem "manter conectado", 12 h) e grava o
+ * cookie assinado igual ao do login sem `rememberMe`.
+ */
+function signupSessionPlugin() {
+  return {
+    id: "signup-session",
+    endpoints: {
+      openSignupSession: createAuthEndpoint.serverOnly(
+        { method: "POST", body: z.object({ userId: z.string().min(1) }) },
+        async (ctx) => {
+          const { internalAdapter } = ctx.context;
+          const user = await internalAdapter.findUserById(ctx.body.userId);
+          if (user === null) throw new APIError("NOT_FOUND", { message: "user not found" });
+          const session = await internalAdapter.createSession(user.id, true);
+          await setSessionCookie(ctx, { session, user }, true);
+          return ctx.json({ ok: true });
+        },
+      ),
+    },
+  } satisfies BetterAuthPlugin;
 }
 
 export type Auth = ReturnType<typeof createAuth>;
@@ -398,6 +431,23 @@ export function createAuthGateway(auth: Auth): AuthGateway {
         if (isAPIError(error) && error.statusCode < 500) return null;
         throw error;
       }
+    },
+
+    async openSession(input) {
+      // IP e agente gravados na sessão como no login (o adaptador lê os cabeçalhos da chamada).
+      const headers = new Headers();
+      if (input.ip !== undefined) headers.set("x-forwarded-for", input.ip);
+      if (input.userAgent !== undefined) headers.set("user-agent", input.userAgent);
+      const { headers: responseHeaders } = await auth.api.openSignupSession({
+        body: { userId: input.userId },
+        headers,
+        returnHeaders: true,
+      });
+      return responseHeaders.getSetCookie();
+    },
+
+    async hashPassword(password) {
+      return (await auth.$context).password.hash(password);
     },
 
     async refreshSession(headers) {

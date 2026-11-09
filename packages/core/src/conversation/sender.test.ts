@@ -91,6 +91,29 @@ describe("resolveSender", () => {
     expect(resolveSender([membership({ status: "deactivated" })])).toEqual({ kind: "unknown" });
   });
 
+  it("quem só tem vínculo de contador é desconhecido: o contador não usa o WhatsApp (DD-03, DE-26)", () => {
+    const result = resolveSender([membership({ role: "accountant" })]);
+    expect(result).toEqual({ kind: "unknown" });
+  });
+
+  it("contador em uma empresa e lançador em outra: vale a outra, e o contador some da lista", () => {
+    const result = resolveSender([
+      membership({ membershipId: "m1", tenantId: TENANT_A, role: "accountant" }),
+      membership({
+        membershipId: "m2",
+        tenantId: TENANT_B,
+        tenantName: "Restaurante B",
+        role: "staff",
+        createdAt: new Date("2026-03-01T12:00:00Z"),
+      }),
+    ]);
+    expect(result).toMatchObject({ kind: "known", tenantCount: 1 });
+    if (result.kind === "known") {
+      expect(result.sender.tenantId).toBe(TENANT_B);
+      expect(result.activeMemberships.map((m) => m.membershipId)).toEqual(["m2"]);
+    }
+  });
+
   it("vínculo convidado já é conhecido: a primeira mensagem o ativa (RF05.CA07)", () => {
     const result = resolveSender([membership({ status: "invited" })]);
     expect(result).toMatchObject({ kind: "known" });

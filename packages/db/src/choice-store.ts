@@ -6,7 +6,7 @@ import { type Database, type Transaction, withTenant } from "./client";
 /**
  * Adaptador de `ChoiceStore` (`trocar unidade` e `trocar empresa`, DE-25): papel `app`, sempre
  * dentro de `withTenant`. A escolha mora no vínculo (`default_unit_id`, `preferred_at`); a
- * pergunta pendente de tipo `choice` só guarda a lista numerada.
+ * pergunta pendente de tipo `choice` só guarda a lista numerada e é fechada por quem responde.
  */
 export function createChoiceStore(db: Database): ChoiceStore {
   const isOpen = (tx: Transaction, tenantId: string, questionId: string) =>
@@ -54,8 +54,8 @@ export function createChoiceStore(db: Database): ChoiceStore {
       const [open] = await withTenant(db, tenantId, (tx) => isOpen(tx, tenantId, questionId));
       if (!open) return false;
 
-      // Primeiro a preferência, depois o fechamento: se algo cair no meio, a pergunta segue
-      // aberta e responder de novo é inofensivo.
+      // Só grava a preferência. Quem fecha a pergunta é o chamador, depois de responder (DE-26):
+      // se o envio falhar, a pergunta segue aberta e repetir a mesma escolha é inofensivo.
       const saved =
         target === "unit"
           ? await withTenant(db, tenantId, async (tx) => {
@@ -75,7 +75,13 @@ export function createChoiceStore(db: Database): ChoiceStore {
               const [unit] = await tx
                 .select({ id: units.id })
                 .from(units)
-                .where(and(eq(units.tenantId, tenantId), eq(units.id, chosenId)))
+                .where(
+                  and(
+                    eq(units.tenantId, tenantId),
+                    eq(units.id, chosenId),
+                    eq(units.status, "active"),
+                  ),
+                )
                 .limit(1);
               if (!unit) return false;
               if (!link.allUnits) {
@@ -113,15 +119,7 @@ export function createChoiceStore(db: Database): ChoiceStore {
                 .returning({ id: memberships.id });
               return rows.length > 0;
             });
-      if (!saved) return false;
-
-      await withTenant(db, tenantId, (tx) =>
-        tx
-          .update(pendingQuestions)
-          .set({ status: "answered" })
-          .where(and(eq(pendingQuestions.tenantId, tenantId), eq(pendingQuestions.id, questionId))),
-      );
-      return true;
+      return saved;
     },
   };
 }

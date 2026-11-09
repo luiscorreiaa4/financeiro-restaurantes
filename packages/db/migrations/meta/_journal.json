@@ -99,6 +99,13 @@
       "when": 1794202917263,
       "tag": "0013_preferred_company_and_choice_question",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794242306504,
+      "tag": "0014_signup",
+      "breakpoints": true
     }
   ]
 }

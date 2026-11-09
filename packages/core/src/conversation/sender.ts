@@ -55,6 +55,7 @@ export type SenderResolution =
 /**
  * Escolhe o vínculo da mensagem entre os que o telefone tem. Vínculos desativados não contam:
  * quem só tem desativados é tratado como desconhecido, para não revelar que o cadastro existe.
+ * O mesmo vale para o vínculo de contador, que não usa o WhatsApp (DD-03, DE-26).
  * Com mais de um restaurante ativo vale, nesta ordem: o restaurante citado no texto (RF11.R5), o
  * escolhido por último com `trocar empresa` e o vínculo mais antigo (DE-07, desempate pelo id,
  * que é ordenado no tempo).
@@ -65,7 +66,11 @@ export function resolveSender(
 ): SenderResolution {
   const active = memberships
     .filter(
-      (membership) => membership.status !== "deactivated" && membership.deactivatedAt === null,
+      (membership) =>
+        membership.status !== "deactivated" &&
+        membership.deactivatedAt === null &&
+        // O contador entra só pelo painel (DD-03); o canal o trata como número desconhecido (DE-26).
+        membership.role !== "accountant",
     )
     .toSorted(
       (a, b) =>

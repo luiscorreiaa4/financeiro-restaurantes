@@ -43,10 +43,19 @@ export interface MessageSender {
   showTyping(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
 }
 
-export type AccessCodePurpose = "sign-in" | "email-verification" | "forget-password";
+export type AccessCodePurpose =
+  | "sign-in"
+  | "email-verification"
+  | "forget-password"
+  /** Aviso do autocadastro para e-mail que já tem conta: sem código, com o link de login (F1b). */
+  | "account-exists";
+
+export type AccessCodeMessage =
+  | { to: string; code: string; purpose: Exclude<AccessCodePurpose, "account-exists"> }
+  | { to: string; purpose: "account-exists"; loginUrl: string };
 
 export interface EmailSender {
-  sendAccessCode(message: { to: string; code: string; purpose: AccessCodePurpose }): Promise<void>;
+  sendAccessCode(message: AccessCodeMessage): Promise<void>;
 }
 
 export interface TenantExtractionContext {
@@ -304,9 +313,10 @@ export interface ChoiceStore {
     expiresAt: Date;
   }): Promise<void>;
   /**
-   * Grava a escolha e fecha a pergunta como respondida. `chosenId` é a unidade (`unit`) ou o
-   * restaurante (`tenant`). `false` se nada foi gravado: pergunta já fechada, unidade fora do
-   * acesso do vínculo ou restaurante sem vínculo ativo do usuário.
+   * Grava a escolha; quem fecha a pergunta é o chamador, depois de responder (DE-26), então
+   * repetir a chamada com a mesma pergunta é inofensivo. `chosenId` é a unidade (`unit`) ou o
+   * restaurante (`tenant`). `false` se nada foi gravado: pergunta já fechada, unidade inativa ou
+   * fora do acesso do vínculo, ou restaurante sem vínculo ativo do usuário.
    */
   apply(input: {
     tenantId: string;

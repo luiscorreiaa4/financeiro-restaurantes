@@ -19,7 +19,7 @@ beforeAll(async () => {
   c = await createTenant(db.admin, "Restaurante C");
   accountantId = uuidv7();
   await db.admin.query(
-    "insert into users (id, name, email, phone_e164) values ($1, 'Contadora', 'contadora@escritorio.com.br', '+5511955550000')",
+    "insert into users (id, name, email) values ($1, 'Contadora', 'contadora@escritorio.com.br')",
     [accountantId],
   );
 });

@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.2 (06/11/2026). Correção do RF05.R4 (CONTADOR é MVP, DD-03). Antes: 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Versão:** 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
 - **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
 - **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
@@ -365,7 +365,7 @@ Requisito responsável pela criação de uma nova conta (empresa cliente) pelo p
 - **Obs1:** Atores: Visitante (futuro Dono). Sistemas externos: serviço de envio de e-mail e, opcionalmente, consulta pública de CNPJ. A tela de cadastro é acessível sem login.
 - **Obs2:** A gravação acontece em uma única transação ao final: empresa, unidade, usuário Dono, vínculo do Dono com todas as unidades, formas de pagamento e canais de venda padrão (RF08 e RF09). Abandonar o cadastro ou falhar em qualquer etapa não deixa registro parcial.
 - **Obs3:** Ao concluir, o sistema exibe o número de WhatsApp do produto, com link direto e QR Code, e orienta o dono a enviar a primeira mensagem, que registra o consentimento para receber mensagens (opt-in, RF11). Em seguida oferece o assistente inicial: cadastrar colaboradores (RF05) e revisar as taxas (RF08).
-- **Obs4:** O autocadastro cria contas novas. Um usuário que já existe e foi convidado para outra conta entra por convite (RF05), não por este requisito.
+- **Obs4:** O autocadastro cria contas novas. Um usuário que já existe e foi convidado para outra conta entra por convite (RF05), não por este requisito. Quem já tem login e quer abrir outra empresa usa "Criar outra empresa" no painel: a mesma gravação do autocadastro, sem verificar e-mail nem pedir senha, com o usuário atual como Dono da nova empresa; o celular só é pedido se o usuário não tiver um (DD-25).
 
 **Alteração:**
 
@@ -574,7 +574,7 @@ Requisito responsável pelo cadastro das pessoas que usam o produto em uma empre
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
 | Nome | String | Sim | R1 |
-| Celular (WhatsApp) | String (xx) xxxxx-xxxx | Sim | R2 |
+| Celular (WhatsApp) | String (xx) xxxxx-xxxx | Sim, exceto Contador (DD-20) | R2 |
 | E-mail | String | Não | R3 |
 
 **Vínculo com a Empresa**
@@ -600,7 +600,7 @@ Requisito responsável pelo cadastro das pessoas que usam o produto em uma empre
 **Regras e observações do preenchimento dos campos:**
 
 - **R1** Nome tem de 2 a 120 caracteres. É o nome que aparece no histórico dos lançamentos ("lançado por").
-- **R2** Celular segue a normalização do RF01 (E.164, com e sem o 9º dígito tratados como o mesmo número). Um número pertence a uma única pessoa no sistema. Se o número já pertence a um usuário de outra empresa, o sistema cria apenas o vínculo com esta empresa, sem revelar ao Dono os dados nem a existência da outra empresa; o nome exibido nesta empresa é o informado pelo Dono. Não é permitido cadastrar o número do próprio produto nem números fora do Brasil (Fase: MVP).
+- **R2** Celular segue a normalização do RF01 (E.164, com e sem o 9º dígito tratados como o mesmo número). Um número pertence a uma única pessoa no sistema. Se o número já pertence a um usuário de outra empresa, o sistema cria apenas o vínculo com esta empresa, sem revelar ao Dono os dados nem a existência da outra empresa; o nome exibido nesta empresa é o informado pelo Dono. Não é permitido cadastrar o número do próprio produto nem números fora do Brasil (Fase: MVP). O Contador não usa o WhatsApp: pode ser cadastrado só com e-mail (DD-20), e o vínculo de Contador é ignorado na identificação do remetente (RF11, DE-26).
 - **R3** E-mail é obrigatório somente quando Acesso ao Painel = Sim, porque é o identificador de login (RF02). Segue as regras de unicidade do RF01. Para o papel Contador, o acesso ao painel é sempre Sim. Para o Lançador, o padrão é Não.
 - **R4** Papel: DONO, GERENTE, LANCADOR ou CONTADOR. As permissões de cada papel estão no RF06. O papel CONTADOR está no MVP (DD-03, RF36): é convidado pelo Dono com o aviso de folha e pode ter vínculo com várias empresas.
 - **R5** Unidades de Acesso: TODAS (inclui unidades criadas no futuro) ou uma lista de unidades específicas. O colaborador só lança, consulta e recebe relatórios das unidades de acesso. O Dono tem sempre acesso a TODAS.
@@ -781,7 +781,7 @@ Requisito responsável pelas formas de pagamento usadas nos lançamentos e pelas
 - **R5** Status: ATIVA ou INATIVA. Forma inativa deixa de ser usada pela IA e continua nos lançamentos antigos.
 
 - **Obs1:** Atores: Dono (cadastra e altera). Gerente apenas consulta.
-- **Obs2:** Ao criar a empresa, o sistema cadastra as formas padrão com taxa zero: Dinheiro, Pix, Débito, Crédito e Voucher. O assistente inicial convida o Dono a informar as taxas da sua maquininha. A lista padrão e as taxas típicas sugeridas são pendência do sócio contador (P07). **[PROVISÓRIO – P07]** Proposta adotada: as formas padrão acima, com taxa zero, até o Matheus definir a lista e as taxas típicas.
+- **Obs2:** Ao criar a empresa, o sistema cadastra as formas padrão com taxa zero: Dinheiro, Pix, Débito, Crédito e Voucher. O assistente inicial convida o Dono a informar as taxas da sua maquininha. A lista padrão e as taxas típicas sugeridas são pendência do sócio contador (P07). **[PROVISÓRIO – P07]** Proposta adotada: as formas padrão acima, com taxa zero, até o Matheus definir a lista e as taxas típicas. **Conflito a decidir (P07):** o RF08.Obs4 e o RF12.R8 usam a forma "Não informada", mas ela não consta desta lista de cinco; o autocadastro (F1b) cria as cinco formas mais "Não informada" (seis, a sexta sem taxa) para o lançamento sem forma ter onde cair. O Matheus confirma se a "Não informada" entra na lista padrão ou se é só um valor vazio.
 - **Obs3:** A tela mostra uma pré-visualização: "Uma venda de R$ 100,00 no crédito rende R$ 96,80 líquidos".
 - **Obs4:** Quando o colaborador não diz a forma de pagamento, o lançamento fica com forma "Não informada" e sem taxa; a IA pode sugerir a forma mais usada para aquele tipo de lançamento, exibida na confirmação.
 
@@ -829,7 +829,7 @@ Requisito responsável pelos canais por onde o restaurante vende (salão, delive
 - **R4** Regra de combinação (proposta, a validar com o sócio contador, pendência P06): quando a venda é de um canal do tipo APLICATIVO com comissão maior que zero, a taxa do lançamento é a comissão do canal, que já inclui o pagamento online; nos demais casos, vale a taxa da forma de pagamento (RF08). As duas nunca são somadas automaticamente. **[PROVISÓRIO – P06]** Proposta adotada: canal APLICATIVO com comissão substitui a taxa da forma de pagamento; decisão final do Matheus.
 
 - **Obs1:** Atores: Dono. Gerente consulta.
-- **Obs2:** Canais padrão criados com a empresa: Salão, Delivery próprio, iFood (APLICATIVO, comissão a configurar) e Retirada. Lista sujeita à pendência P07. **[PROVISÓRIO – P07]** Proposta adotada: os canais padrão acima, até o Matheus definir a lista.
+- **Obs2:** Canais padrão criados com a empresa: Salão, Delivery próprio, iFood (APLICATIVO, comissão a configurar) e Retirada. Lista sujeita à pendência P07. **[PROVISÓRIO – P07]** Proposta adotada: os canais padrão acima, até o Matheus definir a lista. **Conflito a decidir (P07):** a regra de receita sem canal usa o canal "Não informado" (RF09.Obs3 e as notas de leitura de receitas antigas), mas ele não consta desta lista de quatro; o autocadastro (F1b) cria os quatro canais mais "Não informado" (cinco). O Matheus confirma se entra na lista padrão.
 - **Obs3:** Toda receita tem canal (DD-08). Sem canal na mensagem, vale o **canal padrão da unidade**, escolhido no assistente inicial (RF04), e o lançamento recebe o sinal CANAL_A_REVISAR; a confirmação diz qual canal foi usado. Se a empresa tem só um canal ativo, usa esse sem sinal. "Não informado" não é mais gravado em receitas novas.
 - **Obs4:** A receita usa uma única categoria "Vendas"; o canal faz a separação. Os relatórios mostram o total e cada canal separado (DD-08, P01). **[PROVISÓRIO – P01]** A lista definitiva das demais categorias continua com o Matheus.
 
@@ -2255,7 +2255,7 @@ Requisito responsável por dar ao contador do restaurante acesso de leitura e ex
 
 **Regras e observações do preenchimento dos campos:**
 
-- **R1** O contador é convidado pelo Dono (RF05, papel CONTADOR) e entra pelo RF02. O mesmo e-mail pode estar em várias empresas.
+- **R1** O contador é convidado pelo Dono (RF05, papel CONTADOR) e entra pelo RF02. O mesmo e-mail pode estar em várias empresas. O celular é opcional e o contador não lança pelo WhatsApp (DD-20, DE-26).
 - **R2** CRC é opcional e informativo.
 - **R3** Código para indicar o produto a outros clientes (RF01, regra 14).
 - **R4** A tela inicial do contador lista as empresas vinculadas com o último lançamento, o resultado do mês e pendências de revisão de cada uma. Ao entrar em uma empresa, valem as permissões do papel CONTADOR (RF06).
@@ -2677,4 +2677,4 @@ Itens que precisam de decisão antes ou durante o desenvolvimento dos requisitos
 1. RF11.R3 diz que o PDF de nota fiscal é tratado "na Fase 2 (RF31)", mas o RF31 é da v1.1.
 2. RF21.R2 chama 60 mensagens por usuário por hora e 1.000 por empresa por dia de "valores iniciais sugeridos". Adotados como padrão provisório, configurável por plano.
 3. RF12.R8 usa uma "forma de cartão padrão da empresa" (padrão Crédito), mas o RF08 não lista esse campo de configuração.
-4. Os nomes dos enums do documento (português, MAIÚSCULAS) diferem dos do código (inglês, minúsculas). Mapeamento: DONO = `owner`, GERENTE = `manager`, LANCADOR = `staff`, CONTADOR = `accountant` (futuro); DESPESA = `expense`, RECEITA = `revenue`; WHATSAPP = `whatsapp`, PAINEL = `web`, IMPORTACAO = `import`, SISTEMA = `system`, EMAIL (novo). As divergências do modelo de dados estão em [`arquitetura.md`](arquitetura.md).
+4. Os nomes dos enums do documento (português, MAIÚSCULAS) diferem dos do código (inglês, minúsculas). Mapeamento: DONO = `owner`, GERENTE = `manager`, LANCADOR = `staff`, CONTADOR = `accountant` (futuro); DESPESA = `expense`, RECEITA = `revenue`; WHATSAPP = `whatsapp`, PAINEL = `web`, IMPORTACAO = `import`, SISTEMA = `system`, EMAIL (novo). Sem mapeamento oficial no documento, o código adotou (DD-25, F1b): Segmento = `restaurant`, `bar`, `snack_bar`, `pizzeria`, `bakery`, `cafe`, `burger_joint`, `food_truck`, `other`; Faixa de Faturamento = `up_to_30k`, `from_30k_to_100k`, `from_100k_to_300k`, `above_300k`, `prefer_not_to_say`; Situação da Conta = `active`, `read_only`, `canceled`, `closed`. As divergências do modelo de dados estão em [`arquitetura.md`](arquitetura.md).

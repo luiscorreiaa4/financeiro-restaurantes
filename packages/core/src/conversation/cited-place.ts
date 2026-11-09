@@ -34,6 +34,41 @@ interface Hit<T> {
   readonly terms: string[];
 }
 
+/**
+ * Palavras genéricas do ramo (e ligações como "do" e "de"). Um nome de empresa formado só por elas
+ * ("Bar", "Sabor") aparece em qualquer lançamento ("cerveja pro bar") e não troca a empresa
+ * sozinho (DE-26). Já normalizadas (sem acento, minúsculas). Vale só para o nome da empresa:
+ * nome e apelido de unidade são escolha do dono.
+ */
+export const COMMON_COMPANY_WORDS: ReadonlySet<string> = new Set([
+  "bar",
+  "sabor",
+  "sabores",
+  "restaurante",
+  "lanchonete",
+  "cozinha",
+  "bistro",
+  "cantina",
+  "pizzaria",
+  "padaria",
+  "boteco",
+  "churrascaria",
+  "cafe",
+  "casa",
+  "espaco",
+  "delicia",
+  "delicias",
+  "do",
+  "da",
+  "de",
+  "dos",
+  "das",
+  "e",
+]);
+
+const isOnlyCommonWords = (normalizedName: string): boolean =>
+  normalizedName.split(" ").every((word) => COMMON_COMPANY_WORDS.has(word));
+
 /** O termo `inner` aparece inteiro dentro de `outer` (ex.: "restaurante demo" em "restaurante demo 2"). */
 const isInside = (inner: string, outer: string): boolean =>
   inner !== outer && ` ${outer} `.includes(` ${inner} `);
@@ -75,7 +110,9 @@ export function matchCitedPlace<T extends CitedPlaceCandidate>(
       unitIds.push(unit.id);
       terms.push(...matched);
     }
-    const tenantTerm = found(membership.tenantName);
+    const tenantTerm = isOnlyCommonWords(words(membership.tenantName))
+      ? null
+      : found(membership.tenantName);
     if (tenantTerm !== null) terms.push(tenantTerm);
     if (terms.length > 0) hits.push({ membership, unitIds, terms });
   }

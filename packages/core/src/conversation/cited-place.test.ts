@@ -133,4 +133,30 @@ describe("matchCitedPlace", () => {
   it("duas empresas citadas na mesma mensagem é ambíguo", () => {
     expect(matchCitedPlace("50 no litoral e 30 no centro", [centro, praia], centro)).toBeNull();
   });
+
+  describe("nome de empresa só com palavras comuns do ramo (DE-26)", () => {
+    const bar = membership({
+      membershipId: "m-bar",
+      tenantId: TENANT_B,
+      tenantName: "Bar",
+      tenantUnitIds: ["uBar"],
+      tenantUnits: [unit("uBar", "Orla", ["beira-mar"])],
+    });
+
+    it('"Bar" sozinho não leva a mensagem para a empresa', () => {
+      expect(matchCitedPlace("cerveja pro bar 200", [centro, bar], centro)).toBeNull();
+    });
+
+    it("o apelido de uma unidade da mesma empresa continua valendo", () => {
+      expect(matchCitedPlace("gastei 50 na beira-mar", [centro, bar], centro)).toEqual({
+        membership: bar,
+        unitId: "uBar",
+      });
+    });
+
+    it('nome com palavra própria ("Bar do Zé") continua casando', () => {
+      const ze = membership({ ...bar, membershipId: "m-ze", tenantName: "Bar do Zé" });
+      expect(matchCitedPlace("gastei 50 no bar do Zé", [centro, ze], centro)?.membership).toBe(ze);
+    });
+  });
 });

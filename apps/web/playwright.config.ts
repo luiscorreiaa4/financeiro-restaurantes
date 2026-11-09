@@ -31,7 +31,12 @@ export default defineConfig({
         ? `pnpm exec next build && pnpm exec next start -p ${WEB_PORT}`
         : `pnpm exec next dev -p ${WEB_PORT}`,
       url: `http://localhost:${WEB_PORT}`,
-      env: { API_URL: `http://localhost:${FAKE_API_PORT}`, PORT: String(WEB_PORT) },
+      env: {
+        API_URL: `http://localhost:${FAKE_API_PORT}`,
+        PORT: String(WEB_PORT),
+        // Número fixo para o E2E afirmar o link wa.me de /bem-vindo.
+        NEXT_PUBLIC_WHATSAPP_NUMBER: "+55 82 99999-0000",
+      },
       reuseExistingServer: false,
       timeout: 180_000,
     },

@@ -163,7 +163,7 @@ const signInPassword = (address: string, password: string, rememberMe?: boolean)
 
 function lastCode(): string {
   const last = email.sent.at(-1);
-  if (!last) throw new Error("nenhum código enviado");
+  if (!last || !("code" in last)) throw new Error("nenhum código enviado");
   return last.code;
 }
 

@@ -18,6 +18,8 @@ export interface AccessInput {
   readonly tenantUnitIds: readonly string[];
   readonly panelAccess: boolean;
   readonly email: string | null;
+  /** Celular do usuário (E.164). Obrigatório para quem usa o WhatsApp; o contador pode não ter (DD-20). */
+  readonly phone: string | null;
   readonly permissions: readonly string[];
 }
 
@@ -36,6 +38,11 @@ export interface ValidAccess {
 export function validateAccess(input: AccessInput): Result<ValidAccess, DomainError> {
   const permissions = validatePermissions(input.role, input.permissions);
   if (!permissions.ok) return permissions;
+
+  // Dono, gerente e lançador lançam pelo WhatsApp e são identificados pelo celular (RF05.R2, DD-20).
+  if (input.role !== "accountant" && (input.phone === null || input.phone.trim() === "")) {
+    return fail("PhoneRequired");
+  }
 
   // O contador entra sempre pelo painel (RF05.R3) e vê todas as unidades (RF06).
   const panelAccess = input.role === "accountant" ? true : input.panelAccess;

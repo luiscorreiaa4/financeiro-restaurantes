@@ -7,7 +7,7 @@ import * as schema from "../schema";
 const tables = Object.values(schema).filter((value) => is(value, PgTable)) as PgTable[];
 
 describe("schema do banco (checagens estáticas, sem Postgres)", () => {
-  it("define as 25 tabelas do modelo de dados", () => {
+  it("define as 26 tabelas do modelo de dados", () => {
     expect(tables.map(getTableName).sort()).toEqual(
       [
         "accounts",
@@ -26,6 +26,7 @@ describe("schema do banco (checagens estáticas, sem Postgres)", () => {
         "pending_questions",
         "sales_channels",
         "sessions",
+        "signup_verifications",
         "suppliers",
         "tax_rules",
         "tax_settings",

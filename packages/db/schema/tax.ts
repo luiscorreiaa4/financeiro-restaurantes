@@ -11,7 +11,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import { appRole, createdAt, oneOf, primaryId, tenantIsolation } from "./_shared";
+import { appRole, authCanInsert, createdAt, oneOf, primaryId, tenantIsolation } from "./_shared";
 import { tenantId, users } from "./tenants";
 
 /**
@@ -38,6 +38,7 @@ export const taxSettings = pgTable(
     check("tax_settings_enabled_regime_check", sql`not ${t.enabled} or ${t.regime} <> 'not_sure'`),
     check("tax_settings_params_check", sql`jsonb_typeof(${t.params}) = 'object'`),
     tenantIsolation("tax_settings"),
+    authCanInsert("tax_settings"),
   ],
 );
 

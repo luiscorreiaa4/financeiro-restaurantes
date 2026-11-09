@@ -39,6 +39,22 @@ const login = {
   "set-cookie": `${SESSION_COOKIE}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax`,
 };
 
+function isValidCnpj(value) {
+  const d = value.replace(/\D/g, "");
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  const digit = (len) => {
+    let sum = 0;
+    let weight = len - 7;
+    for (let i = 0; i < len; i++) {
+      sum += Number(d[i]) * weight--;
+      if (weight < 2) weight = 9;
+    }
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return digit(12) === Number(d[12]) && digit(13) === Number(d[13]);
+}
+
 createServer(async (req, res) => {
   res.setHeader("content-type", "application/json");
   const { method, url } = req;
@@ -82,6 +98,37 @@ createServer(async (req, res) => {
       { success: true },
       { "set-cookie": `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly` },
     );
+  }
+
+  // Autocadastro (F1b): espelha apps/api/src/http/signup/signup-routes.ts, sem a regra.
+  if (method === "POST" && url === "/api/signup/code") {
+    return send(res, 200, { success: true });
+  }
+
+  if (method === "POST" && url === "/api/signup/verify") {
+    const body = await readJson(req);
+    return body.code === FIXED_OTP
+      ? send(res, 200, { receipt: "comprovante-falso" })
+      : send(res, 400, { code: "INVALID_CODE", message: "Código inválido ou vencido." });
+  }
+
+  if (method === "POST" && (url === "/api/signup" || url === "/api/companies")) {
+    const body = await readJson(req);
+    if (url === "/api/companies" && !hasSession(req)) {
+      return send(res, 401, { code: "UNAUTHORIZED", message: "Entre para continuar." });
+    }
+    if (url === "/api/signup" && body.receipt !== "comprovante-falso") {
+      return send(res, 401, { code: "RECEIPT_INVALID" });
+    }
+    const cnpj = body.company?.cnpj ?? "";
+    if (cnpj.trim() !== "" && !isValidCnpj(cnpj)) {
+      return send(res, 400, {
+        code: "INVALID_FIELDS",
+        message: "Confira os campos marcados.",
+        fields: { "company.cnpj": "cnpj_invalid" },
+      });
+    }
+    return send(res, 201, { tenantId: "t-novo" }, url === "/api/signup" ? login : {});
   }
 
   send(res, 404, { error: "not_found" });

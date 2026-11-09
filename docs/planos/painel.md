@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 09/11/2026 (F0 e F1a feitas; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 09/11/2026 (F0, F1a e F1b feitas; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -22,7 +22,7 @@ Legenda de confiança, usada em todo o documento:
 |---|---|---|
 | F0 Fundação do web | **Feita (06/11/2026)** | Tailwind 4 + shadcn (preset base-nova, neutro, sem marca), casca responsiva com menu de celular, `lib/format`, `lib/api`, TanStack Query, Cache Components e cabeçalhos de segurança, Vitest + Playwright (desktop e Pixel 7), jobs `e2e` e `integration` no CI. Desenho: `docs/superpowers/specs/2026-11-06-f0-fundacao-web-design.md`; plano: `docs/superpowers/plans/2026-11-06-f0-fundacao-web.md`. Pendente: rodar os jobs novos no GitHub (só aparece depois do push) |
 | F1a Login por código e por senha (Better Auth) | **Feita (09/11/2026)** | Prova de conceito confirmou o caminho A (Better Auth sobre `users`, papel `app_auth`, `disableSignUp`). Tabelas `sessions`, `accounts`, `verifications` e `auth_audit` (migrations 0011 e 0012), `phone_e164` opcional (DD-20), porta `EmailSender` com envio falso em arquivo (DD-21), tela `/login`, `proxy.ts`, `lib/auth/session.ts` e sair. Desenho: `docs/superpowers/specs/2026-11-07-f1-autenticacao-design.md`; plano: `docs/superpowers/plans/2026-11-07-f1a-login-better-auth.md` |
-| F1b Autocadastro do dono | A fazer | Precisa de migration com INSERT e política para `app_auth` em `users`, `memberships` e `tenants` (hoje só lê e atualiza) |
+| F1b Autocadastro do dono | **Feita (09/11/2026)** | E-mail primeiro (código de 6 dígitos e comprovante de uso único), formulário único, gravação atômica pelo `app_auth` só com INSERT (migration 0014, `signup_verifications`), sessão aberta pela API, `/bem-vindo` com link e QR do WhatsApp, "Criar outra empresa" (`/nova-empresa`) para quem já tem login, termos e privacidade provisórios. DD-25. Fica para depois: código de indicação (F10), consulta pública de CNPJ (sem etapa) e texto final dos termos. Desenho em `docs/superpowers/specs/2026-11-09-f1b-autocadastro-design.md` |
 | F1c Recuperação de senha, perfil e lista de sessões | A fazer | RF03 |
 | F2 Conta, unidade e permissões | A fazer | Herda da F1a: renovar o cookie de "manter conectado" (o Next não grava cookie em layout; chamar a API pelo navegador por rewrite) e tratar 401 na camada de dados redirecionando para `/login` |
 | F3 Lançamentos | A fazer | |
@@ -32,7 +32,7 @@ Legenda de confiança, usada em todo o documento:
 | F7 PWA e responsividade | A fazer | |
 | F8 Endurecimento e lançamento | A fazer | Herda da F1a: `trustProxy` e o IP real atrás do rewrite do Next (limites de envio e auditoria usam o IP); produção só sobe com `DATABASE_AUTH_URL` e e-mail real configurados; trocar o envio falso por serviço real (DD-21) com fila persistente |
 | F9 Assinatura, plano e encerramento da conta (RF37) | A fazer (nova, 29/10/2026) | Depende da F1 (conta com plano e situação). Preços e limites: `[PROVISÓRIO – P03]` |
-| F10 Painel interno de operação (RF38) | A fazer (nova, 29/10/2026) | Usa `ai_usage` do canal (E6 em diante) |
+| F10 Painel interno de operação (RF38) | A fazer (nova, 29/10/2026) | Usa `ai_usage` do canal (E6 em diante). Recebe o **código de indicação** (RF01.R14), adiado da F1b (DD-25) |
 | F11 v1.1 do painel (RF26, RF28 PDF, RF30) | Só listada | Lançamento manual, DRE em PDF e perguntas em linguagem natural; depois do piloto |
 | F12 Imposto estimado e DRE na tela (RF39, RF28 tela) | A fazer (**MVP**; nova, 05/11/2026) | Configuração de regime e parâmetros, cálculo por vigência no `core`, aviso de estimativa. Regras e parâmetros: P16, P17 (Matheus). Depende da F4 |
 | F13 Acesso do contador e importações no painel (RF36, RF35, RF31 manual) | A fazer (**MVP**; nova, 05/11/2026) | Convite com aviso de folha, lista de empresas do contador, upload de planilha, OFX e XML. Depende da F2 e da E14 do canal |
@@ -437,6 +437,7 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 - Saúde do processamento: fila, falhas definitivas (DLQ) com o código do erro, falhas de envio. A equipe só vê metadados das mensagens, nunca o conteúdo (RF38.R2).
 - Ações administrativas registradas: estender teste, ajustar limites, trocar o e-mail do dono após confirmação de identidade, reprocessar mensagens com falha.
 - Acesso ao conteúdo financeiro de um cliente só com autorização registrada do Dono, por 24 horas, com cada visualização na trilha (RF38.R3).
+- Código de indicação (RF01.R14): campo opcional no autocadastro e associação à conta, adiado da F1b (DD-25): campo opcional que identifica o contador ou parceiro que indicou; código inexistente é recusado com mensagem, sem bloquear o cadastro (regra em RF01.R14).
 
 **Testes:** RF38.CA01 a CA03; administrador sem autorização não vê lançamentos; o custo total de IA de uma empresa é a soma dos registros individuais (RNF08.CA01).
 

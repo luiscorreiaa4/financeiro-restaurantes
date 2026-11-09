@@ -21,6 +21,20 @@ describe("casca da aplicação", () => {
     }
   });
 
+  it("tem o item 'Criar outra empresa' apontando para /nova-empresa", () => {
+    render(
+      <AppShell>
+        <p>conteúdo</p>
+      </AppShell>,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "Principal" });
+    expect(within(nav).getByRole("link", { name: "Criar outra empresa" })).toHaveAttribute(
+      "href",
+      "/nova-empresa",
+    );
+  });
+
   it("mostra o conteúdo da página dentro da casca", () => {
     render(
       <AppShell>

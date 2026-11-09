@@ -134,6 +134,9 @@ export function createSwitchHandlers(deps: SwitchHandlersDeps): SwitchHandlers {
           : companySwitchedText(answer.label),
         "notice",
       );
+      // Só fecha depois de responder: se o envio falhar, o job repetido reaplica a mesma escolha
+      // (idempotente) em vez de mandar o número para a IA (DE-26).
+      await deps.store.closePendingQuestion(tenantId, pending.id, "answered");
     },
   };
 }

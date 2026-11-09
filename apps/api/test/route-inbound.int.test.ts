@@ -148,6 +148,26 @@ describe("roteamento ponta a ponta (webhook → fila → banco → resposta)", (
     expect(optIns.rows[0].n).toBe(0);
   });
 
+  it("quem só tem vínculo de contador é tratado como desconhecido, mesmo com celular cadastrado (DD-03, DE-26)", async () => {
+    const userId = uuidv7();
+    const phone = "+5511987659999";
+    await db.admin.query("insert into users (id, name, phone_e164) values ($1, 'Contador', $2)", [
+      userId,
+      phone,
+    ]);
+    await db.admin.query(
+      `insert into memberships (id, tenant_id, user_id, role, all_units, panel_access)
+       values ($1, '0190a000-0000-7000-8000-000000000001', $2, 'accountant', true, true)`,
+      [uuidv7(), userId],
+    );
+    const { id } = await converse(digits(phone), "paguei 350 de carne");
+    expect((await inboundRow(id))?.tenant_id).toBeNull();
+    expect((await outboundRows())[0]?.text).toContain("Não encontrei este número cadastrado");
+    expect(handlerCalls).toEqual([]);
+    const optIns = await db.admin.query("select count(*)::int as n from whatsapp_opt_ins");
+    expect(optIns.rows[0].n).toBe(0);
+  });
+
   it("dono cadastrado: mensagem ganha tenant e usuário, e o opt-in é gravado uma única vez", async () => {
     const first = await converse(digits(DEV_PHONES.owner), "ajuda");
     await converse(digits(DEV_PHONES.owner), "ajuda");

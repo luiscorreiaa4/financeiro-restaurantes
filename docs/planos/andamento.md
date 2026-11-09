@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 09/11/2026 (F0 e F1a do painel feitas; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 09/11/2026 (F0, F1a e F1b do painel feitas; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -14,8 +14,8 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 |---|---|
 | Fundação (fase 0) | Pronta. CI no GitHub rodou verde em 09/11/2026 (inclusive `e2e` e `integration`) |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
-| Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto de 09/11/2026, DE-25; evals resolvidos em 09/11/2026; falta o contador só por e-mail e as pendências menores do review); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 (06/11/2026) e F1a (09/11/2026) feitas**; F1b, F1c e F2 a F13 a fazer, **F1b é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Canal WhatsApp E10 a E14 | **E11 feita em 09/11/2026** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto, DE-25; contador só por e-mail e pendências do review, DE-26; evals resolvidos); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026), F1a e F1b (09/11/2026) feitas**; F1c e F2 a F13 a fazer, **F1c é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -33,7 +33,7 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 
 ## 3. Próximos passos
 
-1. **E11 (canal): modelo de dados dos requisitos** (mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
+1. ~~**E11 (canal): modelo de dados dos requisitos**~~ (feita em 09/11/2026, DE-25 e DE-26; mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
 2. **F1b (painel): autocadastro do dono.** A F1a (login por código e por senha) está feita. A F1b precisa de migration com INSERT e política para `app_auth` em `users`, `memberships` e `tenants`. Planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`); a F1c (recuperação, perfil e lista de sessões) vem depois. As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
 3. ~~**Rodar o CI no GitHub**~~ (feito em 09/11/2026, tudo verde), agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
@@ -74,18 +74,18 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 - **E11, pendentes (mudança `e11-modelo-de-dados`, tarefas 3.8 e 7.3):**
   - [x] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): feito em 09/11/2026 (DE-25). A escolha mora no vínculo (`default_unit_id` e `preferred_at`), a lista numerada é pergunta pendente `choice` e a empresa citada é casada sem IA; áudio e foto não trocam de empresa pelo texto. Migration `0013`. Testes: `apps/api/test/switch-flow.int.test.ts` (RF19.CA03 e RF11.R5).
   - [x] **Evals da E11 resolvidos em 09/11/2026 (Luís), baseline atualizado.** A primeira rodada (50 casos) tinha `askRecall` 1 → 0,75: `a03` e `a08` eram gravados sem perguntar. Causas: (a03) a regra 12 (`paid_on`) usava "paguei dia 3" como exemplo e o modelo passou a pôr "paguei ... amanhã" em `paid_on`, que não passa pela checagem de data futura; o certo é perguntar (RF12.R2, RF12.CA07), então o dataset estava certo. (a08) provável diluição da regra 8 pelas regras 12 a 15, sem exemplo de carne com valor e sem peso (RF12.CA04); hipótese, o experimento com o prompt do baseline não foi necessário porque a correção resolveu. Correção só em `packages/ai/src/extraction/prompt.ts` (regras 8 e 12) e dois testes em `prompt.test.ts`. Rodada completa final: 50 casos, 100% em todas as métricas (`askRecall` 1, `n01` a `n04` ok), US$ 0,0102. Uma rodada intermediária falhou o `a05` ("vendi") uma vez na intenção; 3 reexecuções isoladas e a rodada final passaram, então foi oscilação do modelo (vigiar se repetir).
-  - [ ] Contador criado só por e-mail: `users.phone_e164` passa a opcional na F1a (DD-20); falta o ajuste no canal (identificação, tipos, seed e testes) e a regra de domínio que exige celular do dono e dos colaboradores do WhatsApp.
-  - [ ] Pendências menores do review da `trocar unidade`/`trocar empresa` (DE-25), nenhuma corrigida:
-    - "cancelar" com a lista numerada aberta responde "descartei o lançamento pendente" (`entry-handlers.ts`, `cancel`); precisa de texto próprio para `kind = choice`.
-    - Se o envio do "Pronto!" falhar e o job for repetido depois do `apply`, o número vai para a IA (a pergunta já está `answered`).
-    - `ChoiceStore.apply` fecha a pergunta sem filtrar `status = 'open'` e não exige unidade ativa na escolha (`choice-store.ts`).
-    - Nome de empresa com palavra comum ("Bar", "Sabor") pode desviar mensagens, além do apelido genérico já citado na DE-25.
-    - Roteiro manual do `pnpm dev:chat` (`trocar unidade`, `trocar empresa`, "no litoral") não foi exercitado; os mesmos cenários rodam em `switch-flow.int.test.ts`.
-  - Depois de fechar as três (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar): marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
+  - [x] **Contador criado só por e-mail, feito em 09/11/2026 (DE-26).** `validateAccess` exige celular de dono, gerente e lançador (`PhoneRequired`); `resolveSender` ignora vínculos de contador (quem só é contador é "desconhecido"); Contadora Demo (`contadora@demo.dev`, sem celular) no seed. Testes: `access.test.ts`, `sender.test.ts`, `dev-seed.int.test.ts`, `route-inbound.int.test.ts`.
+  - [x] Pendências menores do review da `trocar unidade`/`trocar empresa` (DE-25), **corrigidas em 09/11/2026 (DE-26)**, menos o roteiro manual:
+    - [x] "cancelar" com a lista numerada aberta agora responde "deixei a troca de lado" (`entry-handlers.ts`, `cancel`).
+    - [x] A pergunta só fecha depois do "Pronto!" (`answerChoice`); se o envio falhar, o job repetido reaplica a escolha.
+    - [x] `ChoiceStore.apply` não fecha mais a pergunta e exige unidade ativa (`choice-store.ts`).
+    - [x] Nome de empresa só com palavras comuns ("Bar", "Sabor") não troca a empresa (`COMMON_COMPANY_WORDS` em `cited-place.ts`). Segue possível falso positivo com apelido genérico de unidade (DE-25).
+    - [ ] Roteiro manual do `pnpm dev:chat` (`trocar unidade`, `trocar empresa`, "no litoral", `cancelar` com a lista aberta; passos na seção 3 do `guia-testes-manuais.md`) ainda não foi exercitado à mão; os mesmos cenários rodam em `switch-flow.int.test.ts`. Dono: Luís.
+  - E11 marcada como "Feita" nos planos e no `CLAUDE.md` em 09/11/2026 (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar).
 
 ## 6. Painel
 
-**F0 feita em 06/11/2026 e F1a em 09/11/2026**; F1b, F1c e F2 a F13 a fazer, a **F1b é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
+**F0 feita em 06/11/2026, F1a e F1b em 09/11/2026**; F1c e F2 a F13 a fazer, a **F1c é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
@@ -101,10 +101,28 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] **Volumes Postgres existentes** não recebem o papel `app_auth` sozinhos: resolvido em 09/11/2026 rodando o `init.sql` no banco dev (é idempotente). Em outro volume antigo, repetir o comando ou recriar o volume.
   - [ ] F2: renovar o cookie de "manter conectado" (o Next não grava cookie em layout/server component; até lá ele vence 30 dias após o login) e tratar 401 na camada de dados redirecionando para `/login`.
   - [ ] F8: `trustProxy` e o IP real atrás do rewrite do Next; produção só sobe com autenticação (`DATABASE_AUTH_URL`) e e-mail reais configurados (sem chave liga/desliga).
-  - [ ] F1b: o autocadastro precisa de INSERT em `users`, `memberships` e `tenants` para `app_auth`.
+  - [x] F1b: INSERT em `users`, `memberships` e `tenants` para `app_auth`: feito na migration 0014 (09/11/2026, DD-25).
   - [ ] Fila de e-mail: o envio do código roda em memória por processo, sem fila persistente (DD-21); trocar na F8.
   - [ ] Minors do review da F1a (deferidos): juntar 0011 e 0012 numa migration antes de ir para produção; `email_hash` sem CHECK de formato e sem índice `(user_id, created_at)` em `auth_audit`; `users.updated_at` sem `$onUpdate`; UPDATE de `users` em nível de tabela para `app_auth`; `onError` que lança vira unhandled rejection; `apps/web/AGENTS.md` ainda não rastreado (decidir `.gitignore`).
-  - [x] `users.phone_e164` opcional no esquema (DD-20); falta o lado do canal (seção 5).
+  - [x] `users.phone_e164` opcional no esquema (DD-20) e o lado do canal (DE-26, seção 5).
+- **Pendências deixadas pela F1b (09/11/2026, DD-25):**
+  - [ ] Roteiro à mão do cadastro (Luís): `pnpm dev`, `http://localhost:3000/cadastro`, ler o código na pasta `DEV_MAIL_DIR`, concluir e entrar no painel.
+  - [ ] `NEXT_PUBLIC_WHATSAPP_NUMBER` precisa estar em `apps/web/.env.local` (o web não lê o `.env` da raiz; sem ele o `/bem-vindo` mostra "não foi configurado"). Exigir a variável no deploy (F8/E10); hoje o build só recusa valor inválido. O `.env.example` já documenta.
+  - [ ] **P07 (Matheus):** a lista padrão de formas e canais do RF08.Obs2 e RF09.Obs2 não traz "Não informada" nem "Não informado", que o RF08.Obs4, o RF12.R8 e o RF09.Obs3 usam. O cadastro cria as duas (`SIGNUP_DEFAULTS`); confirmar (nota na v1.4 de `requisitos.md`).
+  - [ ] Texto final dos Termos e da Política de Privacidade (os de hoje são rascunho com aviso na página) e `LEGAL_VERSIONS` (placeholder "2026-11-09") em `packages/core/src/signup/signup-defaults.ts`; é dos sócios e do jurídico.
+  - [ ] `trustProxy` no Fastify, para o cadastro (`/api/signup/*`, `/api/companies`) e para o login (`/api/auth/*`): atrás do rewrite do Next toda requisição chega com o IP do servidor do Next, e o limite "por IP" vira um limite global. Junto da F8.
+  - [ ] Limpeza periódica de linhas vencidas de `signup_verifications` (hoje só crescem); job do pg-boss ou `DELETE` agendado (F8).
+  - [ ] Sondagem de celular e CNPJ em uso: o comprovante só é gasto quando a conta é criada, então um comprovante válido permite sondar `PHONE_TAKEN` e `CNPJ_TAKEN` (409) sem limite durante 30 min; `POST /api/companies` também não tem limite para quem está logado. Plano, antes de ir ao ar: contar as criações recusadas por comprovante (queimar depois de N = 3) e pôr limite por IP nas duas rotas.
+  - [ ] Sem conferência de `Origin` em `POST /api/signup` e `POST /api/companies` (mitigado pelo cookie `SameSite=Lax` e por só aceitarem JSON). Na F8, gancho `onRequest` que compara `Origin` com `APP_URL`.
+  - [ ] `tax_settings.valid_from` usa a data em `America/Sao_Paulo` mesmo para unidades em Manaus ou Rio Branco (diferença de no máximo um dia na data de início).
+  - [ ] GRANT e política de INSERT em `membership_units` para `app_auth` não são usados pelo código (o dono tem `all_units`); avaliar retirar numa migration futura (menor privilégio).
+  - [ ] Consulta pública de CNPJ (RF01.R2, Obs1 "opcionalmente"): sugestão sem etapa; hoje o CNPJ só passa pelo dígito verificador.
+  - [ ] `GET /api/me` devolve só `userId`, `name` e `email` e ignora `memberships.preferred_at`; na F2 (empresa ativa do painel) usar a empresa mais recente pelo `preferred_at`, como o canal (`resolveSender`).
+  - [ ] `timezoneForUf` (cadastro) mapeia alguns estados para fusos próprios (AL, BA etc.) e o resto para `America/Sao_Paulo`; conferir o mapa com o RF04.R4.
+  - [ ] Usuário só com vínculos desativados não cria empresa (`/api/companies` dá 401, igual ao `/api/me`); decisão de produto se precisar permitir.
+  - [x] Teste instável `apps/api/test/signup-code.int.test.ts` ("auditoria e logs..."): com o relógio congelado os dois eventos tinham o mesmo `created_at` e o desempate pelo id (UUID v7 sem contador) era sorteado; o teste agora avança 1 s entre o envio e a verificação (revisão final da F1b).
+  - [ ] A API falsa do E2E (`apps/web/e2e/fake-api.mjs`) não espelha todos os erros do cadastro (só `INVALID_CODE`, `RECEIPT_INVALID`, `cnpj_invalid` e 401 de `/api/companies`); os demais ficam nos testes unitários e de integração.
+  - [ ] Constantes duplicadas a juntar no `core`: `hashSignupEmail` e `hashEmail` (`signup-hashing.ts` e `create-auth.ts`); `MAX_CODE_ATTEMPTS` (`signup-store.ts`) e `allowedAttempts: 3` (Better Auth); `SIGNUP_CODE_TTL_MS` e `expiresIn: 300`; `DAY_MS` e `SIGNUP_TIME_ZONE` copiados em `create-account.ts` e `create-company.ts`.
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 

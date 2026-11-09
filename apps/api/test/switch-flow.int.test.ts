@@ -37,6 +37,7 @@ import { createDevMessageSender } from "../src/infra/dev-message-sender";
 import { createLogger } from "../src/infra/logger";
 import { createInMemoryMediaStore } from "../src/infra/media/local-media-store";
 import { createEntryHandlers } from "../src/modules/entries/entry-handlers";
+import { CHOICE_CANCELLED_TEXT } from "../src/modules/inbound/messages";
 import { createFailureNotifier } from "../src/modules/inbound/notify-failure";
 import { createProcessInbound } from "../src/modules/inbound/process-inbound";
 import { createRouteInbound, defaultHandlers } from "../src/modules/inbound/route-inbound";
@@ -258,6 +259,7 @@ describe("trocar unidade (RF19.CA03)", () => {
     expect((await lastReply())?.text).toContain("Responda só com o número");
     expect((await lastReply())?.text).toContain("1. Matriz");
     await w.say(OWNER, "cancelar");
+    expect((await lastReply())?.text).toBe(CHOICE_CANCELLED_TEXT);
     expect(await aiCalls()).toBe(0);
     const open = await db.admin.query("select status from pending_questions");
     expect(open.rows).toEqual([{ status: "cancelled" }]);
