@@ -43,10 +43,19 @@ export interface MessageSender {
   showTyping(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
 }
 
-export type AccessCodePurpose = "sign-in" | "email-verification" | "forget-password";
+export type AccessCodePurpose =
+  | "sign-in"
+  | "email-verification"
+  | "forget-password"
+  /** Aviso do autocadastro para e-mail que já tem conta: sem código, com o link de login (F1b). */
+  | "account-exists";
+
+export type AccessCodeMessage =
+  | { to: string; code: string; purpose: Exclude<AccessCodePurpose, "account-exists"> }
+  | { to: string; purpose: "account-exists"; loginUrl: string };
 
 export interface EmailSender {
-  sendAccessCode(message: { to: string; code: string; purpose: AccessCodePurpose }): Promise<void>;
+  sendAccessCode(message: AccessCodeMessage): Promise<void>;
 }
 
 export interface TenantExtractionContext {

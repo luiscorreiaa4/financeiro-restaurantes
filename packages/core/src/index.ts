@@ -9,4 +9,5 @@ export * from "./permissions";
 export * from "./phone";
 export type * from "./ports";
 export * from "./registry";
+export * from "./signup";
 export * from "./tax";
