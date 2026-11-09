@@ -18,11 +18,15 @@ const KNOWN: SenderResolution = {
     permissions: [],
     panelAccess: true,
     tenantUnitIds: [],
+    tenantUnits: [],
+    preferredAt: null,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     deactivatedAt: null,
   },
   defaultUnitId: null,
   tenantCount: 1,
+  citedUnitId: null,
+  activeMemberships: [],
 };
 
 const confirmation: ReplyTarget = {
