@@ -7,12 +7,14 @@ import {
 import type { Env } from "@app/config/env";
 import {
   DEFAULT_USAGE_LIMITS,
+  type EmailSender,
   fail,
   type MediaDownloader,
   type MessageSender,
   type Transcriber,
 } from "@app/core";
 import {
+  createAuthStore,
   createDatabase,
   createEntryStore,
   createInboundIngestRepo,
@@ -27,15 +29,19 @@ import {
   uuidv7,
 } from "@app/db";
 import type { AppDeps } from "./app";
+import { createBackgroundTasks } from "./infra/auth/background-tasks";
+import { createAuth, createAuthGateway } from "./infra/auth/create-auth";
 import { createSystemClock } from "./infra/clock";
 import { createDevMessageSender } from "./infra/dev-message-sender";
-import type { JobLogger } from "./infra/logger";
+import { createFileEmailSender } from "./infra/email/file-email-sender";
+import { createLogger, type JobLogger } from "./infra/logger";
 import { createDevFileMediaDownloader } from "./infra/media/dev-file-media-downloader";
 import { createFfmpegAudioConverter } from "./infra/media/ffmpeg-audio-converter";
 import { createLocalMediaStore } from "./infra/media/local-media-store";
 import { createQrReader } from "./infra/media/qr-reader";
 import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
+import { createCheckSession, createSessionBlocked } from "./modules/auth/check-session";
 import { createEntryHandlers } from "./modules/entries/entry-handlers";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
@@ -58,6 +64,7 @@ export async function compose(
   const ingestPool = createPool(env.DATABASE_INGEST_URL);
   const queue = await createPgBossQueue(env.DATABASE_ADMIN_URL, onQueueError);
   const repo = createInboundIngestRepo(createDatabase(ingestPool));
+  const auth = composeAuth(env);
 
   return {
     deps: {
@@ -66,12 +73,74 @@ export async function compose(
         verifyToken: env.WHATSAPP_VERIFY_TOKEN,
         ingest: createIngestWebhook({ repo, queue }),
       },
+      auth: auth.deps,
     },
     async close() {
       await queue.stop();
-      await ingestPool.end();
+      await Promise.all([ingestPool.end(), auth.close()]);
     },
   };
+}
+
+/** Acesso ao painel (F1a): Better Auth sobre o papel `app_auth`. */
+function composeAuth(env: Env): { deps: NonNullable<AppDeps["auth"]>; close(): Promise<void> } {
+  if (env.DATABASE_AUTH_URL === undefined) {
+    throw new Error("DATABASE_AUTH_URL é obrigatória para o login do painel (papel app_auth)");
+  }
+  if (env.AUTH_SECRET === undefined) {
+    throw new Error("AUTH_SECRET é obrigatória para assinar o cookie de sessão do painel");
+  }
+  const email = createAuthEmailSender(env);
+  const pool = createPool(env.DATABASE_AUTH_URL);
+  const clock = createSystemClock();
+  const store = createAuthStore(createDatabase(pool), clock);
+  // Só o texto fixo das mensagens do Better Auth chega ao log (regra 9).
+  const logger = createLogger(env.LOG_LEVEL);
+  // Erro no envio do código: só o tipo do erro, sem mensagem (pode ter e-mail).
+  // Fila cheia: só a contagem de pendentes, nada da tarefa.
+  const background = createBackgroundTasks({
+    onError: (error) =>
+      logger.error(
+        { errorName: error instanceof Error ? error.name : typeof error },
+        "falha no envio do código",
+      ),
+    onDrop: (pending) => logger.warn({ pending }, "envio de código descartado: fila cheia"),
+  });
+  const gateway = createAuthGateway(
+    createAuth({
+      pool,
+      store,
+      email,
+      clock,
+      secret: env.AUTH_SECRET,
+      baseUrl: env.APP_URL,
+      trustedOrigins: [env.APP_URL],
+      secureCookies: env.NODE_ENV !== "development",
+      background,
+      log: (level, message) => logger[level]({ component: "better-auth" }, message),
+    }),
+  );
+  return {
+    deps: {
+      gateway,
+      checkSession: createCheckSession({ gateway, access: store, clock }),
+      sessionBlocked: createSessionBlocked({ gateway, access: store }),
+    },
+    async close() {
+      await background.drain();
+      await pool.end();
+    },
+  };
+}
+
+/** E-mail do código de acesso. O envio real (domínio, SPF, DKIM) chega na F8. */
+export function createAuthEmailSender(env: Pick<Env, "NODE_ENV" | "DEV_MAIL_DIR">): EmailSender {
+  if (env.NODE_ENV === "production") {
+    throw new Error(
+      "sem serviço de e-mail configurado (F8): o envio para arquivo é só de desenvolvimento",
+    );
+  }
+  return createFileEmailSender(env.DEV_MAIL_DIR);
 }
 
 /**
