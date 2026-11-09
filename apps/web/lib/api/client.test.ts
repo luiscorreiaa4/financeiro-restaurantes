@@ -72,3 +72,35 @@ describe("cliente da API", () => {
     });
   });
 });
+
+describe("cliente da API: POST", () => {
+  it("envia JSON com cookies e valida a resposta", async () => {
+    let called: { url: string; init?: RequestInit } | undefined;
+    const api = createApiClient({
+      baseUrl: "",
+      fetch: async (url, init) => {
+        called = { url: String(url), init };
+        return jsonResponse({ ok: true });
+      },
+    });
+
+    await expect(api.post("/api/x", { a: 1 }, healthSchema)).resolves.toEqual({ ok: true });
+
+    expect(called?.url).toBe("/api/x");
+    expect(called?.init?.method).toBe("POST");
+    expect(called?.init?.credentials).toBe("include");
+    expect(called?.init?.body).toBe('{"a":1}');
+  });
+
+  it("erro da API vira ApiError com o corpo {code, message}", async () => {
+    const api = createApiClient({
+      baseUrl: "",
+      fetch: async () => jsonResponse({ code: "INVALID_OTP", message: "Código inválido." }, 400),
+    });
+
+    await expect(api.post("/api/x", {}, healthSchema)).rejects.toMatchObject({
+      status: 400,
+      body: { code: "INVALID_OTP" },
+    });
+  });
+});
