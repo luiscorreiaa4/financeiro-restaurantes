@@ -304,9 +304,10 @@ export interface ChoiceStore {
     expiresAt: Date;
   }): Promise<void>;
   /**
-   * Grava a escolha e fecha a pergunta como respondida. `chosenId` é a unidade (`unit`) ou o
-   * restaurante (`tenant`). `false` se nada foi gravado: pergunta já fechada, unidade fora do
-   * acesso do vínculo ou restaurante sem vínculo ativo do usuário.
+   * Grava a escolha; quem fecha a pergunta é o chamador, depois de responder (DE-26), então
+   * repetir a chamada com a mesma pergunta é inofensivo. `chosenId` é a unidade (`unit`) ou o
+   * restaurante (`tenant`). `false` se nada foi gravado: pergunta já fechada, unidade inativa ou
+   * fora do acesso do vínculo, ou restaurante sem vínculo ativo do usuário.
    */
   apply(input: {
     tenantId: string;

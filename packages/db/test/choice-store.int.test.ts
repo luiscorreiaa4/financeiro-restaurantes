@@ -95,7 +95,7 @@ describe("ChoiceStore.open", () => {
 });
 
 describe("ChoiceStore.apply", () => {
-  it("trocar unidade grava a unidade padrão do vínculo e fecha a pergunta", async () => {
+  it("trocar unidade grava a unidade padrão do vínculo e deixa o fechamento para o chamador (DE-26)", async () => {
     const id = await openChoice("unit");
     const done = await store().apply({
       tenantId: a.tenantId,
@@ -107,7 +107,45 @@ describe("ChoiceStore.apply", () => {
     });
     expect(done).toBe(true);
     expect((await membership(a.tenantId, a.userId)).default_unit_id).toBe(praiaId);
-    expect((await questionStatus(id)).status).toBe("answered");
+    expect((await questionStatus(id)).status).toBe("open");
+  });
+
+  it("repetir a mesma resposta é inofensivo enquanto a pergunta está aberta", async () => {
+    const id = await openChoice("unit");
+    const input = {
+      tenantId: a.tenantId,
+      userId: a.userId,
+      questionId: id,
+      target: "unit" as const,
+      chosenId: praiaId,
+      now: NOW,
+    };
+    expect(await store().apply(input)).toBe(true);
+    expect(await store().apply(input)).toBe(true);
+    expect((await membership(a.tenantId, a.userId)).default_unit_id).toBe(praiaId);
+  });
+
+  it("não grava unidade inativa", async () => {
+    const inactiveId = uuidv7();
+    await db.admin.query(
+      "insert into units (id, tenant_id, name, status) values ($1, $2, 'Fechada', 'inactive')",
+      [inactiveId, a.tenantId],
+    );
+    await db.admin.query(
+      "update memberships set default_unit_id = $3 where tenant_id = $1 and user_id = $2",
+      [a.tenantId, a.userId, a.unitId],
+    );
+    const id = await openChoice("unit");
+    const done = await store().apply({
+      tenantId: a.tenantId,
+      userId: a.userId,
+      questionId: id,
+      target: "unit",
+      chosenId: inactiveId,
+      now: NOW,
+    });
+    expect(done).toBe(false);
+    expect((await membership(a.tenantId, a.userId)).default_unit_id).toBe(a.unitId);
   });
 
   it("não grava unidade fora das unidades de acesso do vínculo", async () => {
@@ -153,7 +191,7 @@ describe("ChoiceStore.apply", () => {
     expect((await questionStatus(id)).status).toBe("open");
   });
 
-  it("trocar empresa marca só o vínculo escolhido e fecha a pergunta no restaurante de origem", async () => {
+  it("trocar empresa marca só o vínculo escolhido", async () => {
     const id = await openChoice("tenant");
     const done = await store().apply({
       tenantId: a.tenantId,
@@ -166,7 +204,6 @@ describe("ChoiceStore.apply", () => {
     expect(done).toBe(true);
     expect((await membership(b.tenantId, a.userId)).preferred_at).toEqual(NOW);
     expect((await membership(a.tenantId, a.userId)).preferred_at).toBeNull();
-    expect((await questionStatus(id)).status).toBe("answered");
   });
 
   it("a escolha passa a valer no SenderDirectory", async () => {

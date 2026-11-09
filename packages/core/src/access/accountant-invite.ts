@@ -60,6 +60,8 @@ export function planAccountantInvite(
     tenantUnitIds: input.tenantUnitIds,
     panelAccess: true,
     email: input.email,
+    // O contador não usa o WhatsApp: pode existir só com e-mail (DD-20).
+    phone: null,
     permissions: [],
   });
   if (!access.ok) return access;

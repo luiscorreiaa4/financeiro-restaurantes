@@ -35,7 +35,11 @@ import {
   type UsageLimits,
 } from "@app/core";
 import type { JobLogger } from "../../infra/logger";
-import { OUT_OF_SCOPE_TEXT, UNSUPPORTED_TYPE_TEXT } from "../inbound/messages";
+import {
+  CHOICE_CANCELLED_TEXT,
+  OUT_OF_SCOPE_TEXT,
+  UNSUPPORTED_TYPE_TEXT,
+} from "../inbound/messages";
 import type { RouteContext, RouteHandlers } from "../inbound/route-inbound";
 import {
   ALREADY_UNDONE_TEXT,
@@ -556,7 +560,11 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
         return;
       }
       await store.closePendingQuestion(tenantId, pending.id, "cancelled");
-      await context.reply(PENDING_DISCARDED_TEXT, "notice");
+      // A lista numerada de `trocar unidade`/`trocar empresa` não é um lançamento pendente (DE-26).
+      await context.reply(
+        pending.kind === "choice" ? CHOICE_CANCELLED_TEXT : PENDING_DISCARDED_TEXT,
+        "notice",
+      );
     },
 
     async undo(context, target: ReplyTarget | null) {

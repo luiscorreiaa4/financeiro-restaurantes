@@ -39,6 +39,7 @@ export type DomainError =
   | { readonly code: "OwnerNeedsAllUnits" }
   | { readonly code: "AccountantNeedsAllUnits" }
   | { readonly code: "EmailRequiredForPanel" }
+  | { readonly code: "PhoneRequired" }
   | { readonly code: "LastActiveOwner" }
   | { readonly code: "TaxRuleNotFound"; readonly regime: string; readonly month: string }
   | { readonly code: "TaxParamMissing"; readonly param: string }

@@ -37,6 +37,8 @@ export const DEV_EMAILS = {
   staff: "atendente@demo.dev",
   twoRestaurants: "dona.dos.dois@demo.dev",
   deactivated: "ex.funcionario@demo.dev",
+  /** Contadora sem celular: entra só pelo painel e o canal a ignora (DD-20, DE-26). */
+  accountant: "contadora@demo.dev",
 } as const;
 
 /** Senha conhecida do Dono Demo, **só de desenvolvimento** (o seed recusa produção). */
@@ -98,6 +100,8 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
       { id: id(23), name: "Atendente Demo", phoneE164: DEV_PHONES.staff },
       { id: id(24), name: "Dona dos Dois", phoneE164: DEV_PHONES.twoRestaurants },
       { id: id(25), name: "Ex-funcionário", phoneE164: DEV_PHONES.deactivated },
+      // Sem celular de propósito: o contador existe só com e-mail (DD-20).
+      { id: id(26), name: "Contadora Demo", phoneE164: null },
     ])
     .onConflictDoNothing();
 
@@ -108,6 +112,7 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
     [23, DEV_EMAILS.staff],
     [24, DEV_EMAILS.twoRestaurants],
     [25, DEV_EMAILS.deactivated],
+    [26, DEV_EMAILS.accountant],
   ];
   for (const [n, email] of emails) {
     await db
@@ -220,6 +225,25 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
         defaultUnitId: id(11),
         createdAt: earlier,
         deactivatedAt: later,
+      },
+      // A contadora vê as duas empresas, só lê e entra pelo painel (RF36, DD-03).
+      {
+        id: id(37),
+        tenantId: DEMO,
+        userId: id(26),
+        role: "accountant",
+        allUnits: true,
+        panelAccess: true,
+        createdAt: earlier,
+      },
+      {
+        id: id(38),
+        tenantId: DEMO_2,
+        userId: id(26),
+        role: "accountant",
+        allUnits: true,
+        panelAccess: true,
+        createdAt: earlier,
       },
     ])
     .onConflictDoNothing();

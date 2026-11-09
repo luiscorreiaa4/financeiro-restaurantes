@@ -54,9 +54,16 @@ function membership(overrides: Partial<SenderMembership> = {}): SenderMembership
 }
 
 function setup(
-  options: { sender?: SenderMembership; active?: SenderMembership[]; applies?: boolean } = {},
+  options: {
+    sender?: SenderMembership;
+    active?: SenderMembership[];
+    applies?: boolean;
+    /** Quantos envios seguidos falham antes de um funcionar. */
+    replyFailures?: number;
+  } = {},
 ) {
   const sender = options.sender ?? membership();
+  let failures = options.replyFailures ?? 0;
   const sent: { text: string; purpose: OutboundPurpose }[] = [];
   const opened: Parameters<ChoiceStore["open"]>[0][] = [];
   const applied: Parameters<ChoiceStore["apply"]>[0][] = [];
@@ -88,6 +95,10 @@ function setup(
     citedUnitId: null,
     activeMemberships: options.active ?? [sender],
     async reply(text, purpose) {
+      if (failures > 0) {
+        failures -= 1;
+        throw new Error("envio falhou");
+      }
       sent.push({ text, purpose });
       return "out-1";
     },
@@ -193,8 +204,9 @@ describe("trocar empresa (RF19)", () => {
 
 describe("resposta à lista numerada", () => {
   it("o número escolhe a unidade e confirma, sem IA", async () => {
-    const { handlers, context, sent, applied } = setup();
+    const { handlers, context, sent, applied, closed } = setup();
     await handlers.answerChoice(context, pendingChoice(UNIT_DRAFT));
+    expect(closed).toEqual([{ id: "q-1", status: "answered" }]);
     expect(applied).toEqual([
       {
         tenantId: TENANT_A,
@@ -238,9 +250,23 @@ describe("resposta à lista numerada", () => {
   );
 
   it("quando o banco não grava, avisa e deixa a pergunta aberta", async () => {
-    const { handlers, context, sent } = setup({ applies: false });
+    const { handlers, context, sent, closed } = setup({ applies: false });
     await handlers.answerChoice(context, pendingChoice(UNIT_DRAFT));
     expect(sent).toEqual([{ text: CHOICE_FAILED_TEXT, purpose: "notice" }]);
+    expect(closed).toEqual([]);
+  });
+
+  it('se o envio do "Pronto!" falha, a pergunta segue aberta e o job repetido aplica de novo e fecha (DE-26)', async () => {
+    const { handlers, context, sent, applied, closed } = setup({ replyFailures: 1 });
+    await expect(handlers.answerChoice(context, pendingChoice(UNIT_DRAFT))).rejects.toThrow(
+      "envio falhou",
+    );
+    expect(closed).toEqual([]);
+
+    await handlers.answerChoice(context, pendingChoice(UNIT_DRAFT));
+    expect(applied).toHaveLength(2);
+    expect(sent).toEqual([{ text: unitSwitchedText("Praia"), purpose: "notice" }]);
+    expect(closed).toEqual([{ id: "q-1", status: "answered" }]);
   });
 
   it("rascunho corrompido cancela a pergunta em vez de travar a conversa", async () => {

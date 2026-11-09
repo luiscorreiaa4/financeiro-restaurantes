@@ -36,7 +36,7 @@ describe("seed de desenvolvimento", () => {
     const { rows } = await db.admin.query(
       "select (select count(*)::int from tenants) as tenants, (select count(*)::int from memberships) as memberships",
     );
-    expect(rows[0]).toEqual({ tenants: 2, memberships: 6 });
+    expect(rows[0]).toEqual({ tenants: 2, memberships: 8 });
     const links = await db.admin.query("select count(*)::int as n from membership_units");
     expect(links.rows[0].n).toBe(4);
   });
@@ -60,6 +60,29 @@ describe("seed de desenvolvimento", () => {
       units_ready: 3,
       units: 3,
     });
+  });
+
+  it("a Contadora Demo existe só com e-mail, vê as duas empresas e o canal a ignora (DD-20, DE-26)", async () => {
+    await seedDevData(createDatabase(db.admin), "development");
+    const { rows } = await db.admin.query(
+      `select u.phone_e164, u.email, m.role, m.all_units, m.panel_access, m.status
+       from users u join memberships m on m.user_id = u.id
+       where u.email = $1 order by m.tenant_id`,
+      [DEV_EMAILS.accountant],
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatchObject({
+        phone_e164: null,
+        role: "accountant",
+        all_units: true,
+        panel_access: true,
+        status: "active",
+      });
+    }
+    // Sem celular ela nunca é achada; e, mesmo que tivesse, o vínculo de contador é descartado.
+    const directory = createSenderDirectory(createDatabase(db.ingest));
+    expect(resolveSender(await directory.findMemberships([]))).toEqual({ kind: "unknown" });
   });
 
   it("cada telefone cai no caso de teste prometido", async () => {

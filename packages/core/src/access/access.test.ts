@@ -14,6 +14,7 @@ function input(overrides: Partial<AccessInput> = {}): AccessInput {
     tenantUnitIds: [U1, U2, U3],
     panelAccess: false,
     email: null,
+    phone: "+5511987650001",
     permissions: [],
     ...overrides,
   };
@@ -150,5 +151,24 @@ describe("ensureActiveOwner (RF05.Obs3, RF05.CA06)", () => {
 
   it("alterar quem não é Dono sempre pode", () => {
     expect(ensureActiveOwner(owners, { membershipId: "m2", role: "staff" }).ok).toBe(true);
+  });
+});
+
+describe("validateAccess: celular de quem usa o WhatsApp (RF05.R2, DD-20)", () => {
+  it.each(["owner", "manager", "staff"] as const)("exige celular para %s", (role) => {
+    const result = validateAccess(input({ role, allUnits: role === "owner", phone: null }));
+    expect(result).toEqual({ ok: false, error: { code: "PhoneRequired" } });
+  });
+
+  it("trata celular em branco como ausente", () => {
+    const result = validateAccess(input({ phone: "  " }));
+    expect(result).toEqual({ ok: false, error: { code: "PhoneRequired" } });
+  });
+
+  it("aceita o contador só com e-mail", () => {
+    const result = validateAccess(
+      input({ role: "accountant", allUnits: true, email: "c@escritorio.com", phone: null }),
+    );
+    expect(result.ok).toBe(true);
   });
 });
