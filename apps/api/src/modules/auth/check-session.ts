@@ -19,6 +19,13 @@ export interface AuthGateway {
   readSession(headers: Headers): Promise<AuthSession | null>;
   /** Renova a sessão "manter conectado" e devolve os `set-cookie` com o novo prazo. */
   refreshSession(headers: Headers): Promise<string[]>;
+  /**
+   * Abre a sessão de um usuário recém-criado (autocadastro, RF01.Obs2), sem "manter conectado",
+   * e devolve os `set-cookie`. Não confere vínculo: quem chama acabou de criá-lo.
+   */
+  openSession(input: { userId: string; ip?: string; userAgent?: string }): Promise<string[]>;
+  /** Hash de senha pelo mesmo mecanismo do login por senha (conta `credential`). */
+  hashPassword(password: string): Promise<string>;
 }
 
 export interface SessionAccess {

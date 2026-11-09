@@ -1,18 +1,14 @@
-import type { EmailSender } from "@app/core";
+import type { AccessCodeMessage, EmailSender } from "@app/core";
 
-export interface SentAccessCode {
-  to: string;
-  code: string;
-  purpose: string;
-}
+export type SentAccessCode = AccessCodeMessage;
 
-/** Para testes: guarda os envios em memória. */
+/** Para testes: guarda os envios em memória (código ou aviso de conta existente). */
 export function createMemoryEmailSender(): EmailSender & { sent: ReadonlyArray<SentAccessCode> } {
   const sent: SentAccessCode[] = [];
   return {
     sent,
     async sendAccessCode(message) {
-      sent.push({ to: message.to, code: message.code, purpose: message.purpose });
+      sent.push({ ...message });
     },
   };
 }
