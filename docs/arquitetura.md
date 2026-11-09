@@ -84,8 +84,12 @@ Durante o desenvolvimento, o canal é testado por um **chat de terminal** (`pnpm
 ```
 tenants              id, name, plan, created_at
 units                id, tenant_id, name, timezone
-users                id, name, email, phone_e164, created_at
+users                id, name, email, phone_e164 (opcional, DD-20), created_at; tabela de usuário do Better Auth (DD-19)
 memberships          id, tenant_id, user_id, unit_id (null = todas), role, permissions jsonb
+sessions             id, user_id, token, expires_at, ip_address, user_agent, keep_connected (Better Auth; sem tenant_id; só o papel app_auth, DD-24)
+accounts             id, user_id, account_id, provider_id, password (hash), tokens (Better Auth; só app_auth)
+verifications        id, identifier, value, expires_at (códigos de acesso por e-mail; só app_auth)
+auth_audit           id, user_id, email_hash, event (otp_sent|login|login_failed|password_locked|logout), ip, user_agent, created_at (só insere e lê, app_auth)
 categories           id, tenant_id (null = padrão do sistema), parent_id, name, kind (revenue|expense|investment|deduction), nature (fixed|variable), dre_group
 suppliers            id, tenant_id, name, document (cnpj/cpf), aliases text[]
 payment_methods      id, tenant_id, name, fee_percent_bp, fee_fixed_cents

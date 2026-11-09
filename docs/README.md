@@ -16,6 +16,7 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 | [`DESCOBERTA.md`](DESCOBERTA.md) | Resultado da reunião de descoberta de 05/11/2026: decisões, pendências abertas, escopo do MVP e o que ficou fora | Os dois |
 | [`arquitetura.md`](arquitetura.md) | **Como**: stack, fluxo da mensagem, modelo de dados e o que o código ainda não reflete dos requisitos | Luís |
 | [`produto.md`](produto.md) | Visão de produto e de negócio: problema, público, custos, validação, riscos | Os dois (mais o Matheus) |
+| [`custos-e-precificacao.md`](custos-e-precificacao.md) | Custo por restaurante (IA e WhatsApp), custo fixo, margem por preço, ponto de equilíbrio e propostas de preço (P03) | Os dois |
 | [`escopo-por-fase.md`](escopo-por-fase.md) | O que entra no MVP, na v1.1 e na Fase 2, por RF, com o que já está feito | Os dois |
 | [`politica-meta-whatsapp.md`](politica-meta-whatsapp.md) | O que a política da Meta exige de um bot no WhatsApp e como nos enquadramos. Local, fora do git | Os dois |
 
@@ -28,6 +29,7 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 | [`planos/luis.md`](planos/luis.md) | Contas, Meta, hospedagem e custo de IA (o que não é etapa de código). Local, fora do git | **Luís** |
 | [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md) | Etapas E1 a E14 do canal WhatsApp, com a tabela de progresso | Luís |
 | [`planos/painel.md`](planos/painel.md) | Etapas F0 a F13 do painel web, com a tabela de progresso | Luís |
+| [`planos/contingencia-canal.md`](planos/contingencia-canal.md) | Planos B, C e D se a Meta travar o WhatsApp, com o orçamento do Twilio e os gatilhos para trocar (DD-23) | Os dois |
 | [`planos/guia-testes-manuais.md`](planos/guia-testes-manuais.md) | Como testar à mão pelo `pnpm dev:chat`, e pelo celular quando a Meta liberar | Luís (e para demonstrar ao Matheus) |
 | `planos/pesquisa-claude-code.md` | Pesquisa sobre o ecossistema do Claude Code; a seção 12 lista o que adotar em cada etapa. Local | Luís |
 | `planos/prompts/` | Prompts para abrir uma sessão do Claude Code: executar uma etapa, planejar F0 e F1 do painel. Local | Luís |

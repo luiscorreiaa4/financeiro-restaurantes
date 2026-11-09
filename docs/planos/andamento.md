@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 06/11/2026 (F0 do painel feita; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 09/11/2026 (F0 e F1a do painel feitas; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. Falta só rodar o CI no GitHub |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 quase feita** (dados e domínio de 06/11/2026; faltam `trocar unidade`/`trocar empresa`/empresa citada e rodar os evals com uma chave Anthropic válida); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 feita (06/11/2026)**; F1 a F13 a fazer, **F1 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026) e F1a (09/11/2026) feitas**; F1b, F1c e F2 a F13 a fazer, **F1b é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -34,7 +34,7 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 ## 3. Próximos passos
 
 1. **E11 (canal): modelo de dados dos requisitos** (mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-2. **F1 (painel): autenticação e sessão.** A F0 está feita; a F1 precisa do banco (E2, pronto). Planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`), fazendo antes a prova de conceito do Better Auth com Fastify (prompt de apoio em [`prompts/planejar-painel-f0-f1.txt`](prompts/planejar-painel-f0-f1.txt)). As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
+2. **F1b (painel): autocadastro do dono.** A F1a (login por código e por senha) está feita. A F1b precisa de migration com INSERT e política para `app_auth` em `users`, `memberships` e `tenants`. Planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`); a F1c (recuperação, perfil e lista de sessões) vem depois. As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
 3. **Rodar o CI no GitHub**, agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
 5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
@@ -49,6 +49,8 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 | Número de WhatsApp definitivo e nome de exibição | Luís | E10 |
 | Abrir o CNPJ | Matheus | Verificação da empresa na Meta |
 | Chave da OpenAI | Luís | Só o teste de áudio real |
+
+Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio), C (Telegram) e D (painel como entrada) e os gatilhos para acioná-los estão em [`contingencia-canal.md`](contingencia-canal.md) (DD-23).
 
 ## 5. Pendências técnicas do canal WhatsApp
 
@@ -72,12 +74,12 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 - **E11, pendentes (mudança `e11-modelo-de-dados`, tarefas 3.8 e 7.3):**
   - [ ] `trocar unidade`, `trocar empresa` e empresa citada no texto (RF11.R5, RF19): falta decidir onde guardar a escolha. Proposta em `openspec/changes/e11-modelo-de-dados/design.md` ("Open Questions"); decidir, registrar em `decisoes.md` e só então implementar.
   - [ ] Rodar `pnpm --filter @app/ai eval` e conferir contra o baseline: a `ANTHROPIC_API_KEY` do `.env` está inválida (401). Trocar a chave primeiro.
-  - [ ] Contador criado só por e-mail: `users.phone_e164` é obrigatório hoje (ajustar na F1/F13).
+  - [ ] Contador criado só por e-mail: `users.phone_e164` passa a opcional na F1a (DD-20); falta o ajuste no canal (identificação, tipos, seed e testes) e a regra de domínio que exige celular do dono e dos colaboradores do WhatsApp.
   - Depois de fechar as três (a pasta `openspec/changes/e11-modelo-de-dados/` fica como registro, sem arquivar): marcar a E11 como "Feita" nos planos e atualizar o `CLAUDE.md`.
 
 ## 6. Painel
 
-**F0 feita em 06/11/2026**; F1 a F13 a fazer, a **F1 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
+**F0 feita em 06/11/2026 e F1a em 09/11/2026**; F1b, F1c e F2 a F13 a fazer, a **F1b é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
@@ -88,6 +90,15 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
   - [ ] Confirmar com o Luís que a base dos componentes do shadcn (`@base-ui/react`, preset `base-nova`) serve à F3 (tabela, formulário, drawer). Alternativa: refazer o `init` com `--base radix`.
   - [ ] Seguem ⚠️ no `painel.md`: prova de conceito do Better Auth com Fastify e `rewrites` (F1), `storageState` do Playwright (F1), manifest do PWA (F7), CSP e Web Vitals (F8), base do TanStack Table (F3).
   - [x] `apps/web/CLAUDE.md` criado (regras de cache, dinheiro, datas, testes e E2E do painel).
+- **Pendências deixadas pela F1a (09/11/2026):**
+  - [ ] **Fluxo à mão não feito:** aplicar as migrations 0011 e 0012 no banco dev (`pnpm db:migrate`), preencher `AUTH_SECRET` e `DATABASE_AUTH_URL` no `.env`, rodar `pnpm db:seed:dev` e testar o login em `http://localhost:3000/login` (código sai em `.dev-mail/`). Dono: Luís. Anotar o resultado aqui em uma linha.
+  - [ ] **Volumes Postgres existentes** não recebem o papel `app_auth` sozinhos: rodar `psql -U postgres -d app -f docker/postgres/init.sql` (é idempotente) ou recriar o volume.
+  - [ ] F2: renovar o cookie de "manter conectado" (o Next não grava cookie em layout/server component; até lá ele vence 30 dias após o login) e tratar 401 na camada de dados redirecionando para `/login`.
+  - [ ] F8: `trustProxy` e o IP real atrás do rewrite do Next; produção só sobe com autenticação (`DATABASE_AUTH_URL`) e e-mail reais configurados (sem chave liga/desliga).
+  - [ ] F1b: o autocadastro precisa de INSERT em `users`, `memberships` e `tenants` para `app_auth`.
+  - [ ] Fila de e-mail: o envio do código roda em memória por processo, sem fila persistente (DD-21); trocar na F8.
+  - [ ] Minors do review da F1a (deferidos): juntar 0011 e 0012 numa migration antes de ir para produção; `email_hash` sem CHECK de formato e sem índice `(user_id, created_at)` em `auth_audit`; `users.updated_at` sem `$onUpdate`; UPDATE de `users` em nível de tabela para `app_auth`; `onError` que lança vira unhandled rejection; `apps/web/AGENTS.md` ainda não rastreado (decidir `.gitignore`).
+  - [x] `users.phone_e164` opcional no esquema (DD-20); falta o lado do canal (seção 5).
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 

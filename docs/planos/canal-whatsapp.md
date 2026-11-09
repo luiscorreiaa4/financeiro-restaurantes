@@ -91,6 +91,8 @@ No documento de requisitos as duas aparecem juntas como a pendência **P15** (de
 
 **Para repetir o teste real da E3 quando P1 for resolvido:** `guia-testes-manuais.md`, seção 10. Mandar "Teste" do celular; deve entrar 1 linha em `inbound_messages` com o seu `wa_id` e 1 job em `pgboss.job`.
 
+**Se a Meta não liberar:** planos B, C e D e os gatilhos em [`contingencia-canal.md`](contingencia-canal.md).
+
 **Enquanto isso:** desenvolver E4 a E9 testando pelo **chat de desenvolvimento no terminal** (D7, seção 3.6), mais as fixtures e o POST assinado local. O WhatsApp real só é configurado no fim, na E10.
 
 ## 2. Tecnologias: o que a documentação atual diz
