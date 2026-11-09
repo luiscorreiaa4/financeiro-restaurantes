@@ -14,7 +14,7 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 - [x] TypeScript strict, Biome, Vitest configurados na raiz
 - [x] `packages/config/env`: validação de variáveis de ambiente com Zod (RNF01.R6)
 - [x] Docker Compose com Postgres 16 para desenvolvimento
-- [ ] CI no GitHub Actions: lint, typecheck, testes (workflow escrito; falta rodar no GitHub)
+- [x] CI no GitHub Actions: lint, typecheck, testes (rodou verde em 09/11/2026)
 - [x] `.env.example` completo
 
 ## MVP, por requisito
@@ -105,7 +105,7 @@ Antes dos requisitos, o trabalho era dividido em fases numeradas. A tabela liga 
 
 | Fase | Tema | Etapas |
 |---|---|---|
-| 0 | Fundação | feita (falta só rodar o CI) |
+| 0 | Fundação | feita (CI verde em 09/11/2026) |
 | 1 | Domínio e banco | E1, E2 (feitas); ajustes em E11 |
 | 2 | WhatsApp: recebimento e texto | E3 a E8 (feitas) |
 | 3 | Áudio e foto | E9 (feita, sem teste com mídia real) |
