@@ -135,6 +135,7 @@ export async function composeWorker(
       clock,
       answerChoice: switchHandlers.answerChoice,
       fallback: entryHandlers.pendingAnswer,
+      extract: entryHandlers.extract,
     }),
   };
 

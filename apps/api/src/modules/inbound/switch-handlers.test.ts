@@ -8,6 +8,7 @@ import type {
 } from "@app/core";
 import { describe, expect, it } from "vitest";
 import {
+  CHOICE_DISCARDED_TEXT,
   CHOICE_FAILED_TEXT,
   CHOICE_INVALID_TEXT,
   companySwitchedText,
@@ -254,10 +255,14 @@ describe("resposta à lista numerada", () => {
 describe("encaminhamento da resposta pendente", () => {
   const route = (pending: PendingQuestionRecord | null) => {
     const calls: string[] = [];
+    const closed: { id: string; status: string }[] = [];
     const router = createPendingAnswerRouter({
       store: {
         async findOpenPendingQuestion() {
           return pending;
+        },
+        async closePendingQuestion(_tenantId, id, status) {
+          closed.push({ id, status });
         },
       },
       clock: { now: () => NOW },
@@ -267,20 +272,53 @@ describe("encaminhamento da resposta pendente", () => {
       fallback: async () => {
         calls.push("clarify");
       },
+      extract: async () => {
+        calls.push("extract");
+      },
     });
-    return { router, calls };
+    return { router, calls, closed };
+  };
+  const withMessage = (message: Partial<ClaimedInboundMessage>) => {
+    const { context, sent } = setup();
+    return { context: { ...context, message: { ...context.message, ...message } }, sent };
   };
 
-  it("pergunta de escolha vai para o tratamento da lista, não para a IA", async () => {
-    const { router, calls } = route(pendingChoice(UNIT_DRAFT));
-    await router(setup().context);
-    expect(calls).toEqual(["choice"]);
-  });
+  it.each(["2", " 2. ", "9", "0"])(
+    "o número %j vai para o tratamento da lista, não para a IA",
+    async (text) => {
+      const { router, calls } = route(pendingChoice(UNIT_DRAFT));
+      await router(withMessage({ text }).context);
+      expect(calls).toEqual(["choice"]);
+    },
+  );
+
+  it.each(["paguei 80 de gás", "praia", "1 2"])(
+    "o lançamento novo %j descarta a lista com aviso e segue para a extração (DN-09)",
+    async (text) => {
+      const { router, calls, closed } = route(pendingChoice(UNIT_DRAFT));
+      const { context, sent } = withMessage({ text });
+      await router(context);
+      expect(closed).toEqual([{ id: "q-1", status: "cancelled" }]);
+      expect(sent).toEqual([{ text: CHOICE_DISCARDED_TEXT, purpose: "notice" }]);
+      expect(calls).toEqual(["extract"]);
+    },
+  );
+
+  it.each(["audio", "image"] as const)(
+    "%s com a lista aberta também descarta a lista e segue para a extração",
+    async (type) => {
+      const { router, calls, closed } = route(pendingChoice(UNIT_DRAFT));
+      await router(withMessage({ type, text: null }).context);
+      expect(closed).toHaveLength(1);
+      expect(calls).toEqual(["extract"]);
+    },
+  );
 
   it("pergunta de esclarecimento segue o caminho de sempre", async () => {
-    const { router, calls } = route({ ...pendingChoice(UNIT_DRAFT), kind: "clarify" });
+    const { router, calls, closed } = route({ ...pendingChoice(UNIT_DRAFT), kind: "clarify" });
     await router(setup().context);
     expect(calls).toEqual(["clarify"]);
+    expect(closed).toEqual([]);
   });
 
   it("sem pergunta aberta (expirou no meio), segue o caminho de sempre", async () => {

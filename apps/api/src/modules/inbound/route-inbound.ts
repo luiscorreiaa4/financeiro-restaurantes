@@ -130,9 +130,11 @@ export function createRouteInbound(deps: RouteInboundDeps): RouteInbound {
     // Resposta sempre para o formato aceito no envio (com o 9º dígito).
     const to = phone?.ok ? phone.value.e164 : message.waId === null ? null : `+${message.waId}`;
 
-    // Só texto cita empresa ou unidade: a transcrição e a leitura da nota vêm depois (DE-25).
+    // Só texto cita empresa ou unidade: a transcrição e a leitura da nota vêm depois (DE-25). Resposta
+    // (reply) a uma mensagem nossa nunca troca de empresa: ela corrige o lançamento de origem (RF17).
+    const citesPlace = message.type === "text" && message.replyToWaMessageId === null;
     const resolution = resolveSender(await deps.directory.findMemberships(candidates), {
-      text: message.type === "text" ? message.text : null,
+      text: citesPlace ? message.text : null,
     });
 
     const send = async (

@@ -318,6 +318,24 @@ describe("roteamento da mensagem recebida", () => {
       expect(seen[0]?.activeMemberships.map((m) => m.tenantId)).toEqual([TENANT_A, TENANT_B]);
     });
 
+    it("resposta a uma confirmação nossa nunca troca de empresa pelo texto (corrige o lançamento de origem)", async () => {
+      const { route, calls } = setup({
+        memberships: [centro, praia],
+        replyTargets: {
+          "dev.wamid.conf": {
+            outboundMessageId: "out-1",
+            inboundMessageId: "in-0",
+            purpose: "confirmation",
+          },
+        },
+      });
+      await route(
+        inbound({ text: "não, foi 50 no litoral", replyToWaMessageId: "dev.wamid.conf" }),
+      );
+      expect(calls.assigned[0]?.tenantId).toBe(TENANT_A);
+      expect(calls.handlers).toEqual(["correction:out-1"]);
+    });
+
     it("áudio e foto ficam na empresa padrão, mesmo citando a outra", async () => {
       const { route, calls } = setup({ memberships: [centro, praia] });
       await route(inbound({ type: "audio", text: "gastei 50 no litoral", media: null }));

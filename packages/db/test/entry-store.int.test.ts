@@ -228,6 +228,19 @@ describe("EntryStore: catálogo e duplicidade", () => {
     });
   });
 
+  it("devolve as unidades em ordem fixa (por nome), para a escolha de unidade não depender do banco", async () => {
+    const t = await createTenant(db.admin, "Ordem");
+    for (const name of ["Zeta", "Alfa"]) {
+      await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, $3)", [
+        uuidv7(),
+        t.tenantId,
+        name,
+      ]);
+    }
+    const catalog = await store().loadCatalog(t.tenantId);
+    expect(catalog.units.map((unit) => unit.name)).toEqual(["Alfa", "Matriz", "Zeta"]);
+  });
+
   it("lista os lançamentos ativos recentes e ignora os da lixeira", async () => {
     const inboundId = await inbound(a, "repetido");
     const entry = newEntry(a, inboundId, { description: "Repetido" });

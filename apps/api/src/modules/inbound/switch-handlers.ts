@@ -9,6 +9,7 @@ import {
   parseChoiceAnswer,
 } from "@app/core";
 import {
+  CHOICE_DISCARDED_TEXT,
   CHOICE_FAILED_TEXT,
   CHOICE_INVALID_TEXT,
   companySwitchedText,
@@ -138,12 +139,19 @@ export function createSwitchHandlers(deps: SwitchHandlersDeps): SwitchHandlers {
 }
 
 export interface PendingAnswerRouterDeps {
-  readonly store: Pick<EntryStore, "findOpenPendingQuestion">;
+  readonly store: Pick<EntryStore, "findOpenPendingQuestion" | "closePendingQuestion">;
   readonly clock: { now(): Date };
   readonly answerChoice: SwitchHandlers["answerChoice"];
   /** Resposta a pergunta de esclarecimento: o caminho da IA (RF15). */
   readonly fallback: RouteHandlers["pendingAnswer"];
+  /** Mensagem nova de lançamento (texto, áudio ou foto) com a lista aberta: segue para a extração. */
+  readonly extract: RouteHandlers["extract"];
 }
+
+/** A resposta à lista numerada é só o número de uma opção. */
+const isNumberAnswer = (context: RouteContext): boolean =>
+  context.message.type === "text" &&
+  /^\d+$/.test((context.message.text ?? "").trim().replace(/\.$/, "").trim());
 
 /** Separa a resposta à lista numerada (sem IA) da resposta a um esclarecimento (com IA). */
 export function createPendingAnswerRouter(
@@ -155,7 +163,14 @@ export function createPendingAnswerRouter(
       userId: context.sender.userId,
       now: deps.clock.now(),
     });
-    if (pending?.kind === "choice") return deps.answerChoice(context, pending);
+    if (pending?.kind === "choice") {
+      if (isNumberAnswer(context)) return deps.answerChoice(context, pending);
+      // Lançamento novo com a lista aberta: a lista sai de cena com aviso e a mensagem é registrada
+      // (DN-09), em vez de a pessoa ficar presa nela por até 24 h.
+      await deps.store.closePendingQuestion(context.sender.tenantId, pending.id, "cancelled");
+      await context.reply(CHOICE_DISCARDED_TEXT, "notice");
+      return deps.extract(context);
+    }
     return deps.fallback(context);
   };
 }

@@ -73,3 +73,6 @@ export const CHOICE_INVALID_TEXT =
   "Não entendi. Responda só com o número de uma das opções, ou mande 'cancelar'.";
 export const CHOICE_FAILED_TEXT =
   "Não consegui trocar agora. Mande 'trocar unidade' ou 'trocar empresa' de novo, ou fale com o suporte.";
+export const CHOICE_DISCARDED_TEXT =
+  "Deixei a troca de lado. Vou registrar a sua mensagem. Para trocar depois, mande 'trocar unidade' ou 'trocar empresa'.";
+export const CHOICE_CANCELLED_TEXT = "Pronto, deixei a troca de lado.";

@@ -208,7 +208,9 @@ export function createEntryStore(db: Database): EntryStore {
               defaultSalesChannelId: units.defaultSalesChannelId,
             })
             .from(units)
-            .where(eq(units.tenantId, tenantId)),
+            .where(eq(units.tenantId, tenantId))
+            // Ordem fixa: a escolha da primeira unidade de acesso (DE-25) não depende do plano do banco.
+            .orderBy(units.name, units.id),
         ]);
         return {
           categories: categoryRows.map((row) => ({

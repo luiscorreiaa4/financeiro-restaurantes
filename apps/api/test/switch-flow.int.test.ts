@@ -159,6 +159,7 @@ function world(extractions: Parameters<typeof createFakeEntryExtractor>[0] = [])
         clock,
         answerChoice: switchHandlers.answerChoice,
         fallback: entryHandlers.pendingAnswer,
+        extract: entryHandlers.extract,
       }),
     },
     supportContact: "suporte@exemplo.com.br",
@@ -196,6 +197,7 @@ const TWO = DEV_PHONES.twoRestaurants.replace("+", "");
 const DEMO = "0190a000-0000-7000-8000-000000000001";
 const DEMO_2 = "0190a000-0000-7000-8000-000000000002";
 const PRAIA = "0190a000-0000-7000-8000-000000000013";
+const MATRIZ_ID = "0190a000-0000-7000-8000-000000000011";
 
 const lastReply = async () =>
   (
@@ -234,6 +236,19 @@ describe("trocar unidade (RF19.CA03)", () => {
     await w.say(OWNER, "paguei 100 de gás");
     expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: PRAIA });
     expect((await lastReply())?.text).toContain("Registrado (Praia)");
+  });
+
+  it("lançamento novo com a lista aberta descarta a lista com aviso e é registrado (DN-09)", async () => {
+    const w = world([{ result: register() }]);
+    await w.say(OWNER, "trocar unidade");
+    await w.say(OWNER, "paguei 100 de gás");
+    expect(await lastEntry()).toEqual({ tenant_id: DEMO, unit_id: MATRIZ_ID });
+    const status = await db.admin.query("select status from pending_questions");
+    expect(status.rows).toEqual([{ status: "cancelled" }]);
+    const texts = (
+      await db.admin.query("select text from outbound_messages order by created_at, id")
+    ).rows.map((row: { text: string }) => row.text);
+    expect(texts.some((text) => text.includes("Deixei a troca de lado"))).toBe(true);
   });
 
   it("número fora da lista repete as opções e não grava nada", async () => {
