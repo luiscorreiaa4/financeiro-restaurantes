@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.2 (06/11/2026). Correção do RF05.R4 (CONTADOR é MVP, DD-03). Antes: 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Versão:** 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
 - **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
 - **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
@@ -574,7 +574,7 @@ Requisito responsável pelo cadastro das pessoas que usam o produto em uma empre
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
 | Nome | String | Sim | R1 |
-| Celular (WhatsApp) | String (xx) xxxxx-xxxx | Sim | R2 |
+| Celular (WhatsApp) | String (xx) xxxxx-xxxx | Sim, exceto Contador (DD-20) | R2 |
 | E-mail | String | Não | R3 |
 
 **Vínculo com a Empresa**
@@ -600,7 +600,7 @@ Requisito responsável pelo cadastro das pessoas que usam o produto em uma empre
 **Regras e observações do preenchimento dos campos:**
 
 - **R1** Nome tem de 2 a 120 caracteres. É o nome que aparece no histórico dos lançamentos ("lançado por").
-- **R2** Celular segue a normalização do RF01 (E.164, com e sem o 9º dígito tratados como o mesmo número). Um número pertence a uma única pessoa no sistema. Se o número já pertence a um usuário de outra empresa, o sistema cria apenas o vínculo com esta empresa, sem revelar ao Dono os dados nem a existência da outra empresa; o nome exibido nesta empresa é o informado pelo Dono. Não é permitido cadastrar o número do próprio produto nem números fora do Brasil (Fase: MVP).
+- **R2** Celular segue a normalização do RF01 (E.164, com e sem o 9º dígito tratados como o mesmo número). Um número pertence a uma única pessoa no sistema. Se o número já pertence a um usuário de outra empresa, o sistema cria apenas o vínculo com esta empresa, sem revelar ao Dono os dados nem a existência da outra empresa; o nome exibido nesta empresa é o informado pelo Dono. Não é permitido cadastrar o número do próprio produto nem números fora do Brasil (Fase: MVP). O Contador não usa o WhatsApp: pode ser cadastrado só com e-mail (DD-20), e o vínculo de Contador é ignorado na identificação do remetente (RF11, DE-26).
 - **R3** E-mail é obrigatório somente quando Acesso ao Painel = Sim, porque é o identificador de login (RF02). Segue as regras de unicidade do RF01. Para o papel Contador, o acesso ao painel é sempre Sim. Para o Lançador, o padrão é Não.
 - **R4** Papel: DONO, GERENTE, LANCADOR ou CONTADOR. As permissões de cada papel estão no RF06. O papel CONTADOR está no MVP (DD-03, RF36): é convidado pelo Dono com o aviso de folha e pode ter vínculo com várias empresas.
 - **R5** Unidades de Acesso: TODAS (inclui unidades criadas no futuro) ou uma lista de unidades específicas. O colaborador só lança, consulta e recebe relatórios das unidades de acesso. O Dono tem sempre acesso a TODAS.
@@ -2255,7 +2255,7 @@ Requisito responsável por dar ao contador do restaurante acesso de leitura e ex
 
 **Regras e observações do preenchimento dos campos:**
 
-- **R1** O contador é convidado pelo Dono (RF05, papel CONTADOR) e entra pelo RF02. O mesmo e-mail pode estar em várias empresas.
+- **R1** O contador é convidado pelo Dono (RF05, papel CONTADOR) e entra pelo RF02. O mesmo e-mail pode estar em várias empresas. O celular é opcional e o contador não lança pelo WhatsApp (DD-20, DE-26).
 - **R2** CRC é opcional e informativo.
 - **R3** Código para indicar o produto a outros clientes (RF01, regra 14).
 - **R4** A tela inicial do contador lista as empresas vinculadas com o último lançamento, o resultado do mês e pendências de revisão de cada uma. Ao entrar em uma empresa, valem as permissões do papel CONTADOR (RF06).

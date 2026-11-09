@@ -30,7 +30,7 @@ Legenda de confiança, usada em todo o documento:
 | E8 Evals e qualidade da IA | Feita (30/10/2026) | 39 casos inventados em JSONL, runner por campo e por lançamento, precisão e revocação da pergunta, custo e latência, baseline em `baseline.json` (100% nos casos atuais), `pnpm --filter @app/ai eval` com trava de orçamento. Rodada completa: cerca de US$ 0,015. Pendente: casos reais anonimizados do Matheus (o 100% é otimista: os casos são meus e o prompt foi ajustado olhando para eles) e rodar o eval no CI (precisa do segredo) |
 | E9 Áudio e foto | Feita (30/10/2026) **com ressalva**: áudio e foto só foram testados com fakes; falta teste com áudio e foto reais | Download da Meta (2 passos, conferido na doc), conversão com ffmpeg, transcrição `gpt-transcribe` por `fetch`, limite de 180 s, QR da NFC-e, chave única por empresa (`fiscal_documents`, migration 0005), itens agrupados por categoria, limites de uso (RF21), lida/digitando, chat com `/audio` e `/foto`. Pendente: S3 e retenção de 90 dias (E10), consulta à SEFAZ, preço do `gpt-transcribe`, ffmpeg no servidor |
 | E10 Envio real e operação | Bloqueada (Meta, P15) | **É aqui que o WhatsApp real é ligado, no fim do desenvolvimento.** Bloqueada pela Meta (P1 e P2) |
-| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | Quase feita (09/11/2026): dados, domínio, `trocar unidade`, `trocar empresa` e empresa citada no texto prontos (DE-25); evals (7.3) rodados e baseline atualizado em 09/11/2026; falta o ajuste do contador criado só por e-mail (celular opcional, DD-20, na F1a) | **Próxima etapa.** Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm, e destrava `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-17). **Acrescenta (DD-02, DD-03, DD-04, DD-08, DD-13):** papel `accountant` já com folha; `paid_on` e `orders` em `entries`; canal padrão por unidade e sinal `CANAL_A_REVISAR`; tabela de regras de imposto por vigência. Ajustes de prompt (E6): canal padrão, pedidos, data de pagamento e pergunta acima de R$ 1.500 (DD-09) |
+| E11 Modelo de dados dos requisitos (papéis, unidades de acesso, campos) | Feita (09/11/2026): dados, domínio, `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-25); evals (7.3) rodados e baseline atualizado; contador só por e-mail, vínculo de contador ignorado pelo canal e pendências do review (DE-26) | Fecha as divergências de `arquitetura.md` que o `core` e o `db` ainda têm, e destrava `trocar unidade`, `trocar empresa` e empresa citada no texto (DE-17). **Acrescenta (DD-02, DD-03, DD-04, DD-08, DD-13):** papel `accountant` já com folha; `paid_on` e `orders` em `entries`; canal padrão por unidade e sinal `CANAL_A_REVISAR`; tabela de regras de imposto por vigência. Ajustes de prompt (E6): canal padrão, pedidos, data de pagamento e pergunta acima de R$ 1.500 (DD-09) |
 | E12 Resumos e relatórios pelo WhatsApp (RF20) | A fazer (**resumos fixos no MVP**, consultas livres na v1.1) | Resumos de hoje, semana e mês entram no MVP (DD-12, fecha P10) |
 | E13 Automações da v1.1 (RF33, RF34) | A fazer (v1.1) | Recorrentes, resumo semanal e alertas; só depois do piloto. RF31 e RF35 saíram daqui para a E14 |
 | E14 Importações e XML de NF-e (RF35, RF31 manual) | A fazer (**MVP**; nova, 05/11/2026) | Importação de planilha e OFX; XML pelo painel (F13) e pelo WhatsApp como documento; tolerância zero (DD-10, DD-14). P18 aberta |
@@ -357,6 +357,8 @@ Depende do desbloqueio da Meta (forma de pagamento, verificação da empresa, n�
 
 **Situação em 09/11/2026:** feito tudo, inclusive `trocar unidade`, `trocar empresa` e a empresa citada no texto (DE-25; desenho em `docs/superpowers/specs/2026-11-09-e11-trocar-unidade-empresa-design.md`). Os evals (7.3) rodaram em 09/11/2026 com 50 casos e tiveram regressão na revocação da pergunta (1 → 0,75: `a03` e `a08`); foi corrigida nas regras 8 e 12 do prompt, a rodada final deu 100% em todas as métricas e o baseline foi atualizado. Detalhes em `andamento.md` (seção 5).
 
+**Fechamento em 09/11/2026 (DE-26; desenho em `docs/superpowers/specs/2026-11-09-e11-fechamento-design.md`):** celular obrigatório por regra de domínio para dono, gerente e lançador (`PhoneRequired`); o canal ignora vínculos de contador; palavras comuns no nome da empresa não trocam a empresa pelo texto; a pergunta `choice` fecha depois do "Pronto!"; `cancelar` com a lista aberta tem texto próprio; Contadora Demo no seed.
+
 **Pronto quando:** a matriz da seção 2.3 passa como teste no `core` e a migration roda em banco com dados do seed de desenvolvimento. Valores `[PROVISÓRIO – Pxx]` (P01, P02, P05, P06, P07) ficam em seed e constantes únicas.
 
 ### E12: Resumos e relatórios pelo WhatsApp por hierarquia (RF20) — M (resumos no MVP; consultas livres na v1.1)
@@ -415,7 +417,7 @@ Os requisitos transversais estão em `requisitos.md`; aqui só a relação com a
 ```
 E1 ─► E2 ─► E3 ─► E4 ─► E5 ─► E6 ─► E7 ─► E8 (contínuo)
                             │     └──────────► E9 ─► E10
-                            └─► E11 (próxima; a E7 foi feita antes, ver DE-17)
+                            └─► E11 (feita; a E7 foi feita antes, ver DE-17)
                                          E10 ─► (piloto) ─► E12, E13 (v1.1)
 ```
 
