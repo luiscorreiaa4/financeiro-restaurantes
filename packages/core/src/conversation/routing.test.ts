@@ -67,6 +67,14 @@ describe("decideRoute", () => {
     expect(route({ text })).toEqual({ kind: "command", command, replyTarget: null });
   });
 
+  it("trocar empresa é comando mesmo com pergunta pendente (RF11.R7 c antes de e)", () => {
+    expect(route({ text: "trocar empresa", hasPendingQuestion: true })).toEqual({
+      kind: "command",
+      command: "switch_tenant",
+      replyTarget: null,
+    });
+  });
+
   it("frase que só começa com a palavra do comando não é comando", () => {
     expect(route({ text: "desfazer o almoço de ontem" })).toEqual({ kind: "extract" });
   });

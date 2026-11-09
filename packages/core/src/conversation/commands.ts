@@ -1,10 +1,12 @@
-export type Command = "undo" | "help" | "cancel" | "support";
+export type Command = "undo" | "help" | "cancel" | "support" | "switch_unit" | "switch_tenant";
 
 const COMMANDS: Record<string, Command> = {
   desfazer: "undo",
   ajuda: "help",
   cancelar: "cancel",
   suporte: "support",
+  "trocar unidade": "switch_unit",
+  "trocar empresa": "switch_tenant",
 };
 
 /**
