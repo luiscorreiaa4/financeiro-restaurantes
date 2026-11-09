@@ -18,11 +18,15 @@ const KNOWN: SenderResolution = {
     permissions: [],
     panelAccess: true,
     tenantUnitIds: [],
+    tenantUnits: [],
+    preferredAt: null,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     deactivatedAt: null,
   },
   defaultUnitId: null,
   tenantCount: 1,
+  citedUnitId: null,
+  activeMemberships: [],
 };
 
 const confirmation: ReplyTarget = {
@@ -65,6 +69,14 @@ describe("decideRoute", () => {
     ["ajúda?", "help"],
   ] as const)("a mensagem %j é o comando %s", (text, command) => {
     expect(route({ text })).toEqual({ kind: "command", command, replyTarget: null });
+  });
+
+  it("trocar empresa é comando mesmo com pergunta pendente (RF11.R7 c antes de e)", () => {
+    expect(route({ text: "trocar empresa", hasPendingQuestion: true })).toEqual({
+      kind: "command",
+      command: "switch_tenant",
+      replyTarget: null,
+    });
   });
 
   it("frase que só começa com a palavra do comando não é comando", () => {

@@ -33,6 +33,10 @@ export interface RouteContext {
   readonly defaultUnitId: string | null;
   /** Em mais de um restaurante ativo, a confirmação da E7 cita o nome do restaurante. */
   readonly tenantCount: number;
+  /** Unidade citada no texto da mensagem, quando ela decidiu o destino (RF11.R5, DE-25). */
+  readonly citedUnitId: string | null;
+  /** Vínculos ativos do telefone, na ordem de escolha (para `trocar empresa`). */
+  readonly activeMemberships: readonly SenderMembership[];
   /** Devolve o id da mensagem enviada (para guardar na confirmação) ou nulo se não houve envio. */
   reply(text: string, purpose: OutboundPurpose): Promise<string | null>;
   /**
@@ -53,6 +57,10 @@ export interface RouteHandlers {
   correction(context: RouteContext, target: ReplyTarget): Promise<void>;
   pendingAnswer(context: RouteContext): Promise<void>;
   extract(context: RouteContext): Promise<void>;
+  /** `trocar unidade` (RF19): abre a lista numerada das unidades de acesso. */
+  switchUnit(context: RouteContext): Promise<void>;
+  /** `trocar empresa` (RF19): abre a lista numerada dos restaurantes do telefone. */
+  switchTenant(context: RouteContext): Promise<void>;
 }
 
 /** Falha ao enviar a resposta: sobe para o pg-boss retentar. Só o nome vai para o banco. */
@@ -89,6 +97,8 @@ export function defaultHandlers(logger: JobLogger): RouteHandlers {
     correction: (context) => notYet("correction")(context),
     pendingAnswer: notYet("pending_answer"),
     extract: notYet("extract"),
+    switchUnit: notYet("switch_unit"),
+    switchTenant: notYet("switch_tenant"),
   };
 }
 
@@ -120,7 +130,12 @@ export function createRouteInbound(deps: RouteInboundDeps): RouteInbound {
     // Resposta sempre para o formato aceito no envio (com o 9º dígito).
     const to = phone?.ok ? phone.value.e164 : message.waId === null ? null : `+${message.waId}`;
 
-    const resolution = resolveSender(await deps.directory.findMemberships(candidates));
+    // Só texto cita empresa ou unidade: a transcrição e a leitura da nota vêm depois (DE-25). Resposta
+    // (reply) a uma mensagem nossa nunca troca de empresa: ela corrige o lançamento de origem (RF17).
+    const citesPlace = message.type === "text" && message.replyToWaMessageId === null;
+    const resolution = resolveSender(await deps.directory.findMemberships(candidates), {
+      text: citesPlace ? message.text : null,
+    });
 
     const send = async (
       text: string,
@@ -211,6 +226,8 @@ export function createRouteInbound(deps: RouteInboundDeps): RouteInbound {
       sender,
       defaultUnitId: resolution.defaultUnitId,
       tenantCount: resolution.tenantCount,
+      citedUnitId: resolution.citedUnitId,
+      activeMemberships: resolution.activeMemberships,
       reply: (text, purpose) => send(text, purpose, sender.tenantId),
       async ack() {
         try {
@@ -241,6 +258,10 @@ export function createRouteInbound(deps: RouteInboundDeps): RouteInbound {
             return deps.handlers.cancel(context);
           case "undo":
             return deps.handlers.undo(context, route.replyTarget);
+          case "switch_unit":
+            return deps.handlers.switchUnit(context);
+          case "switch_tenant":
+            return deps.handlers.switchTenant(context);
         }
         return;
       case "correction":

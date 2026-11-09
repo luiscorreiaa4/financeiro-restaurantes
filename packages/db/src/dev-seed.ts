@@ -1,5 +1,7 @@
+import { randomBytes, scrypt } from "node:crypto";
 import { eq } from "drizzle-orm";
 import {
+  accounts,
   memberships,
   membershipUnits,
   paymentMethods,
@@ -27,6 +29,36 @@ export const DEV_PHONES = {
   /** Teve o acesso ao Demo retirado. */
   deactivated: "+5511987650005",
 } as const;
+
+/** E-mails do seed para entrar no painel (código de acesso ou senha). */
+export const DEV_EMAILS = {
+  owner: "dono@demo.dev",
+  manager: "gerente@demo.dev",
+  staff: "atendente@demo.dev",
+  twoRestaurants: "dona.dos.dois@demo.dev",
+  deactivated: "ex.funcionario@demo.dev",
+} as const;
+
+/** Senha conhecida do Dono Demo, **só de desenvolvimento** (o seed recusa produção). */
+export const DEV_PASSWORD = "demo12345";
+
+/**
+ * Hash no formato do Better Auth (`@better-auth/utils/password`): scrypt N=16384, r=16, p=1,
+ * 64 bytes, sal de 16 bytes em hex, senha em NFKC; `sal:chave`. O teste de login da API
+ * (`auth-login.int.test.ts`) confere que o Better Auth aceita este hash.
+ */
+function hashDevPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  return new Promise((resolve, reject) => {
+    scrypt(
+      password.normalize("NFKC"),
+      salt,
+      64,
+      { N: 16384, r: 16, p: 1, maxmem: 128 * 16384 * 16 * 2 },
+      (error, key) => (error ? reject(error) : resolve(`${salt}:${key.toString("hex")}`)),
+    );
+  });
+}
 
 const DEMO = "0190a000-0000-7000-8000-000000000001";
 const DEMO_2 = "0190a000-0000-7000-8000-000000000002";
@@ -67,6 +99,32 @@ export async function seedDevData(db: Database, nodeEnv: string): Promise<void> 
       { id: id(24), name: "Dona dos Dois", phoneE164: DEV_PHONES.twoRestaurants },
       { id: id(25), name: "Ex-funcionário", phoneE164: DEV_PHONES.deactivated },
     ])
+    .onConflictDoNothing();
+
+  // E-mail verificado em todos (bancos semeados antes da F1a também ganham o e-mail).
+  const emails: [number, string][] = [
+    [21, DEV_EMAILS.owner],
+    [22, DEV_EMAILS.manager],
+    [23, DEV_EMAILS.staff],
+    [24, DEV_EMAILS.twoRestaurants],
+    [25, DEV_EMAILS.deactivated],
+  ];
+  for (const [n, email] of emails) {
+    await db
+      .update(users)
+      .set({ email, emailVerified: true })
+      .where(eq(users.id, id(n)));
+  }
+  // Senha do Dono Demo (login "Entrar com senha"); os demais entram por código.
+  await db
+    .insert(accounts)
+    .values({
+      id: id(51),
+      accountId: id(21),
+      providerId: "credential",
+      userId: id(21),
+      password: await hashDevPassword(DEV_PASSWORD),
+    })
     .onConflictDoNothing();
 
   // [PROVISÓRIO – P07] formas de pagamento e canais padrão, com taxas de exemplo para o chat.

@@ -44,6 +44,8 @@ export const EvalCaseSchema = z.object({
     ready: z.array(ExpectedEntrySchema).default([]),
     /** O sistema deve perguntar algo (lançamento incompleto, conta que não bate, data futura). */
     asks: z.boolean().default(false),
+    /** Unidade citada na mensagem, como a IA deve devolver em unit_hint; ausente = não cita (DE-25). */
+    unit: z.string().optional(),
   }),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;

@@ -5,6 +5,7 @@ import { uuidv7 } from "../src/uuid";
 /** Papéis criados em `docker/postgres/init.sql`; o drizzle-kit não os gerencia. */
 export const appRole = pgRole("app").existing();
 export const ingestRole = pgRole("app_ingest").existing();
+export const authRole = pgRole("app_auth").existing();
 
 /**
  * Tenant da transação, definido por `withTenant`. `nullif` evita erro de cast quando o

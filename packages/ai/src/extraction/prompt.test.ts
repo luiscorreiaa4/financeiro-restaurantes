@@ -21,6 +21,13 @@ describe("prompt de extração: campos do E11", () => {
   });
 });
 
+describe("prompt de extração: unidade citada (DE-25)", () => {
+  it("pede unit_hint só quando a mensagem cita a unidade e proíbe deduzi-la", () => {
+    expect(SYSTEM_RULES).toContain("unit_hint");
+    expect(SYSTEM_RULES).toMatch(/Não deduza a unidade/);
+  });
+});
+
 describe("prompt de extração", () => {
   it("mantém idêntico o prefixo cacheável entre duas mensagens do mesmo tenant", () => {
     const a = buildSystem(context);

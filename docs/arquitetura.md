@@ -84,8 +84,12 @@ Durante o desenvolvimento, o canal é testado por um **chat de terminal** (`pnpm
 ```
 tenants              id, name, plan, created_at
 units                id, tenant_id, name, timezone
-users                id, name, email, phone_e164, created_at
+users                id, name, email, phone_e164 (opcional, DD-20), created_at; tabela de usuário do Better Auth (DD-19)
 memberships          id, tenant_id, user_id, unit_id (null = todas), role, permissions jsonb
+sessions             id, user_id, token, expires_at, ip_address, user_agent, keep_connected (Better Auth; sem tenant_id; só o papel app_auth, DD-24)
+accounts             id, user_id, account_id, provider_id, password (hash), tokens (Better Auth; só app_auth)
+verifications        id, identifier, value, expires_at (códigos de acesso por e-mail; só app_auth)
+auth_audit           id, user_id, email_hash, event (otp_sent|login|login_failed|password_locked|logout), ip, user_agent, created_at (só insere e lê, app_auth)
 categories           id, tenant_id (null = padrão do sistema), parent_id, name, kind (revenue|expense|investment|deduction), nature (fixed|variable), dre_group
 suppliers            id, tenant_id, name, document (cnpj/cpf), aliases text[]
 payment_methods      id, tenant_id, name, fee_percent_bp, fee_fixed_cents
@@ -151,8 +155,8 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 | `entries` | **`paid_on` (data de pagamento, opcional, padrão = `occurred_on`; DD-02) e `orders` (pedidos, opcional; DD-13); receita com `sales_channel_id` obrigatório (DD-08).** Sinais de revisão (CATEGORIA_A_REVISAR, **CANAL_A_REVISAR**, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e ação "marcar como revisado"; canal de origem `EMAIL`; motivo da exclusão, quem excluiu e restaurável até (hoje só `deleted_at`); documento fiscal com chave de acesso (44 dígitos, única por empresa) e itens agrupados por categoria; o id da confirmação enviada já existe (`confirmation_wa_message_id`) e a posição na mensagem de origem também (`position`). | RF12.R12, R13, RF14, RF24 | E7, E9, F3 |
 | `entry_versions` (`action`: create, update, delete; `channel`: whatsapp, web, import, system) | Ação `restore` (RESTAURACAO); canal `email`. O documento chama os canais de WHATSAPP, PAINEL, IMPORTACAO, EMAIL, SISTEMA (mapeamento em `requisitos.md`). | RF25.R4 | E7, F3 |
 | `entries.ai_confidence` | RNF08.R3 proíbe rotear por "confiança" declarada pelo modelo; a coluna pode ficar só informativa (revisar na E6). | RNF08.R3 | E6 |
-| `pending_questions` (tem `expires_at`) | Situação ABERTA/RESPONDIDA/CANCELADA/EXPIRADA; no máximo uma aberta por colaborador; validade de 24 h aplicada; cancelamento por mensagem nova de lançamento. | RF15 | E7 |
-| `inbound_messages` (status received, processing, needs_answer, processed, failed; tipo text, audio, image, unsupported) | Já equivale às situações e aos tipos do RF11. Falta retenção de áudio em 90 dias (só a transcrição permanece) e atribuição à empresa citada no texto. | RF11.R5, RF13.R4, RNF03 | E7, E9, E10 |
+| `pending_questions` (tem `expires_at`) | Situação ABERTA/RESPONDIDA/CANCELADA/EXPIRADA; no máximo uma aberta por colaborador; validade de 24 h aplicada; cancelamento por mensagem nova de lançamento. Coluna `kind` (`clarify` ou `choice`, a lista numerada de `trocar unidade` e `trocar empresa`, DE-25, migration 0013). | RF15 | E7 |
+| `inbound_messages` (status received, processing, needs_answer, processed, failed; tipo text, audio, image, unsupported) | Já equivale às situações e aos tipos do RF11. Falta retenção de áudio em 90 dias (só a transcrição permanece). A atribuição à empresa citada no texto (só em mensagens de texto) e a empresa escolhida por `trocar empresa` (`memberships.preferred_at`) foram feitas na E11 (DE-25). | RF11.R5, RF13.R4, RNF03 | E7, E9, E10 |
 | `outbound_messages` | Envio idempotente da confirmação por (mensagem de origem, finalidade). Pendência P14. | RF16.Obs1 | E7 |
 | `ai_usage` | Tokens de leitura e escrita de cache; limite de custo por empresa e alerta; consulta por empresa e por mensagem no painel interno. | RNF08.R1, RF21.R4, RF38 | E6 (cache), E10, F10 |
 | `audit_log` (`tenant_id` obrigatório) | Cobrir login, bloqueios, troca de senha ou e-mail, papel e permissões, exportações, taxas, importações e ações do painel interno; ações sem empresa (login, painel interno) exigem `tenant_id` opcional ou trilha própria. | RNF04.R4, RF38 | F1, F2, F10 |

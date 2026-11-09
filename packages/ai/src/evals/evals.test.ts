@@ -27,6 +27,7 @@ const register = (entries: ExtractedEntry[], question: string | null = null): Ex
   intent: "register",
   entries,
   question,
+  unit_hint: null,
 });
 
 const evalCase = (overrides: Partial<EvalCase> = {}): EvalCase => ({
@@ -273,7 +274,7 @@ describe("métricas agregadas", () => {
     );
     const refused = scoreCase(
       cases[1] as EvalCase,
-      observe({ intent: "out_of_scope", entries: [], question: null }),
+      observe({ intent: "out_of_scope", entries: [], question: null, unit_hint: null }),
       META,
     );
     // Devia perguntar e não perguntou: erro de revocação.
@@ -296,6 +297,48 @@ describe("métricas agregadas", () => {
   });
 });
 
+describe("unidade citada (DE-25)", () => {
+  const withUnit = (unit?: string) =>
+    evalCase({
+      id: "u",
+      expected: {
+        intent: "register",
+        ready: [{ type: "expense", amount_cents: 45000 }],
+        asks: false,
+        ...(unit === undefined ? {} : { unit }),
+      },
+    });
+  const said = (unitHint: string | null) => ({ ...register([entry()]), unit_hint: unitHint });
+
+  it("acerta quando a dica casa com a esperada, sem caixa nem acento", () => {
+    const score = scoreCase(withUnit("litoral"), observe(said("Litoral")), META);
+    expect(score.unitOk).toBe(true);
+  });
+
+  it("erra quando a dica é outra ou não veio", () => {
+    expect(scoreCase(withUnit("litoral"), observe(said("centro")), META).unitOk).toBe(false);
+    expect(scoreCase(withUnit("litoral"), observe(said(null)), META).unitOk).toBe(false);
+  });
+
+  it("caso sem unidade esperada exige que a IA não invente uma", () => {
+    expect(scoreCase(withUnit(), observe(said(null)), META).unitOk).toBe(true);
+    expect(scoreCase(withUnit(), observe(said("centro")), META).unitOk).toBe(false);
+  });
+
+  it("a taxa de acerto entra nas métricas", () => {
+    const ok = scoreCase(withUnit("litoral"), observe(said("litoral")), META);
+    const wrong = scoreCase(withUnit("litoral"), observe(said(null)), META);
+    const expectedBy = new Map([["u", withUnit("litoral").expected]]);
+    expect(aggregate([ok, wrong], expectedBy).unitAccuracy).toBe(0.5);
+  });
+
+  it("o dataset traz casos com unidade citada (um deles pelo apelido)", () => {
+    const withHint = loadDataset().filter((item) => item.expected.unit !== undefined);
+    expect(withHint.length).toBeGreaterThanOrEqual(2);
+    expect(withHint.some((item) => item.expected.unit === "litoral")).toBe(true);
+  });
+});
+
 describe("proteção contra piora (RNF07.R4)", () => {
   const base: Metrics = {
     cases: 37,
@@ -311,6 +354,7 @@ describe("proteção contra piora (RNF07.R4)", () => {
     supplierAccuracy: 1,
     paymentAccuracy: 1,
     channelAccuracy: 1,
+    unitAccuracy: 1,
     askPrecision: 0.8,
     askRecall: 0.8,
     outOfScopeRefusalRate: 1,

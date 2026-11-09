@@ -48,6 +48,8 @@ export const ExtractionResultSchema = z
     intent: z.enum(["register", "out_of_scope", "unclear"]),
     entries: z.array(ExtractedEntrySchema),
     question: z.string().nullable(),
+    /** Unidade (restaurante) citada na mensagem, como foi dita; nula se não citou (DE-25). */
+    unit_hint: z.string().nullable(),
   })
   .superRefine((result, ctx) => {
     const issue = (message: string) => ctx.addIssue({ code: "custom", message });

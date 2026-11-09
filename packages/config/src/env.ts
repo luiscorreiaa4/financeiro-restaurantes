@@ -15,8 +15,12 @@ const baseSchema = z.object({
   DATABASE_ADMIN_URL: z.string().min(1),
   // Papel `app_ingest`: o webhook grava a mensagem antes de ela ter tenant.
   DATABASE_INGEST_URL: optionalString,
+  // Papel `app_auth`: tabelas do Better Auth (usuário, sessão, código), sem acesso a dados de cliente.
+  DATABASE_AUTH_URL: optionalString,
 
   AUTH_SECRET: optionalString,
+  // Em desenvolvimento os e-mails (códigos de acesso) são gravados nesta pasta em vez de enviados.
+  DEV_MAIL_DIR: z.preprocess(emptyToUndefined, z.string().min(1).default(".dev-mail")),
 
   // `dev`: respostas gravadas no banco e mostradas pelo chat de terminal (`pnpm dev:chat`).
   // `whatsapp`: envio real pela Cloud API (E10). Os adaptadores `Dev*` não sobem em produção.
@@ -54,6 +58,7 @@ const baseSchema = z.object({
 // até a conta correspondente existir.
 const requiredInProduction = [
   "DATABASE_INGEST_URL",
+  "DATABASE_AUTH_URL",
   "AUTH_SECRET",
   "WHATSAPP_PHONE_NUMBER_ID",
   "WHATSAPP_ACCESS_TOKEN",

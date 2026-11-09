@@ -204,6 +204,8 @@ export const whatsappOptIns = pgTable(
 
 /** Estados da pergunta de volta (RF15.R4). */
 export const PENDING_QUESTION_STATUSES = ["open", "answered", "cancelled", "expired"] as const;
+/** `clarify`: dado que faltou no lançamento (RF15); `choice`: lista numerada de trocar unidade ou empresa (RF19). */
+export const PENDING_QUESTION_KINDS = ["clarify", "choice"] as const;
 
 export const pendingQuestions = pgTable(
   "pending_questions",
@@ -217,6 +219,7 @@ export const pendingQuestions = pgTable(
     draft: jsonb("draft").notNull(),
     question: text("question").notNull(),
     status: text("status").notNull().default("open"),
+    kind: text("kind").notNull().default("clarify"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
@@ -226,6 +229,7 @@ export const pendingQuestions = pgTable(
       .on(t.tenantId, t.userId)
       .where(sql`${t.status} = 'open'`),
     oneOf("pending_questions_status_check", "status", PENDING_QUESTION_STATUSES),
+    oneOf("pending_questions_kind_check", "kind", PENDING_QUESTION_KINDS),
     foreignKey({
       name: "pending_questions_inbound_message_fk",
       columns: [t.tenantId, t.inboundMessageId],

@@ -1,4 +1,5 @@
 export * from "./access";
+export * from "./auth";
 export * from "./conversation";
 export * from "./entry";
 export * from "./errors";

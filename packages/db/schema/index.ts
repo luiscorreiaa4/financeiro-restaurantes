@@ -1,3 +1,4 @@
+export * from "./auth";
 export * from "./catalog";
 export * from "./entries";
 export * from "./fiscal";

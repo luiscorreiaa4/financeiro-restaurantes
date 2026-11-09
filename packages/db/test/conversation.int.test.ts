@@ -58,6 +58,16 @@ describe("SenderDirectory", () => {
     });
   });
 
+  it("devolve nome, apelidos e situação das unidades e a empresa escolhida por trocar empresa", async () => {
+    await db.admin.query("update units set aliases = array['centro'] where id = $1", [a.unitId]);
+    const found = await directory().findMemberships([a.phone]);
+    expect(found[0]?.tenantUnits).toEqual([
+      { id: a.unitId, name: "Matriz", aliases: ["centro"], status: "active" },
+    ]);
+    expect(found[0]?.preferredAt).toBeNull();
+    await db.admin.query("update units set aliases = '{}' where id = $1", [a.unitId]);
+  });
+
   it("devolve a lista de unidades de acesso, a unidade padrão e as permissões do vínculo", async () => {
     const praia = uuidv7();
     const userId = uuidv7();

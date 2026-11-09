@@ -30,6 +30,7 @@ export function helpText(supportContact: string | undefined): string {
     "",
     "Para corrigir, responda à minha confirmação com o valor ou o dado certo.",
     "Para cancelar o último lançamento, envie *desfazer*.",
+    "Para mudar o lugar dos próximos lançamentos, envie *trocar unidade* ou *trocar empresa*.",
     "",
     supportSentence(supportContact),
   ].join("\n");
@@ -58,3 +59,20 @@ export function failureText(supportContact: string | undefined): string {
 /** Limite de mensagens por usuário ou empresa (RF21.R2); o aviso sai no máximo uma vez por hora. */
 export const RATE_LIMITED_TEXT =
   "Recebi muitas mensagens seguidas. Aguarde alguns minutos e tente de novo.";
+
+/** `trocar unidade` e `trocar empresa` (RF19). `[PROVISÓRIO – P08]`: textos a revisar pelo Matheus. */
+export const onlyOneUnitText = (unitName: string) =>
+  `Você só tem acesso a uma unidade: ${unitName}. Não precisa trocar.`;
+export const onlyOneCompanyText = (tenantName: string) =>
+  `Você só tem acesso a um restaurante: ${tenantName}. Não precisa trocar.`;
+export const unitSwitchedText = (unitName: string) =>
+  `Pronto! Seus próximos lançamentos vão para ${unitName}.`;
+export const companySwitchedText = (tenantName: string) =>
+  `Pronto! Seus próximos lançamentos vão para ${tenantName}.`;
+export const CHOICE_INVALID_TEXT =
+  "Não entendi. Responda só com o número de uma das opções, ou mande 'cancelar'.";
+export const CHOICE_FAILED_TEXT =
+  "Não consegui trocar agora. Mande 'trocar unidade' ou 'trocar empresa' de novo, ou fale com o suporte.";
+export const CHOICE_DISCARDED_TEXT =
+  "Deixei a troca de lado. Vou registrar a sua mensagem. Para trocar depois, mande 'trocar unidade' ou 'trocar empresa'.";
+export const CHOICE_CANCELLED_TEXT = "Pronto, deixei a troca de lado.";

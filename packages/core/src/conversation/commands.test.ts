@@ -38,6 +38,27 @@ describe("comandos cancelar e suporte (RF19)", () => {
   });
 });
 
+describe("comandos trocar unidade e trocar empresa (RF19)", () => {
+  it.each(["trocar unidade", " Trocar Unidade! ", "TROCAR  UNIDADE."])(
+    "reconhece %j como trocar unidade",
+    (text) => {
+      expect(parseCommand(text)).toBe("switch_unit");
+    },
+  );
+
+  it.each(["trocar empresa", "TROCAR EMPRESA.", "trocár  empresa?"])(
+    "reconhece %j como trocar empresa",
+    (text) => {
+      expect(parseCommand(text)).toBe("switch_tenant");
+    },
+  );
+
+  it("não confunde frase com comando", () => {
+    expect(parseCommand("trocar unidade do almoço")).toBeNull();
+    expect(parseCommand("quero trocar empresa")).toBeNull();
+  });
+});
+
 describe("o que não é comando", () => {
   it.each([
     "",

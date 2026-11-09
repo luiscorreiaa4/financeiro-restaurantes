@@ -26,12 +26,24 @@ const result = (overrides: Record<string, unknown> = {}) => ({
   intent: "register",
   entries: [extracted({ total_cents: 15000 })],
   question: null,
+  unit_hint: null,
   ...overrides,
 });
 
 describe("schema ExtractionResult", () => {
   it("aceita um registro completo", () => {
     expect(ExtractionResultSchema.safeParse(result()).success).toBe(true);
+  });
+
+  it("exige o campo unit_hint, mesmo nulo (saída estruturada traz todos os campos)", () => {
+    const { unit_hint: _omitted, ...withoutHint } = result();
+    expect(ExtractionResultSchema.safeParse(withoutHint).success).toBe(false);
+  });
+
+  it("aceita a unidade citada como foi dita", () => {
+    const parsed = ExtractionResultSchema.safeParse(result({ unit_hint: "litoral" }));
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.unit_hint).toBe("litoral");
   });
 
   it("aceita vários lançamentos em uma mensagem", () => {

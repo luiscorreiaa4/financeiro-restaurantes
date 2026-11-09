@@ -1,4 +1,6 @@
 import type { Actor, AdditionalPermission, MembershipStatus, Role } from "../permissions";
+import type { CatalogStatus } from "../registry/catalog-types";
+import { matchCitedPlace } from "./cited-place";
 
 /** Vínculo de um telefone com um restaurante, como o cadastro o guarda. */
 export interface SenderMembership {
@@ -21,6 +23,15 @@ export interface SenderMembership {
   readonly panelAccess: boolean;
   /** Unidades do restaurante, para achar a padrão quando o vínculo vale para todas. */
   readonly tenantUnitIds: readonly string[];
+  /** Unidades do restaurante com nome e apelidos, para o casamento da unidade citada (DE-25). */
+  readonly tenantUnits: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly aliases: readonly string[];
+    readonly status: CatalogStatus;
+  }[];
+  /** Quando a pessoa escolheu este restaurante com `trocar empresa`; nulo se nunca escolheu. */
+  readonly preferredAt: Date | null;
   readonly createdAt: Date;
   /** Preenchido = acesso retirado. O vínculo continua no banco (nada é apagado). */
   readonly deactivatedAt: Date | null;
@@ -35,31 +46,49 @@ export type SenderResolution =
       readonly defaultUnitId: string | null;
       /** Em quantos restaurantes ativos o telefone está (> 1 pede o nome do restaurante na resposta). */
       readonly tenantCount: number;
+      /** Unidade citada no texto que levou a mensagem a esta empresa ou unidade; nula se não houve. */
+      readonly citedUnitId: string | null;
+      /** Vínculos ativos do telefone, na ordem de escolha (para `trocar empresa`). */
+      readonly activeMemberships: readonly SenderMembership[];
     };
 
 /**
  * Escolhe o vínculo da mensagem entre os que o telefone tem. Vínculos desativados não contam:
  * quem só tem desativados é tratado como desconhecido, para não revelar que o cadastro existe.
- * Com mais de um restaurante ativo vale o vínculo mais antigo (desempate pelo id, que é
- * ordenado no tempo).
+ * Com mais de um restaurante ativo vale, nesta ordem: o restaurante citado no texto (RF11.R5), o
+ * escolhido por último com `trocar empresa` e o vínculo mais antigo (DE-07, desempate pelo id,
+ * que é ordenado no tempo).
  */
-export function resolveSender(memberships: readonly SenderMembership[]): SenderResolution {
+export function resolveSender(
+  memberships: readonly SenderMembership[],
+  options: { readonly text?: string | null } = {},
+): SenderResolution {
   const active = memberships
     .filter(
       (membership) => membership.status !== "deactivated" && membership.deactivatedAt === null,
     )
     .toSorted(
       (a, b) =>
+        (b.preferredAt?.getTime() ?? Number.NEGATIVE_INFINITY) -
+          (a.preferredAt?.getTime() ?? Number.NEGATIVE_INFINITY) ||
         a.createdAt.getTime() - b.createdAt.getTime() ||
         a.membershipId.localeCompare(b.membershipId),
     );
-  const sender = active[0];
-  if (sender === undefined) return { kind: "unknown" };
+  const first = active[0];
+  if (first === undefined) return { kind: "unknown" };
+  const tenantCount = new Set(active.map((membership) => membership.tenantId)).size;
+  const cited =
+    tenantCount > 1 && options.text ? matchCitedPlace(options.text, active, first) : null;
+  const sender = cited?.membership ?? first;
+  const citedUnitId =
+    cited?.unitId != null && accessibleUnitIds(sender).includes(cited.unitId) ? cited.unitId : null;
   return {
     kind: "known",
     sender,
-    defaultUnitId: defaultUnitId(sender),
-    tenantCount: new Set(active.map((membership) => membership.tenantId)).size,
+    defaultUnitId: citedUnitId ?? defaultUnitId(sender),
+    tenantCount,
+    citedUnitId,
+    activeMemberships: active,
   };
 }
 
@@ -68,9 +97,12 @@ export function accessibleUnitIds(membership: SenderMembership): readonly string
   return membership.allUnits ? membership.tenantUnitIds : membership.unitIds;
 }
 
+/** Unidade padrão só vale se estiver entre as de acesso (DE-25); senão, a única acessível. */
 function defaultUnitId(membership: SenderMembership): string | null {
-  if (membership.defaultUnitId !== null) return membership.defaultUnitId;
   const accessible = accessibleUnitIds(membership);
+  if (membership.defaultUnitId !== null && accessible.includes(membership.defaultUnitId)) {
+    return membership.defaultUnitId;
+  }
   return accessible.length === 1 ? (accessible[0] ?? null) : null;
 }
 

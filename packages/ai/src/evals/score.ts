@@ -13,20 +13,23 @@ export interface Observed {
   readonly ready: readonly ReadyEntry[];
   /** O sistema perguntaria algo ao usuário. */
   readonly asks: boolean;
+  /** Unidade que a IA disse que a mensagem cita (`unit_hint`); nula se não citou. */
+  readonly unitHint: string | null;
 }
 
 export function observe(result: ExtractionResult, today: string = EVAL_TODAY): Observed {
   const interpretation = interpretExtraction(result, today);
   switch (interpretation.kind) {
     case "out_of_scope":
-      return { intent: "out_of_scope", ready: [], asks: false };
+      return { intent: "out_of_scope", ready: [], asks: false, unitHint: result.unit_hint };
     case "unclear":
-      return { intent: "unclear", ready: [], asks: true };
+      return { intent: "unclear", ready: [], asks: true, unitHint: result.unit_hint };
     case "register":
       return {
         intent: "register",
         ready: interpretation.ready,
         asks: interpretation.pending.length > 0,
+        unitHint: result.unit_hint,
       };
   }
 }
@@ -56,6 +59,8 @@ export interface CaseScore {
   readonly expectedAsks: boolean;
   readonly observedAsks: boolean;
   readonly countOk: boolean;
+  /** A unidade citada saiu como esperado (e nenhuma foi inventada quando não havia). */
+  readonly unitOk: boolean | null;
   readonly entries: readonly EntryScore[];
   readonly costUsdMicros: number;
   readonly latencyMs: number;
@@ -123,6 +128,12 @@ export function scoreCase(
     expectedAsks: expected.asks,
     observedAsks: observed?.asks ?? false,
     countOk: ready.length === expected.ready.length,
+    unitOk:
+      observed === null
+        ? null
+        : expected.unit === undefined
+          ? observed.unitHint === null
+          : same(observed.unitHint, expected.unit),
     entries: expected.ready.map((entry, index) => scoreEntry(entry, ready[index])),
     costUsdMicros: meta.costUsdMicros,
     latencyMs: meta.latencyMs,
@@ -145,6 +156,8 @@ export interface Metrics {
   readonly supplierAccuracy: number | null;
   readonly paymentAccuracy: number | null;
   readonly channelAccuracy: number | null;
+  /** Informativa (não bloqueia): unidade citada devolvida em unit_hint (DE-25). */
+  readonly unitAccuracy: number | null;
   readonly askPrecision: number | null;
   readonly askRecall: number | null;
   readonly outOfScopeRefusalRate: number | null;
@@ -191,6 +204,7 @@ export function aggregate(
     supplierAccuracy: rate(entries.map((entry) => entry.supplierOk)),
     paymentAccuracy: rate(entries.map((entry) => entry.paymentOk)),
     channelAccuracy: rate(entries.map((entry) => entry.channelOk)),
+    unitAccuracy: rate(scores.map((score) => score.unitOk)),
     // Precisão: das vezes que perguntou, quantas deviam. Revocação: das que deviam, quantas perguntou.
     askPrecision: rate(asked.map((score) => score.expectedAsks)),
     askRecall: rate(askedWhenShould.map((score) => score.observedAsks)),

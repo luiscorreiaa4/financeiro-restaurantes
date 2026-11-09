@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+// As páginas do painel exigem sessão: a API falsa aceita este cookie fixo.
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([
+    { name: "better-auth.session_token", value: "sessao-falsa", url: baseURL as string },
+  ]);
+});
+
 test("a página inicial abre e responde sem erro no console", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (msg) => {

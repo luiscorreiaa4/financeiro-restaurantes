@@ -1,6 +1,7 @@
 import {
   type AiUsageRecord,
   type AudioConverter,
+  accessibleUnitIds,
   buildDrafts,
   type CatalogSnapshot,
   type Clock,
@@ -23,6 +24,7 @@ import {
   type PendingEntry,
   type PendingQuestionRecord,
   parseNfceQr,
+  pickUnit,
   planCorrection,
   type QrCodeReader,
   type ReplyTarget,
@@ -240,7 +242,14 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
       return;
     }
 
-    const unitId = context.defaultUnitId ?? catalog.units[0]?.id ?? null;
+    // Unidade citada no texto > dica da IA > padrão > primeira de acesso; nunca uma de fora (DE-25).
+    const unitId = pickUnit({
+      catalog,
+      citedUnitId: context.citedUnitId,
+      hint: extracted.value.result.unit_hint,
+      defaultUnitId: context.defaultUnitId,
+      accessibleIds: accessibleUnitIds(context.sender),
+    });
     if (unitId === null) {
       await recordUsage();
       await context.reply(UNIT_MISSING_TEXT, "notice");

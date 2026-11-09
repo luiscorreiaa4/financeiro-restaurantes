@@ -19,6 +19,8 @@ function membership(overrides: Partial<SenderMembership> = {}): SenderMembership
     permissions: [],
     panelAccess: true,
     tenantUnitIds: [],
+    tenantUnits: [],
+    preferredAt: null,
     createdAt: new Date("2026-01-10T12:00:00Z"),
     deactivatedAt: null,
     ...overrides,
@@ -94,7 +96,133 @@ describe("resolveSender", () => {
     expect(result).toMatchObject({ kind: "known" });
   });
 
+  describe("empresa escolhida por trocar empresa (DE-25)", () => {
+    const old = membership({
+      membershipId: "m-antigo",
+      tenantId: TENANT_A,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const recent = membership({
+      membershipId: "m-novo",
+      tenantId: TENANT_B,
+      createdAt: new Date("2026-03-01T00:00:00Z"),
+    });
+
+    it("o vínculo escolhido por último vale mais que o mais antigo", () => {
+      const chosen = { ...recent, preferredAt: new Date("2026-04-01T00:00:00Z") };
+      const result = resolveSender([old, chosen]);
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-novo");
+      else expect.unreachable();
+    });
+
+    it("entre duas escolhas vale a mais recente", () => {
+      const a = { ...old, preferredAt: new Date("2026-04-01T00:00:00Z") };
+      const b = { ...recent, preferredAt: new Date("2026-05-01T00:00:00Z") };
+      const result = resolveSender([a, b]);
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-novo");
+      else expect.unreachable();
+    });
+
+    it("sem nenhuma escolha continua valendo o mais antigo (DE-07)", () => {
+      const result = resolveSender([recent, old]);
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-antigo");
+      else expect.unreachable();
+    });
+
+    it("a escolha de um vínculo desativado não vale", () => {
+      const chosen = {
+        ...recent,
+        preferredAt: new Date("2026-04-01T00:00:00Z"),
+        deactivatedAt: new Date("2026-04-02T00:00:00Z"),
+      };
+      const result = resolveSender([old, chosen]);
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-antigo");
+      else expect.unreachable();
+    });
+
+    it("devolve os vínculos ativos para o comando trocar empresa", () => {
+      const result = resolveSender([old, recent]);
+      if (result.kind === "known") {
+        expect(result.activeMemberships.map((m) => m.membershipId)).toEqual(["m-antigo", "m-novo"]);
+      } else expect.unreachable();
+    });
+  });
+
+  describe("empresa e unidade citadas no texto (RF11.R5)", () => {
+    const unitA = { id: "uA", name: "Matriz", aliases: ["centro"], status: "active" as const };
+    const unitB = { id: "uB", name: "Praia", aliases: ["litoral"], status: "active" as const };
+    const a = membership({
+      membershipId: "m-a",
+      tenantId: TENANT_A,
+      tenantName: "Bistrô Centro",
+      tenantUnitIds: ["uA"],
+      tenantUnits: [unitA],
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const b = membership({
+      membershipId: "m-b",
+      tenantId: TENANT_B,
+      tenantName: "Bistrô Praia",
+      tenantUnitIds: ["uB"],
+      tenantUnits: [unitB],
+      createdAt: new Date("2026-02-01T00:00:00Z"),
+    });
+
+    it("a mensagem que cita a unidade da outra empresa vai para ela", () => {
+      const result = resolveSender([a, b], { text: "gastei 50 no litoral" });
+      expect(result).toMatchObject({
+        kind: "known",
+        tenantCount: 2,
+        citedUnitId: "uB",
+        defaultUnitId: "uB",
+      });
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-b");
+    });
+
+    it("sem texto (áudio e foto) vale a empresa padrão", () => {
+      const result = resolveSender([a, b], { text: null });
+      expect(result).toMatchObject({ kind: "known", citedUnitId: null });
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-a");
+    });
+
+    it("com uma só empresa o texto não troca nada", () => {
+      const result = resolveSender([a], { text: "gastei 50 no litoral" });
+      expect(result).toMatchObject({ kind: "known", citedUnitId: null });
+    });
+
+    it("a citação vale mais que a empresa escolhida por trocar empresa", () => {
+      const chosenA = { ...a, preferredAt: new Date("2026-04-01T00:00:00Z") };
+      const result = resolveSender([chosenA, b], { text: "50 no litoral" });
+      if (result.kind === "known") expect(result.sender.membershipId).toBe("m-b");
+      else expect.unreachable();
+    });
+  });
+
   describe("unidade padrão (RF05.R6)", () => {
+    it("unidade padrão fora das unidades de acesso nunca é usada", () => {
+      const result = resolveSender([
+        membership({
+          allUnits: false,
+          unitIds: ["u1", "u2"],
+          defaultUnitId: "u9",
+          tenantUnitIds: ["u1", "u2", "u9"],
+        }),
+      ]);
+      expect(result).toMatchObject({ kind: "known", defaultUnitId: null });
+    });
+
+    it("padrão fora do acesso cai na única unidade acessível", () => {
+      const result = resolveSender([
+        membership({
+          allUnits: false,
+          unitIds: ["u1"],
+          defaultUnitId: "u9",
+          tenantUnitIds: ["u1", "u9"],
+        }),
+      ]);
+      expect(result).toMatchObject({ kind: "known", defaultUnitId: "u1" });
+    });
+
     it("usa a unidade padrão do vínculo", () => {
       const result = resolveSender([
         membership({

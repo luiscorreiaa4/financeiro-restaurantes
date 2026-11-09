@@ -1,4 +1,10 @@
-import type { OutboundPurpose, ReplyTarget, SenderMembership } from "../conversation";
+import type {
+  ChoiceDraft,
+  ChoiceTarget,
+  OutboundPurpose,
+  ReplyTarget,
+  SenderMembership,
+} from "../conversation";
 import type {
   BusinessDate,
   CatalogSnapshot,
@@ -35,6 +41,12 @@ export interface MessageSender {
   }): Promise<Result<{ waMessageId: string }, ErrorOf<"SendFailed">>>;
   markAsRead(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
   showTyping(waMessageId: string): Promise<Result<true, ErrorOf<"SendFailed">>>;
+}
+
+export type AccessCodePurpose = "sign-in" | "email-verification" | "forget-password";
+
+export interface EmailSender {
+  sendAccessCode(message: { to: string; code: string; purpose: AccessCodePurpose }): Promise<void>;
 }
 
 export interface TenantExtractionContext {
@@ -276,6 +288,36 @@ export interface InboundSenderRepo {
   ): Promise<boolean>;
 }
 
+/**
+ * Pergunta de escolha numerada de `trocar unidade` e `trocar empresa` (RF19, DE-25). Sempre dentro
+ * de `withTenant`; `apply` com `target: "tenant"` grava no tenant escolhido, em outra transação.
+ */
+export interface ChoiceStore {
+  /** Abre a pergunta, cancelando a que o usuário tinha em aberto (uma por colaborador, RF15.R8). */
+  open(input: {
+    tenantId: string;
+    userId: string;
+    inboundMessageId: string;
+    id: string;
+    draft: ChoiceDraft;
+    question: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  /**
+   * Grava a escolha e fecha a pergunta como respondida. `chosenId` é a unidade (`unit`) ou o
+   * restaurante (`tenant`). `false` se nada foi gravado: pergunta já fechada, unidade fora do
+   * acesso do vínculo ou restaurante sem vínculo ativo do usuário.
+   */
+  apply(input: {
+    tenantId: string;
+    userId: string;
+    questionId: string;
+    target: ChoiceTarget;
+    chosenId: string;
+    now: Date;
+  }): Promise<boolean>;
+}
+
 /** Consultas e registros da conversa que sempre rodam dentro de `withTenant`. */
 export interface TenantConversationRepo {
   /**
@@ -325,6 +367,8 @@ export interface EntryRegistration {
 
 export interface PendingQuestionRecord {
   readonly id: string;
+  /** `clarify`: a IA pediu um dado que faltou; `choice`: lista numerada de trocar unidade ou empresa. */
+  readonly kind: "clarify" | "choice";
   readonly inboundMessageId: string;
   readonly draft: unknown;
   readonly question: string;
