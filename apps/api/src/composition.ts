@@ -13,6 +13,7 @@ import {
   type Transcriber,
 } from "@app/core";
 import {
+  createChoiceStore,
   createDatabase,
   createEntryStore,
   createInboundIngestRepo,
@@ -41,6 +42,7 @@ import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
 import { createRouteInbound, defaultHandlers } from "./modules/inbound/route-inbound";
+import { createPendingAnswerRouter, createSwitchHandlers } from "./modules/inbound/switch-handlers";
 
 export interface Composition {
   readonly deps: AppDeps;
@@ -98,24 +100,41 @@ export async function composeWorker(
   const llm = createAnthropicLlmClient(env.ANTHROPIC_API_KEY);
   const models = { default: env.AI_MODEL_DEFAULT, advanced: env.AI_MODEL_ADVANCED };
   const sender = createMessageSender(env, createOutboundMessageRepo(ingestDb));
+  const entryStore = createEntryStore(appDb);
+  const entryHandlers = createEntryHandlers({
+    store: entryStore,
+    extractor: createClaudeEntryExtractor({ llm, models }),
+    correctionExtractor: createClaudeCorrectionExtractor({ llm, models }),
+    clock,
+    media: {
+      downloader: createMediaDownloader(env),
+      store: createMediaStore(env),
+      inbound: createInboundMediaRepo(ingestDb),
+      audioConverter: createFfmpegAudioConverter(),
+      transcriber: createTranscriber(env),
+      qrReader: createQrReader(),
+      limits: DEFAULT_USAGE_LIMITS,
+    },
+    newId: uuidv7,
+    logger,
+  });
+  // `trocar unidade` e `trocar empresa` (RF19, DE-25): a lista numerada é respondida sem IA.
+  const switchHandlers = createSwitchHandlers({
+    choices: createChoiceStore(appDb),
+    store: entryStore,
+    clock,
+    newId: uuidv7,
+  });
   const handlers = {
     ...defaultHandlers(logger),
-    ...createEntryHandlers({
-      store: createEntryStore(appDb),
-      extractor: createClaudeEntryExtractor({ llm, models }),
-      correctionExtractor: createClaudeCorrectionExtractor({ llm, models }),
+    ...entryHandlers,
+    switchUnit: switchHandlers.switchUnit,
+    switchTenant: switchHandlers.switchTenant,
+    pendingAnswer: createPendingAnswerRouter({
+      store: entryStore,
       clock,
-      media: {
-        downloader: createMediaDownloader(env),
-        store: createMediaStore(env),
-        inbound: createInboundMediaRepo(ingestDb),
-        audioConverter: createFfmpegAudioConverter(),
-        transcriber: createTranscriber(env),
-        qrReader: createQrReader(),
-        limits: DEFAULT_USAGE_LIMITS,
-      },
-      newId: uuidv7,
-      logger,
+      answerChoice: switchHandlers.answerChoice,
+      fallback: entryHandlers.pendingAnswer,
     }),
   };
 

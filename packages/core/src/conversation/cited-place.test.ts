@@ -107,6 +107,29 @@ describe("matchCitedPlace", () => {
     expect(matchCitedPlace("paguei 200 de carne", [centro, praia], centro)).toBeNull();
   });
 
+  it("nome de empresa que é prefixo do nome de outra não deixa a citação ambígua", () => {
+    const demo = membership({
+      membershipId: "m-demo",
+      tenantId: TENANT_A,
+      tenantName: "Restaurante Demo",
+      tenantUnits: [unit("uA", "Matriz", [])],
+      tenantUnitIds: ["uA"],
+    });
+    const demo2 = membership({
+      membershipId: "m-demo2",
+      tenantId: TENANT_B,
+      tenantName: "Restaurante Demo 2",
+      tenantUnits: [unit("uB", "Filial", [])],
+      tenantUnitIds: ["uB"],
+    });
+    expect(
+      matchCitedPlace("gastei 50 no restaurante demo 2", [demo, demo2], demo)?.membership,
+    ).toBe(demo2);
+    expect(matchCitedPlace("gastei 50 no restaurante demo", [demo, demo2], demo2)?.membership).toBe(
+      demo,
+    );
+  });
+
   it("duas empresas citadas na mesma mensagem é ambíguo", () => {
     expect(matchCitedPlace("50 no litoral e 30 no centro", [centro, praia], centro)).toBeNull();
   });

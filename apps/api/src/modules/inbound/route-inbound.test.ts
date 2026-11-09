@@ -14,6 +14,7 @@ import { NOTHING_TO_UNDO_TEXT, UNSUPPORTED_TYPE_TEXT } from "./messages";
 import {
   createRouteInbound,
   defaultHandlers,
+  type RouteContext,
   type RouteHandlers,
   SenderConflictError,
   SendFailedError,
@@ -39,6 +40,8 @@ function membership(overrides: Partial<SenderMembership> = {}): SenderMembership
     permissions: [],
     panelAccess: true,
     tenantUnitIds: ["unit-1"],
+    tenantUnits: [],
+    preferredAt: null,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     deactivatedAt: null,
     ...overrides,
@@ -76,6 +79,7 @@ function setup(options: Options = {}) {
     sent: [] as { to: string; text: string; tenantId: string | null; purpose: string }[],
     handlers: [] as string[],
     replyLookups: [] as string[],
+    contexts: [] as RouteContext[],
   };
   const lines: string[] = [];
   const logger = createLogger("info", { write: (line) => lines.push(line) });
@@ -131,6 +135,14 @@ function setup(options: Options = {}) {
     },
     extract: async () => {
       calls.handlers.push("extract");
+    },
+    switchUnit: async (context) => {
+      calls.handlers.push("switch_unit");
+      calls.contexts.push(context);
+    },
+    switchTenant: async (context) => {
+      calls.handlers.push("switch_tenant");
+      calls.contexts.push(context);
     },
   };
 
@@ -262,6 +274,67 @@ describe("roteamento da mensagem recebida", () => {
     it("falha de atribuição (mensagem de outro restaurante) é erro, sem resposta", async () => {
       const { route, calls } = setup({ memberships: [membership()], assignOk: false });
       await expect(route(inbound())).rejects.toBeInstanceOf(SenderConflictError);
+      expect(calls.sent).toEqual([]);
+    });
+  });
+
+  describe("empresa e unidade citadas no texto (RF11.R5, DE-25)", () => {
+    const unit = (id: string, name: string, aliases: string[]) => ({
+      id,
+      name,
+      aliases,
+      status: "active" as const,
+    });
+    const centro = membership({
+      membershipId: "m-centro",
+      tenantId: TENANT_A,
+      tenantName: "Bistrô Centro",
+      tenantUnitIds: ["uA"],
+      tenantUnits: [unit("uA", "Matriz", ["centro"])],
+    });
+    const praia = membership({
+      membershipId: "m-praia",
+      tenantId: TENANT_B,
+      tenantName: "Bistrô Praia",
+      createdAt: new Date("2026-05-01"),
+      tenantUnitIds: ["uB"],
+      tenantUnits: [unit("uB", "Praia", ["litoral"])],
+    });
+
+    it("a mensagem que cita a unidade da outra empresa é atribuída a ela", async () => {
+      const { route, calls } = setup({ memberships: [centro, praia] });
+      await route(inbound({ text: "gastei 50 de gelo no litoral" }));
+      expect(calls.assigned[0]?.tenantId).toBe(TENANT_B);
+      expect(calls.handlers).toEqual(["extract"]);
+      expect(calls.contexts).toEqual([]);
+    });
+
+    it("trocar empresa recebe os vínculos ativos do telefone, na ordem de escolha", async () => {
+      const seen: RouteContext[] = [];
+      const { route, calls } = setup({ memberships: [centro, praia] });
+      await route(inbound({ text: "trocar empresa" }));
+      seen.push(...calls.contexts);
+      expect(calls.handlers).toEqual(["switch_tenant"]);
+      expect(seen[0]?.activeMemberships.map((m) => m.tenantId)).toEqual([TENANT_A, TENANT_B]);
+    });
+
+    it("áudio e foto ficam na empresa padrão, mesmo citando a outra", async () => {
+      const { route, calls } = setup({ memberships: [centro, praia] });
+      await route(inbound({ type: "audio", text: "gastei 50 no litoral", media: null }));
+      expect(calls.assigned[0]?.tenantId).toBe(TENANT_A);
+    });
+
+    it("a empresa escolhida por trocar empresa vale mais que a mais antiga", async () => {
+      const escolhida = { ...praia, preferredAt: new Date("2026-10-01T00:00:00Z") };
+      const { route, calls } = setup({ memberships: [centro, escolhida] });
+      await route(inbound({ text: "paguei 100 de gás" }));
+      expect(calls.assigned[0]?.tenantId).toBe(TENANT_B);
+    });
+
+    it("trocar unidade e trocar empresa são comandos, sem IA", async () => {
+      const { route, calls } = setup({ memberships: [centro, praia] });
+      await route(inbound({ text: "Trocar Unidade" }));
+      expect(calls.handlers).toEqual(["switch_unit"]);
       expect(calls.sent).toEqual([]);
     });
   });
