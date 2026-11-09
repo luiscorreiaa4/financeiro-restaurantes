@@ -15,8 +15,15 @@ export interface TestDatabase {
   readonly app: pg.Pool;
   /** Papel `app_ingest`, usado pelo webhook. */
   readonly ingest: pg.Pool;
+  /** Papel `app_auth`, usado pelo login (Better Auth). */
+  readonly auth: pg.Pool;
   /** Strings de conexão de cada papel, para quem precisa abrir o próprio pool (ex.: pg-boss). */
-  readonly urls: { readonly admin: string; readonly app: string; readonly ingest: string };
+  readonly urls: {
+    readonly admin: string;
+    readonly app: string;
+    readonly ingest: string;
+    readonly auth: string;
+  };
   /** Cria um banco vazio no mesmo container e devolve um pool admin para ele. */
   createEmptyDatabase(name: string): Promise<pg.Pool>;
   stop(): Promise<void>;
@@ -42,16 +49,19 @@ export async function startTestDatabase(): Promise<TestDatabase> {
 
   const app = new pg.Pool({ connectionString: urlFor("app", "app") });
   const ingest = new pg.Pool({ connectionString: urlFor("app_ingest", "app_ingest") });
+  const auth = new pg.Pool({ connectionString: urlFor("app_auth", "app_auth") });
   const extraPools: pg.Pool[] = [];
 
   return {
     admin,
     app,
     ingest,
+    auth,
     urls: {
       admin: urlFor("postgres", "postgres"),
       app: urlFor("app", "app"),
       ingest: urlFor("app_ingest", "app_ingest"),
+      auth: urlFor("app_auth", "app_auth"),
     },
     async createEmptyDatabase(name) {
       await admin.query(`create database ${name}`);
@@ -60,7 +70,12 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       return pool;
     },
     async stop() {
-      await Promise.all([app.end(), ingest.end(), ...extraPools.map((pool) => pool.end())]);
+      await Promise.all([
+        app.end(),
+        ingest.end(),
+        auth.end(),
+        ...extraPools.map((pool) => pool.end()),
+      ]);
       await admin.end();
       await container.stop();
     },

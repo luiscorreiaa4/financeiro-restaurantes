@@ -3,7 +3,14 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, withTenant } from "../src/client";
 import { asTenant, attempt, startTestDatabase, type TestDatabase } from "./database";
-import { createTenant, GLOBAL_TABLES, insertsFor, TABLES, type TenantFixture } from "./fixtures";
+import {
+  AUTH_TABLES,
+  createTenant,
+  GLOBAL_TABLES,
+  insertsFor,
+  TABLES,
+  type TenantFixture,
+} from "./fixtures";
 
 const RLS_VIOLATION_OR_NO_PRIVILEGE = "42501";
 
@@ -43,7 +50,9 @@ describe("isolamento entre tenants, tabela por tabela", () => {
   });
 
   const tenantTables = TABLES.filter(
-    (table) => !(GLOBAL_TABLES as readonly string[]).includes(table),
+    (table) =>
+      !(GLOBAL_TABLES as readonly string[]).includes(table) &&
+      !(AUTH_TABLES as readonly string[]).includes(table),
   );
 
   describe.each([...tenantTables])("%s", (table) => {
@@ -159,9 +168,9 @@ describe("RLS no banco", () => {
       rolbypassrls: boolean;
       rolsuper: boolean;
     }>(
-      "select rolname, rolbypassrls, rolsuper from pg_roles where rolname in ('app', 'app_ingest')",
+      "select rolname, rolbypassrls, rolsuper from pg_roles where rolname in ('app', 'app_ingest', 'app_auth')",
     );
-    expect(rows.map((row) => row.rolname).sort()).toEqual(["app", "app_ingest"]);
+    expect(rows.map((row) => row.rolname).sort()).toEqual(["app", "app_auth", "app_ingest"]);
     for (const row of rows) {
       expect(row.rolbypassrls, row.rolname).toBe(false);
       expect(row.rolsuper, row.rolname).toBe(false);
@@ -171,7 +180,7 @@ describe("RLS no banco", () => {
   it("os papéis da aplicação não são donos de nenhuma tabela", async () => {
     const { rows } = await db.admin.query(
       `select tablename from pg_tables
-       where schemaname = 'public' and tableowner in ('app', 'app_ingest')`,
+       where schemaname = 'public' and tableowner in ('app', 'app_ingest', 'app_auth')`,
     );
     expect(rows).toEqual([]);
   });
@@ -180,7 +189,9 @@ describe("RLS no banco", () => {
 describe("query sem withTenant", () => {
   it("o papel app, sem tenant definido, não vê nenhuma linha", async () => {
     // Tabelas globais (regras do sistema, sem dado de cliente) são legíveis de propósito.
-    for (const table of TABLES.filter((t) => !(GLOBAL_TABLES as readonly string[]).includes(t))) {
+    // Tabelas de autenticação: o papel app nem tem privilégio (auth-migration.int.test.ts).
+    const skipped: readonly string[] = [...GLOBAL_TABLES, ...AUTH_TABLES];
+    for (const table of TABLES.filter((t) => !skipped.includes(t))) {
       const { rows } = await db.app.query(`select count(*)::int as n from ${table}`);
       expect(rows[0].n, table).toBe(0);
     }

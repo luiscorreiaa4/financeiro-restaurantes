@@ -36,11 +36,22 @@ describe("loadEnv", () => {
       expect(variables).toContain("ANTHROPIC_API_KEY");
       expect(variables).toContain("WHATSAPP_APP_SECRET");
       expect(variables).toContain("DATABASE_INGEST_URL");
+      expect(variables).toContain("DATABASE_AUTH_URL");
     }
   });
 
   it("a conexão de ingestão do webhook é opcional em desenvolvimento", () => {
     expect(loadEnv(base).DATABASE_INGEST_URL).toBeUndefined();
+  });
+
+  it("a conexão do papel de autenticação é opcional em desenvolvimento", () => {
+    expect(loadEnv(base).DATABASE_AUTH_URL).toBeUndefined();
+  });
+
+  it("DEV_MAIL_DIR tem padrão .dev-mail e vazio vira o padrão", () => {
+    expect(loadEnv(base).DEV_MAIL_DIR).toBe(".dev-mail");
+    expect(loadEnv({ ...base, DEV_MAIL_DIR: "" }).DEV_MAIL_DIR).toBe(".dev-mail");
+    expect(loadEnv({ ...base, DEV_MAIL_DIR: "/tmp/mail" }).DEV_MAIL_DIR).toBe("/tmp/mail");
   });
 
   it("o canal é o de desenvolvimento por padrão e só aceita dev ou whatsapp", () => {
