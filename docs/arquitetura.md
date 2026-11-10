@@ -89,7 +89,7 @@ memberships          id, tenant_id, user_id, unit_id (null = todas), role, permi
 sessions             id, user_id, token, expires_at, ip_address, user_agent, keep_connected (Better Auth; sem tenant_id; só o papel app_auth, DD-24)
 accounts             id, user_id, account_id, provider_id, password (hash), tokens (Better Auth; só app_auth)
 verifications        id, identifier, value, expires_at (códigos de acesso por e-mail; só app_auth)
-auth_audit           id, user_id, email_hash, event (otp_sent|login|login_failed|password_locked|logout), ip, user_agent, created_at (só insere e lê, app_auth)
+auth_audit           id, user_id, email_hash, event (otp_sent|login|login_failed|password_locked|logout|password_reset|password_changed|password_set|other_sessions_revoked|name_changed), ip, user_agent, created_at (só insere e lê, app_auth)
 signup_verifications id, email, kind (code|notice), code_hash, attempts, ip, expires_at, receipt_hash, receipt_expires_at, consumed_at, created_at (códigos, avisos e comprovantes do autocadastro, F1b; global, só app_auth, DD-25)
 categories           id, tenant_id (null = padrão do sistema), parent_id, name, kind (revenue|expense|investment|deduction), nature (fixed|variable), dre_group
 suppliers            id, tenant_id, name, document (cnpj/cpf), aliases text[]
@@ -196,6 +196,9 @@ Toda tabela nova segue a regra `.claude/rules/tabela-nova.md` (`tenant_id`, RLS,
 - Assinatura do webhook validada sempre.
 - Rate limit por número de telefone e por IP.
 - Sessões com cookie `httpOnly`, `secure`, `sameSite=lax`.
+- `/api/auth/*` passa por lista de rotas permitidas (`sign-in/email`, `sign-in/email-otp`, `email-otp/send-verification-otp`, `sign-out`); o resto do Better Auth responde 404 (F1c, DD-26).
+- Recuperação por **link temporário** (uso único, 30 minutos, token no fragmento da URL; DD-27) e perfil por rotas próprias da API: `POST /api/recovery/request` e `POST /api/recovery/reset` (públicas) e, com sessão, `GET /api/profile`, `PATCH /api/profile/name`, `POST /api/profile/password`, `/password/link` e `/sessions/revoke-others`. Trocar a senha com a atual encerra as outras sessões; concluir o link (recuperação) encerra todas; as duas enviam aviso por e-mail.
 - Segredos em variáveis de ambiente validadas na inicialização.
 - Logs sem PII: nunca logar texto de mensagem, transcrição, CPF ou valores de salário.
+- Limitações conhecidas da F1c (decisão do Luís pendente, ver `docs/planos/andamento.md`): (1) falha da auditoria depois de gravar a senha ou o nome devolve erro ao usuário mesmo com a troca feita; (2) no login por código, `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` permitem descobrir se um e-mail tem conta (a recuperação por link não tem esse problema).
 - Dependências verificadas com `pnpm audit` e Dependabot/Renovate.
