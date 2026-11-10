@@ -91,6 +91,12 @@ export const AUTH_EVENTS = [
   "signup_verified",
   "signup_completed",
   "company_created",
+  // Recuperação de senha, perfil e sessões (F1c).
+  "password_reset",
+  "password_changed",
+  "password_set",
+  "other_sessions_revoked",
+  "name_changed",
 ] as const;
 
 /** Histórico de acessos (RF02): só acréscimo, sem e-mail em claro (só hash). */

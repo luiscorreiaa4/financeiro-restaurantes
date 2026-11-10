@@ -1,5 +1,13 @@
-import { and, count, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
-import { type AUTH_EVENTS, authAudit, memberships, sessions, users } from "../schema";
+import { and, count, desc, eq, gt, gte, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
+import {
+  type AUTH_EVENTS,
+  accounts,
+  authAudit,
+  memberships,
+  sessions,
+  users,
+  verifications,
+} from "../schema";
 import type { Database, Transaction } from "./client";
 import { uuidv7 } from "./uuid";
 
@@ -38,6 +46,8 @@ export interface AuthStore {
   hasActiveMembership(userId: string): Promise<boolean>;
   /** `email` já normalizado (minúsculas, sem espaços nas pontas). */
   findUserByEmail(email: string): Promise<AuthUserState | null>;
+  /** Usuário pelo id (link de recuperação, RF03); `email` como está no cadastro (minúsculas; null em quem não tem e-mail). */
+  findUserById(userId: string): Promise<{ id: string; email: string | null } | null>;
   /** Celular do usuário em E.164; `null` sem celular (contador convidado por e-mail, DD-20). */
   findUserPhone(userId: string): Promise<string | null>;
   recordAudit(event: {
@@ -94,6 +104,24 @@ export interface AuthStore {
   markLogin(userId: string): Promise<void>;
   /** Renova o uso da sessão (RF02.R5); o Better Auth só a lê. */
   touchSession(sessionId: string, state: { updatedAt: Date; expiresAt: Date }): Promise<void>;
+  /** Hash da senha (conta `credential`); `null` se o usuário não tem senha. */
+  getPasswordHash(userId: string): Promise<string | null>;
+  /** Troca o hash da conta `credential` existente; `false` se o usuário não tem conta de senha. */
+  setPasswordHash(userId: string, hash: string): Promise<boolean>;
+  /** Sessões ainda válidas em `now`, da mais recente para a mais antiga; nunca devolve o token. */
+  listSessions(
+    userId: string,
+    now: Date,
+  ): Promise<{ id: string; userAgent: string | null; updatedAt: Date }[]>;
+  /** Apaga as sessões do usuário menos `keepSessionId` (`null` apaga todas); devolve quantas. */
+  deleteSessionsExcept(userId: string, keepSessionId: string | null): Promise<number>;
+  updateUserName(userId: string, name: string): Promise<void>;
+  /**
+   * Apaga os links de recuperação de senha ainda guardados para o usuário (o Better Auth grava
+   * `reset-password:<token>` com o id do usuário no valor); devolve quantos. Um link novo vale
+   * sozinho (RF03.R2, DD-30).
+   */
+  deleteResetTokens(userId: string): Promise<number>;
 }
 
 /**
@@ -130,6 +158,15 @@ export function createAuthStore(
         })
         .from(users)
         .where(eq(users.email, email))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+
+    async findUserById(userId) {
+      const rows = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
         .limit(1);
       return rows[0] ?? null;
     },
@@ -260,6 +297,58 @@ export function createAuthStore(
         .update(sessions)
         .set({ updatedAt: state.updatedAt, expiresAt: state.expiresAt })
         .where(eq(sessions.id, sessionId));
+    },
+
+    async getPasswordHash(userId) {
+      const rows = await db
+        .select({ password: accounts.password })
+        .from(accounts)
+        .where(and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")))
+        .limit(1);
+      return rows[0]?.password ?? null;
+    },
+
+    async setPasswordHash(userId, hash) {
+      const rows = await db
+        .update(accounts)
+        .set({ password: hash, updatedAt: clock.now() })
+        .where(and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")))
+        .returning({ id: accounts.id });
+      return rows.length > 0;
+    },
+
+    async listSessions(userId, now) {
+      return db
+        .select({ id: sessions.id, userAgent: sessions.userAgent, updatedAt: sessions.updatedAt })
+        .from(sessions)
+        .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now)))
+        .orderBy(desc(sessions.updatedAt));
+    },
+
+    async deleteSessionsExcept(userId, keepSessionId) {
+      const rows = await db
+        .delete(sessions)
+        .where(
+          keepSessionId === null
+            ? eq(sessions.userId, userId)
+            : and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)),
+        )
+        .returning({ id: sessions.id });
+      return rows.length;
+    },
+
+    async deleteResetTokens(userId) {
+      const rows = await db
+        .delete(verifications)
+        .where(
+          and(like(verifications.identifier, "reset-password:%"), eq(verifications.value, userId)),
+        )
+        .returning({ id: verifications.id });
+      return rows.length;
+    },
+
+    async updateUserName(userId, name) {
+      await db.update(users).set({ name, updatedAt: clock.now() }).where(eq(users.id, userId));
     },
   };
 }

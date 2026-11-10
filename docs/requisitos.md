@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Versão:** 1.9 (10/11/2026). RF03.R2: um pedido novo de link invalida os anteriores, e RF02.R1: erros de código iguais para e-mail com e sem conta (DD-30). Antes: 1.8 (10/11/2026). RF01 e RF04: o município da unidade é escolhido da lista oficial do IBGE para a UF, e a API recusa outro valor (DD-29). Antes: 1.7 (10/11/2026). RF01.R3: o CNPJ aceita o formato alfanumérico da Receita (DD-28). Antes: 1.6 (09/11/2026). RF03: a recuperação de acesso passa a ser por **link temporário** enviado ao e-mail (uso único, vale 30 minutos), no lugar do código de 6 dígitos; vale também para definir a primeira senha pelo "Meu perfil" (DD-27). Antes: 1.5 (09/11/2026). F1c: RF02.R8 alinhado ao RF02.CA09 (trocar a senha pelo perfil encerra as outras sessões e mantém a atual; a recuperação encerra todas; DD-26). Antes: 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
 - **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
 - **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
@@ -309,7 +309,7 @@ Requisito responsável pela criação de uma nova conta (empresa cliente) pelo p
 |---|---|---|---|
 | Nome Fantasia | String | Sim | R1 |
 | Razão Social | String | Não | R2 |
-| CNPJ | String (xx.xxx.xxx/xxxx-xx) | Não | R3 |
+| CNPJ | String (AA.AAA.AAA/AAAA-DD, letras e números) | Não | R3 |
 | Segmento | Enum | Sim | R4 |
 | Regime Tributário | Enum | Não | R5 |
 | Faixa de Faturamento Mensal | Enum | Não | R6 |
@@ -319,7 +319,7 @@ Requisito responsável pela criação de uma nova conta (empresa cliente) pelo p
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
 | Nome da Unidade | String | Sim | R7 |
-| Município | String | Sim |  |
+| Município | String (lista oficial do IBGE para a UF) | Sim | DD-29 |
 | Estado (UF) | String (UF) | Sim | R8 |
 
 **Responsável (Dono)**
@@ -347,7 +347,7 @@ Requisito responsável pela criação de uma nova conta (empresa cliente) pelo p
 
 - **R1** Nome Fantasia é o nome exibido no painel e nas mensagens do WhatsApp quando o usuário tem acesso a mais de uma empresa. Deve ter de 2 a 100 caracteres, sem espaços nas pontas.
 - **R2** Razão Social é opcional (até 150 caracteres). Quando o CNPJ é informado, o sistema pode sugerir a razão social a partir de consulta pública, sempre editável.
-- **R3** CNPJ é opcional no autocadastro, porque o dono pode ainda não tê-lo à mão. Quando informado, deve ter os dígitos verificadores válidos e sequências repetidas são recusadas. Um CNPJ só pode estar em uma conta com situação diferente de ENCERRADA, garantido por restrição de unicidade no banco de dados (inclusive em cadastros simultâneos). O CNPJ passa a ser obrigatório para habilitar a captura de notas por e-mail (RF31).
+- **R3** CNPJ é opcional no autocadastro, porque o dono pode ainda não tê-lo à mão. Quando informado, deve ter 14 posições (12 letras A-Z ou números, mais 2 dígitos verificadores numéricos, no formato alfanumérico da Receita desde julho de 2026), com os dígitos verificadores válidos; sequências repetidas são recusadas. A tela aplica a máscara enquanto o usuário digita e aceita colar com ou sem pontuação; o sistema guarda sem pontuação e em maiúsculas (DD-28). Um CNPJ só pode estar em uma conta com situação diferente de ENCERRADA, garantido por restrição de unicidade no banco de dados (inclusive em cadastros simultâneos). O CNPJ passa a ser obrigatório para habilitar a captura de notas por e-mail (RF31).
 - **R4** Segmento: RESTAURANTE, BAR, LANCHONETE, PIZZARIA, PADARIA, CAFETERIA, HAMBURGUERIA, FOOD_TRUCK ou OUTRO. Usado para ajustar sugestões de categorias e para métricas internas.
 - **R5** Regime Tributário é opcional: MEI, SIMPLES_NACIONAL, LUCRO_PRESUMIDO, LUCRO_REAL ou NAO_SEI. Quando o dono ativa o imposto estimado, o regime (diferente de NAO_SEI) e os parâmetros dele passam a ser obrigatórios (RF39, DD-05).
 - **R6** Faixa de Faturamento Mensal é opcional: ATE_30_MIL, DE_30_A_100_MIL, DE_100_A_300_MIL, ACIMA_DE_300_MIL ou PREFIRO_NAO_INFORMAR. Usada só para segmentação comercial; nunca aparece para outros usuários da conta.
@@ -428,14 +428,14 @@ Requisito responsável pelo acesso ao painel. O usuário entra com e-mail e senh
 
 **Regras e observações do preenchimento dos campos:**
 
-- **R1** Só entram usuários que existem e têm pelo menos um vínculo ativo (RF05). Um e-mail desconhecido ou de usuário sem vínculo ativo recebe a mesma resposta de um e-mail conhecido ("se o e-mail estiver cadastrado, você receberá o código"), para não revelar quem é cliente.
+- **R1** Só entram usuários que existem e têm pelo menos um vínculo ativo (RF05). Um e-mail desconhecido ou de usuário sem vínculo ativo recebe a mesma resposta de um e-mail conhecido ("se o e-mail estiver cadastrado, você receberá o código"), para não revelar quem é cliente. Os erros ao digitar o código (errado, vencido, tentativas esgotadas) também são iguais para e-mail com e sem conta (`INVALID_OTP`, DD-30).
 - **R2** Modo de Acesso: SENHA ou CODIGO. A tela abre no modo CODIGO, que é o mais simples para o público do produto, e oferece "Entrar com senha". Usuário sem senha definida que escolhe SENHA é orientado a usar o código ou a definir uma senha pelo fluxo de recuperação (RF03).
 - **R3** Senha segue as mesmas regras do RF01 (8 a 64 caracteres, letras e números, armazenada apenas como hash forte com sal).
 - **R4** Código de Acesso tem 6 dígitos numéricos, vale por 5 minutos e aceita até 3 tentativas; depois disso o código é invalidado e é preciso pedir outro. Reenvio liberado 60 segundos após cada envio, com no máximo 5 envios por hora por e-mail e 20 por hora por endereço IP. Pedir um código novo invalida o anterior. O envio do código por WhatsApp é uma evolução prevista (Fase: v1.1), dependente de modelo de mensagem aprovado pela Meta.
 - **R5** Manter Conectado estende a sessão para 30 dias com renovação a cada uso; sem ele, a sessão expira após 12 horas de inatividade. A sessão é guardada em cookie httpOnly, secure e sameSite=lax.
 - **R6** Ao entrar, o sistema seleciona a última empresa e unidade usadas. Usuário com vínculo em mais de uma empresa ou unidade vê um seletor sempre visível no topo do painel. A cada requisição, o servidor revalida que o vínculo com a empresa e a unidade ativas existe e está ativo; trocar o cookie para outra empresa é recusado. Unidade Ativa = TODAS só aparece para quem tem acesso a todas as unidades.
 - **R7** Após 5 tentativas de senha erradas seguidas, o acesso por senha fica bloqueado por 15 minutos (o acesso por código continua disponível). O bloqueio é informado sem dizer se o e-mail existe.
-- **R8** O usuário pode ver suas sessões ativas (dispositivo, data do último uso) e encerrar todas as outras. Desativar o usuário (RF05) ou trocar a senha encerra todas as sessões dele.
+- **R8** O usuário pode ver suas sessões ativas (dispositivo, data do último uso) e encerrar todas as outras. Desativar o usuário (RF05) encerra todas as sessões dele. Trocar a senha pelo "Meu perfil" encerra as **outras** sessões e mantém a atual (RF02.CA09). Concluir a recuperação de acesso (RF03) encerra **todas** as sessões.
 
 - **Obs1:** Atores: todos os usuários com acesso ao painel (Dono, Gerente, Contador e o Lançador, quando o dono liberar o painel para ele).
 - **Obs2:** A autorização real acontece no servidor em toda leitura e ação. Esconder botões na tela é conforto, não segurança.
@@ -470,21 +470,21 @@ Não se aplica.
 
 **Prioridade:** Essencial · **Fase:** MVP · **Módulo:** Conta e acesso
 
-Requisito responsável por permitir que o usuário recupere o acesso ao painel quando esqueceu a senha, ou defina uma senha pela primeira vez, usando o e-mail verificado.
+Requisito responsável por permitir que o usuário recupere o acesso ao painel quando esqueceu a senha, ou defina uma senha pela primeira vez, usando o e-mail verificado. O usuário pede o link na tela de recuperação ou, já logado, no "Meu perfil" ("Não lembro a senha atual" ou "Definir senha"); em ambos os casos o link leva à mesma tela de nova senha e concluir é uma recuperação (Obs1).
 
 **Recuperação:**
 
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
 | E-mail | String | Sim | R1 |
-| Código de Recuperação | String (6 dígitos) | Sim | R2 |
+| Link de Recuperação | URL enviada ao e-mail (token aleatório) | Sim | R2 |
 | Nova Senha | String | Sim | R3 |
 | Confirmação da Nova Senha | String | Sim | R3 |
 
 **Regras e observações do preenchimento dos campos:**
 
 - **R1** A resposta ao pedido é sempre a mesma, exista ou não o e-mail, para não revelar quem é cliente.
-- **R2** O código segue as regras do RF02 (6 dígitos, 5 minutos, 3 tentativas, reenvio após 60 segundos, limites por hora).
+- **R2** O link é de uso único e vale 30 minutos. O pedido segue os limites de envio do RF02 (reenvio após 60 segundos, limites por hora por e-mail e por IP). Abrir o link não o consome: só concluir a troca. Um pedido novo invalida os anteriores: só o link mais recente vale (DD-30). Link vencido, usado ou inválido mostra a mesma mensagem e pede um novo.
 - **R3** Nova Senha segue as regras do RF01 e não pode ser igual à senha atual.
 
 - **Obs1:** Concluída a recuperação, todas as sessões do usuário são encerradas e ele recebe um e-mail avisando da troca de senha, com orientação para procurar o suporte caso não tenha sido ele.
@@ -521,7 +521,7 @@ Requisito responsável pelo cadastro das unidades (restaurantes, filiais ou pont
 | Nome da Unidade | String | Sim | R1 |
 | Apelidos | Lista de String | Não | R2 |
 | CNPJ da Unidade | String (xx.xxx.xxx/xxxx-xx) | Não | R3 |
-| Município | String | Sim |  |
+| Município | String (lista oficial do IBGE para a UF) | Sim | DD-29 |
 | Estado (UF) | String (UF) | Sim |  |
 | Fuso Horário | Enum | Sim | R4 |
 | Canal Padrão da Receita | Referência (canal de venda) | Sim | R6 |

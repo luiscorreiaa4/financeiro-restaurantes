@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AccessCodeMessage, EmailSender } from "@app/core";
 import { uuidv7 } from "@app/db";
-import { accountExistsText } from "./email-texts";
+import { accountExistsText, passwordChangedText, passwordResetLinkText } from "./email-texts";
 
 function bodyOf(message: AccessCodeMessage) {
   if (message.purpose === "account-exists") {
@@ -27,6 +27,28 @@ export function createFileEmailSender(dir: string): EmailSender {
       await writeFile(
         join(dir, `${Date.now()}-${uuidv7()}.json`),
         JSON.stringify(bodyOf(message), null, 2),
+      );
+    },
+    async sendPasswordResetLink(message) {
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, `${Date.now()}-${uuidv7()}.json`),
+        JSON.stringify(
+          { to: message.to, url: message.url, text: passwordResetLinkText(message.url) },
+          null,
+          2,
+        ),
+      );
+    },
+    async sendSecurityNotice(message) {
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, `${Date.now()}-${uuidv7()}.json`),
+        JSON.stringify(
+          { to: message.to, kind: message.kind, text: passwordChangedText(message.at) },
+          null,
+          2,
+        ),
       );
     },
   };

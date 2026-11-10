@@ -51,6 +51,11 @@ import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
 import { createRouteInbound, defaultHandlers } from "./modules/inbound/route-inbound";
 import { createPendingAnswerRouter, createSwitchHandlers } from "./modules/inbound/switch-handlers";
+import { createProfileService } from "./modules/profile/profile-service";
+import {
+  createRecoverPassword,
+  createRequestRecoveryLink,
+} from "./modules/recovery/recover-password";
 import { createCreateAccount } from "./modules/signup/create-account";
 import { createCreateCompany } from "./modules/signup/create-company";
 import { createRequestSignupCode } from "./modules/signup/request-signup-code";
@@ -83,6 +88,8 @@ export async function compose(
       },
       auth: auth.deps,
       signup: auth.signup,
+      recovery: auth.recovery,
+      profile: auth.profile,
     },
     async close() {
       await queue.stop();
@@ -98,6 +105,8 @@ export async function compose(
 function composeAuth(env: Env): {
   deps: NonNullable<AppDeps["auth"]>;
   signup: NonNullable<AppDeps["signup"]>;
+  recovery: NonNullable<AppDeps["recovery"]>;
+  profile: NonNullable<AppDeps["profile"]>;
   close(): Promise<void>;
 } {
   if (env.DATABASE_AUTH_URL === undefined) {
@@ -114,6 +123,13 @@ function composeAuth(env: Env): {
   const signupStore = createSignupStore(authDb, clock);
   // Só o texto fixo das mensagens do Better Auth chega ao log (regra 9).
   const logger = createLogger(env.LOG_LEVEL);
+  // Auditoria que falha depois da troca já feita (DD-30): só o evento e o tipo do erro, sem
+  // mensagem (o Drizzle põe os parâmetros do SQL nela).
+  const onAuditFailure = (event: string, error: unknown) =>
+    logger.error(
+      { event, errorName: error instanceof Error ? error.name : "unknown" },
+      "auditoria falhou depois da troca",
+    );
   // Erro no envio do código: só o tipo do erro, sem mensagem (pode ter e-mail).
   // Fila cheia: só a contagem de pendentes, nada da tarefa.
   const background = createBackgroundTasks({
@@ -124,20 +140,19 @@ function composeAuth(env: Env): {
       ),
     onDrop: (pending) => logger.warn({ pending }, "envio de código descartado: fila cheia"),
   });
-  const gateway = createAuthGateway(
-    createAuth({
-      pool,
-      store,
-      email,
-      clock,
-      secret: env.AUTH_SECRET,
-      baseUrl: env.APP_URL,
-      trustedOrigins: [env.APP_URL],
-      secureCookies: env.NODE_ENV !== "development",
-      background,
-      log: (level, message) => logger[level]({ component: "better-auth" }, message),
-    }),
-  );
+  const auth = createAuth({
+    pool,
+    store,
+    email,
+    clock,
+    secret: env.AUTH_SECRET,
+    baseUrl: env.APP_URL,
+    trustedOrigins: [env.APP_URL],
+    secureCookies: env.NODE_ENV !== "development",
+    background,
+    log: (level, message) => logger[level]({ component: "better-auth" }, message),
+  });
+  const gateway = createAuthGateway(auth, { store, clock, background });
   const checkSession = createCheckSession({ gateway, access: store, clock });
   const signupRepo = createSignupRepo(authDb);
   return {
@@ -180,6 +195,14 @@ function composeAuth(env: Env): {
           newId: uuidv7,
         }),
       },
+    },
+    recovery: {
+      recover: createRecoverPassword({ store, gateway, email, background, clock, onAuditFailure }),
+      requestLink: createRequestRecoveryLink({ gateway }),
+    },
+    profile: {
+      checkSession,
+      service: createProfileService({ store, gateway, email, background, clock, onAuditFailure }),
     },
     async close() {
       await background.drain();

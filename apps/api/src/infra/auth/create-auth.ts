@@ -28,7 +28,11 @@ import { emailOTP } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type pg from "pg";
 import { z } from "zod";
-import type { AuthGateway, AuthSession } from "../../modules/auth/check-session";
+import {
+  type AuthGateway,
+  type AuthSession,
+  ResetTokenError,
+} from "../../modules/auth/check-session";
 import type { BackgroundTasks } from "./background-tasks";
 
 export interface CreateAuthDeps {
@@ -52,17 +56,15 @@ export interface CreateAuthDeps {
   readonly log?: (level: "debug" | "info" | "warn" | "error", message: string) => void;
 }
 
-const SEND_OTP_PATHS = new Set([
-  "/email-otp/send-verification-otp",
-  "/email-otp/request-password-reset",
-  "/forget-password/email-otp",
-]);
+/** Validade do link de recuperação de senha (RF03.R2). */
+const RESET_LINK_TTL_SECONDS = 30 * 60;
+const SEND_OTP_PATH = "/email-otp/send-verification-otp";
 /** Cabeçalhos internos: a rota Fastify descarta os que vêm do cliente com este prefixo. */
 export const INTERNAL_HEADER_PREFIX = "x-auth-internal-";
 const INTERNAL_HEADER = `${INTERNAL_HEADER_PREFIX}send`;
 /** Marca da tentativa de senha, do gancho `before` para o `after`. */
 const ATTEMPT_HEADER = `${INTERNAL_HEADER_PREFIX}attempt`;
-const OTP_TYPES = ["sign-in", "email-verification", "forget-password"] as const;
+const OTP_TYPES = ["sign-in", "email-verification"] as const;
 type OtpType = (typeof OTP_TYPES)[number];
 const isOtpType = (value: unknown): value is OtpType =>
   typeof value === "string" && (OTP_TYPES as readonly string[]).includes(value);
@@ -72,7 +74,6 @@ const OTP_SIGN_IN = "/sign-in/email-otp";
 const SET_PASSWORD_FIELDS: Record<string, string> = {
   "/change-password": "newPassword",
   "/reset-password": "newPassword",
-  "/email-otp/reset-password": "password",
 };
 
 const PASSWORD_ERROR_CODES: Record<PasswordError, string> = {
@@ -189,6 +190,15 @@ export function createAuth(deps: CreateAuthDeps) {
       disableSignUp: true,
       minPasswordLength: PASSWORD_MIN_LENGTH,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
+      // Link de recuperação (RF03, DD-27): uso único, 30 minutos. O token vai no fragmento da URL,
+      // que o navegador não envia ao servidor nem no `Referer`.
+      resetPasswordTokenExpiresIn: RESET_LINK_TTL_SECONDS,
+      async sendResetPassword({ user, token }) {
+        const url = new URL("/redefinir-senha", deps.baseUrl);
+        url.hash = `token=${token}`;
+        const to = normalizeEmail(user.email);
+        deps.background.run(() => deps.email.sendPasswordResetLink({ to, url: url.toString() }));
+      },
     },
     databaseHooks: {
       session: {
@@ -230,11 +240,14 @@ export function createAuth(deps: CreateAuthDeps) {
         const headers = ctx.headers;
         const audit = { ip: ipOf(headers), userAgent: uaOf(headers) };
 
-        if (SEND_OTP_PATHS.has(ctx.path)) {
+        if (ctx.path === SEND_OTP_PATH) {
           // Chamada da própria tarefa em segundo plano: segue para o Better Auth gerar o código.
           if (headers?.get(INTERNAL_HEADER) === internalToken) return;
-          const type =
-            ctx.path === "/email-otp/send-verification-otp" ? body?.type : "forget-password";
+          const type = body?.type;
+          // A recuperação de senha é por link (DD-27): código desse tipo não existe mais.
+          if (type === "forget-password") {
+            throw new APIError("BAD_REQUEST", { code: "INVALID_REQUEST", message: "invalid type" });
+          }
           // Formato inválido: o Better Auth responde 400 sem gerar nada.
           if (email === null || !z.email().safeParse(email).success || !isOtpType(type)) return;
           deps.background.run(() => sendCodeInBackground({ email, type, ...audit }));
@@ -409,7 +422,11 @@ function signupSessionPlugin() {
 export type Auth = ReturnType<typeof createAuth>;
 
 /** Adapta o Better Auth à porta que a API usa (`AuthGateway`). */
-export function createAuthGateway(auth: Auth): AuthGateway {
+export function createAuthGateway(
+  auth: Auth,
+  deps: { store: AuthStore; clock: Clock; background: BackgroundTasks },
+): AuthGateway {
+  const { store, clock, background } = deps;
   return {
     handle: (request) => auth.handler(request),
 
@@ -448,6 +465,51 @@ export function createAuthGateway(auth: Auth): AuthGateway {
 
     async hashPassword(password) {
       return (await auth.$context).password.hash(password);
+    },
+
+    async verifyPassword({ hash, password }) {
+      return (await auth.$context).password.verify({ hash, password });
+    },
+
+    async requestPasswordLink(input) {
+      // Resolve já, sempre igual: vínculo, limites e envio rodam fora da requisição (RF03.R1).
+      background.run(async () => {
+        if (!z.email().safeParse(input.email).success) return;
+        const user = await store.findUserByEmail(input.email);
+        if (user === null || !(await store.hasActiveMembership(user.id))) return;
+        const now = clock.now();
+        // Mesmos limites do código de acesso (RF02.R4): 60 s, 5/h por e-mail e 20/h por IP.
+        const reserved = await store.reserveOtpSend({
+          userId: user.id,
+          emailHash: hashEmail(input.email),
+          ip: input.ip,
+          userAgent: input.userAgent,
+          decide: (byEmail, byIp) => decideOtpSend(byEmail, byIp, now).allowed,
+        });
+        if (!reserved) return;
+        // Só o link mais recente vale (RF03.R2, DD-30): os anteriores deste usuário morrem aqui.
+        await store.deleteResetTokens(user.id);
+        await auth.api.requestPasswordReset({ body: { email: input.email } });
+      });
+    },
+
+    async peekResetToken(token) {
+      const found = await (await auth.$context).internalAdapter.findVerificationValue(
+        `reset-password:${token}`,
+      );
+      if (found === null || found.expiresAt.getTime() <= Date.now()) return null;
+      return { userId: found.value };
+    },
+
+    async resetPasswordWithToken(input) {
+      try {
+        await auth.api.resetPassword({
+          body: { newPassword: input.password, token: input.token },
+        });
+      } catch (error) {
+        if (isAPIError(error) && error.statusCode < 500) throw new ResetTokenError("INVALID_TOKEN");
+        throw error;
+      }
     },
 
     async refreshSession(headers) {

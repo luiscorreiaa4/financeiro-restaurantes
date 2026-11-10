@@ -25,6 +25,7 @@ Em conflito, vale a ordem da tabela (do mais forte para o mais fraco).
 | Arquivo | O que tem | Para quem |
 |---|---|---|
 | [`planos/andamento.md`](planos/andamento.md) | **Comece por aqui.** O que já existe, próximos passos, bloqueios e pendências técnicas | Os dois |
+| [`planos/pendencias.md`](planos/pendencias.md) | Índice de todas as pendências abertas por etapa, com link para o arquivo que explica cada uma | Os dois |
 | [`planos/matheus.md`](planos/matheus.md) | Decisões de negócio (P01 a P11), validação, jurídico, go-to-market. Local, fora do git | **Matheus** |
 | [`planos/luis.md`](planos/luis.md) | Contas, Meta, hospedagem e custo de IA (o que não é etapa de código). Local, fora do git | **Luís** |
 | [`planos/canal-whatsapp.md`](planos/canal-whatsapp.md) | Etapas E1 a E14 do canal WhatsApp, com a tabela de progresso | Luís |

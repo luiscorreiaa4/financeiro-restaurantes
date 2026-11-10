@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   assertUnitAcceptsEntries,
   ensureNotLastActiveUnit,
+  formatCnpj,
   isValidCnpj,
+  normalizeCnpj,
   type UnitInput,
   type UnitRecord,
   validateUnit,
@@ -103,6 +105,18 @@ describe("validateUnit (RF04.R1 a R3)", () => {
     });
     expect(validateUnit(input({ uf: "sp" }))).toMatchObject({ ok: true, value: { uf: "SP" } });
   });
+
+  it("com a lista oficial do IBGE, recusa município fora dela e grava a grafia oficial", () => {
+    const cities = ["Maceió", "Marechal Deodoro"];
+    expect(validateUnit(input({ city: "Cidade Inventada", cities }))).toMatchObject({
+      ok: false,
+      error: { field: "city", reason: "invalid" },
+    });
+    expect(validateUnit(input({ city: "maceio", cities }))).toMatchObject({
+      ok: true,
+      value: { city: "Maceió" },
+    });
+  });
 });
 
 describe("isValidCnpj", () => {
@@ -111,6 +125,30 @@ describe("isValidCnpj", () => {
     expect(isValidCnpj("11222333000180")).toBe(false);
     expect(isValidCnpj("00000000000000")).toBe(false);
     expect(isValidCnpj("123")).toBe(false);
+  });
+
+  it("aceita o CNPJ alfanumérico (exemplo oficial do Serpro), com ou sem pontuação e em minúsculas", () => {
+    expect(isValidCnpj("12.ABC.345/01DE-35")).toBe(true);
+    expect(isValidCnpj("12ABC34501DE35")).toBe(true);
+    expect(isValidCnpj("12.abc.345/01de-35")).toBe(true);
+    expect(isValidCnpj("12.ABC.345/01DE-34")).toBe(false);
+  });
+
+  it("recusa letra nos dígitos verificadores", () => {
+    expect(isValidCnpj("12ABC34501DEAB")).toBe(false);
+  });
+});
+
+describe("normalizeCnpj e formatCnpj", () => {
+  it("normaliza para maiúsculas sem pontuação", () => {
+    expect(normalizeCnpj("12.abc.345/01de-35")).toBe("12ABC34501DE35");
+    expect(normalizeCnpj(" 11.222.333/0001-81 ")).toBe("11222333000181");
+  });
+
+  it("formata 14 posições e devolve o resto como veio", () => {
+    expect(formatCnpj("12ABC34501DE35")).toBe("12.ABC.345/01DE-35");
+    expect(formatCnpj("11222333000181")).toBe("11.222.333/0001-81");
+    expect(formatCnpj("1122")).toBe("1122");
   });
 });
 

@@ -1,7 +1,8 @@
 import { normalizeEmail, validatePassword } from "../auth/auth-policy";
 import { err, ok, type Result } from "../errors/result";
 import { normalizeBrazilianPhone } from "../phone/phone";
-import { BRAZILIAN_STATES, isValidCnpj } from "../registry/unit";
+import { findOfficialCity } from "../registry/municipalities";
+import { BRAZILIAN_STATES, isValidCnpj, normalizeCnpj } from "../registry/unit";
 import { TAX_REGIME_CHOICES, type TaxRegimeChoice } from "../tax/tax";
 import {
   REVENUE_RANGES,
@@ -28,6 +29,8 @@ export type SignupErrorCode =
   | "revenue_range_invalid"
   | "unit_name_invalid"
   | "city_required"
+  /** Município fora da lista oficial do IBGE para a UF (DD-29). */
+  | "city_invalid"
   | "uf_invalid"
   | "terms_required";
 
@@ -73,6 +76,14 @@ export interface SignupInput {
   readonly terms: { readonly accepted: true };
 }
 
+export interface SignupValidationOptions {
+  /**
+   * Municípios oficiais da UF informada (DD-29). Quem chama carrega a lista (o core não faz I/O).
+   * Sem ela, o município só precisa estar preenchido.
+   */
+  readonly cities?: readonly string[];
+}
+
 type Rec = Record<string, unknown>;
 const asRec = (v: unknown): Rec => (typeof v === "object" && v !== null ? (v as Rec) : {});
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -85,6 +96,7 @@ const OWNER_NAME_RE = /^[\p{L}][\p{L}\s'’-]*$/u;
 export function validateSignupInput(
   raw: unknown,
   mode: SignupMode,
+  options: SignupValidationOptions = {},
 ): Result<SignupInput, SignupFieldErrors> {
   if (typeof raw !== "object" || raw === null) return err({ form: "required" });
   const root = raw as Rec;
@@ -127,7 +139,7 @@ export function validateSignupInput(
   const cnpjRaw = str(company.cnpj);
   let cnpj: string | null = null;
   if (cnpjRaw !== "") {
-    if (isValidCnpj(cnpjRaw)) cnpj = cnpjRaw.replace(/\D/g, "");
+    if (isValidCnpj(cnpjRaw)) cnpj = normalizeCnpj(cnpjRaw);
     else errors["company.cnpj"] = "cnpj_invalid";
   }
   const segment = str(company.segment);
@@ -145,8 +157,13 @@ export function validateSignupInput(
   // Unidade
   const unitName = str(unit.name);
   if (unitName.length < 2 || unitName.length > 60) errors["unit.name"] = "unit_name_invalid";
-  const city = str(unit.city);
+  let city = str(unit.city);
   if (city === "") errors["unit.city"] = "city_required";
+  else if (options.cities) {
+    const official = findOfficialCity(options.cities, city);
+    if (official === null) errors["unit.city"] = "city_invalid";
+    else city = official;
+  }
   const uf = str(unit.uf).toUpperCase();
   if (!(BRAZILIAN_STATES as readonly string[]).includes(uf)) errors["unit.uf"] = "uf_invalid";
 

@@ -1,16 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { CompanyForm } from "./company-form";
-import { apiError, fakeSignupApi } from "./signup-test-helpers";
+import { CompanyForm, EMPTY_COMPANY, updateCompany } from "./company-form";
+import { apiError, fakeSignupApi, pickCity } from "./signup-test-helpers";
 
 type User = ReturnType<typeof userEvent.setup>;
 
 async function fillCompany(user: User) {
   await user.type(screen.getByLabelText("Nome fantasia"), "Bar do Zé");
   await user.selectOptions(screen.getByLabelText("Segmento"), "bar");
-  await user.type(screen.getByLabelText("Município"), "Recife");
   await user.selectOptions(screen.getByLabelText("Estado (UF)"), "PE");
+  await pickCity(user, "Recife");
   await user.click(
     screen.getByRole("checkbox", {
       name: "Li e aceito os Termos de Uso e a Política de Privacidade",
@@ -51,7 +51,7 @@ describe("criar outra empresa (usuário logado)", () => {
     await user.click(screen.getByRole("button", { name: "Criar empresa" }));
 
     expect(submitCompany).toHaveBeenLastCalledWith({
-      owner: { phone: "81 98888-7777" },
+      owner: { phone: "(81) 98888-7777" },
       company: {
         tradeName: "Bar do Zé",
         legalName: "",
@@ -89,8 +89,8 @@ describe("criar outra empresa (usuário logado)", () => {
 
     await user.type(screen.getByLabelText("Nome fantasia"), "Bar do Zé");
     await user.selectOptions(screen.getByLabelText("Segmento"), "bar");
-    await user.type(screen.getByLabelText("Município"), "Recife");
     await user.selectOptions(screen.getByLabelText("Estado (UF)"), "PE");
+    await pickCity(user, "Recife");
     await user.click(screen.getByRole("button", { name: "Criar empresa" }));
 
     expect(api.submitCompany).not.toHaveBeenCalled();
@@ -99,5 +99,107 @@ describe("criar outra empresa (usuário logado)", () => {
         name: "Li e aceito os Termos de Uso e a Política de Privacidade",
       }),
     ).toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+describe("município da lista oficial (DD-29)", () => {
+  function renderForm() {
+    const api = fakeSignupApi();
+    render(<CompanyForm api={api} onDone={vi.fn()} />);
+    return api;
+  }
+
+  it("fica desabilitado até escolher o estado, com a dica de escolher o estado primeiro", async () => {
+    renderForm();
+    const city = screen.getByLabelText("Município");
+    expect(city).toBeDisabled();
+    expect(city).toHaveAccessibleDescription(/escolha o estado/i);
+  });
+
+  it("depois de escolher o estado, carrega a lista e o campo é liberado", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+    await waitFor(() => expect(screen.getByLabelText("Município")).toBeEnabled());
+  });
+
+  it("a busca ignora acento e caixa: 'maceio' acha Maceió, só entre os municípios do estado", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+    const city = screen.getByLabelText("Município");
+    await waitFor(() => expect(city).toBeEnabled());
+
+    await user.type(city, "maceio");
+    expect(await screen.findByRole("option", { name: "Maceió" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Recife" })).not.toBeInTheDocument();
+  });
+
+  it("texto digitado sem escolher uma opção não vira município: o campo volta vazio e o envio acusa", async () => {
+    const user = userEvent.setup();
+    const api = renderForm();
+    await user.type(screen.getByLabelText("Nome fantasia"), "Bar do Zé");
+    await user.selectOptions(screen.getByLabelText("Segmento"), "bar");
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+    const city = screen.getByLabelText("Município");
+    await waitFor(() => expect(city).toBeEnabled());
+
+    await user.type(city, "Cidade Inventada");
+    expect(
+      await screen.findByText("Nenhum município encontrado neste estado."),
+    ).toBeInTheDocument();
+    await user.tab();
+    expect(city).toHaveValue("");
+    expect(city).toHaveAttribute("aria-invalid", "true");
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Li e aceito os Termos de Uso e a Política de Privacidade",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Criar empresa" }));
+    expect(api.submitCompany).not.toHaveBeenCalled();
+  });
+
+  it("trocar o estado limpa o município escolhido", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+    await pickCity(user, "Maceió");
+    expect(screen.getByLabelText("Município")).toHaveValue("Maceió");
+
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "PE");
+    expect(screen.getByLabelText("Município")).toHaveValue("");
+    await waitFor(() => expect(screen.getByLabelText("Município")).toBeEnabled());
+    await user.type(screen.getByLabelText("Município"), "maceio");
+    expect(screen.queryByRole("option", { name: "Maceió" })).not.toBeInTheDocument();
+  });
+
+  it("envia o município escolhido na grafia oficial", async () => {
+    const user = userEvent.setup();
+    const api = renderForm();
+    await user.type(screen.getByLabelText("Nome fantasia"), "Bar do Zé");
+    await user.selectOptions(screen.getByLabelText("Segmento"), "bar");
+    await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+    await pickCity(user, "Maceió");
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Li e aceito os Termos de Uso e a Política de Privacidade",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Criar empresa" }));
+    await waitFor(() => expect(api.submitCompany).toHaveBeenCalled());
+    expect(api.submitCompany).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: expect.objectContaining({ city: "Maceió", uf: "AL" }) }),
+    );
+  });
+});
+
+describe("updateCompany", () => {
+  it("trocar a UF limpa o município; repetir a mesma UF não limpa", () => {
+    const withCity = { ...EMPTY_COMPANY, uf: "AL", city: "Maceió" };
+    expect(updateCompany(withCity, "uf", "PE").city).toBe("");
+    expect(updateCompany(withCity, "uf", "AL").city).toBe("Maceió");
+    expect(updateCompany(withCity, "tradeName", "Bar").city).toBe("Maceió");
   });
 });

@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 09/11/2026 (F0, F1a e F1b do painel feitas; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 10/11/2026 (F0, F1a, F1b e F1c do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. CI no GitHub rodou verde em 09/11/2026 (inclusive `e2e` e `integration`) |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 feita em 09/11/2026** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto, DE-25; contador só por e-mail e pendências do review, DE-26; evals resolvidos); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 (06/11/2026), F1a e F1b (09/11/2026) feitas**; F1c e F2 a F13 a fazer, **F1c é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026) feitas**; F2 a F13 a fazer, **F2 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -34,7 +34,7 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 ## 3. Próximos passos
 
 1. ~~**E11 (canal): modelo de dados dos requisitos**~~ (feita em 09/11/2026, DE-25 e DE-26; mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-2. **F1b (painel): autocadastro do dono.** A F1a (login por código e por senha) está feita. A F1b precisa de migration com INSERT e política para `app_auth` em `users`, `memberships` e `tenants`. Planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`); a F1c (recuperação, perfil e lista de sessões) vem depois. As etapas seguintes do painel (F2 a F6, F12 e F13) seguem o mesmo fluxo.
+2. ~~**F1b (painel): autocadastro do dono**~~ e ~~**F1c (recuperação, perfil e sessões)**~~ (feitas em 09/11/2026, DD-25, DD-26 e DD-27). Próxima do painel: **F2**; planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`). As etapas seguintes do painel (F3 a F6, F12 e F13) seguem o mesmo fluxo.
 3. ~~**Rodar o CI no GitHub**~~ (feito em 09/11/2026, tudo verde), agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
 5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
@@ -85,7 +85,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 
 ## 6. Painel
 
-**F0 feita em 06/11/2026, F1a e F1b em 09/11/2026**; F1c e F2 a F13 a fazer, a **F1c é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
+**F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026**; F2 a F13 a fazer, a **F2 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
@@ -123,6 +123,28 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] Teste instável `apps/api/test/signup-code.int.test.ts` ("auditoria e logs..."): com o relógio congelado os dois eventos tinham o mesmo `created_at` e o desempate pelo id (UUID v7 sem contador) era sorteado; o teste agora avança 1 s entre o envio e a verificação (revisão final da F1b).
   - [ ] A API falsa do E2E (`apps/web/e2e/fake-api.mjs`) não espelha todos os erros do cadastro (só `INVALID_CODE`, `RECEIPT_INVALID`, `cnpj_invalid` e 401 de `/api/companies`); os demais ficam nos testes unitários e de integração.
   - [ ] Constantes duplicadas a juntar no `core`: `hashSignupEmail` e `hashEmail` (`signup-hashing.ts` e `create-auth.ts`); `MAX_CODE_ATTEMPTS` (`signup-store.ts`) e `allowedAttempts: 3` (Better Auth); `SIGNUP_CODE_TTL_MS` e `expiresIn: 300`; `DAY_MS` e `SIGNUP_TIME_ZONE` copiados em `create-account.ts` e `create-company.ts`.
+- **Ajuste da tela de cadastro (DD-28) fechado em 10/11/2026** (commit `df12fa8`): `pnpm typecheck`, `pnpm lint` e `pnpm test` (1108), `pnpm test:int` (485: db 264, api 221) e E2E (58 passaram, 2 pulados por serem só do celular) verdes. Na rodada saíram o erro de tipo de `apps/web/e2e/login.spec.ts` (`noUncheckedIndexedAccess`) e o formato do Biome nos componentes novos (`combobox`, `input-group`, `textarea`); a árvore de trabalho foi normalizada para LF (F1c-11 segue aberta: falta um `.gitattributes`). O clique no adorno do `input-group.tsx` (foca o campo) não tem teste dedicado: conferir à mão.
+- **Pendências deixadas pelo ajuste da tela de cadastro (10/11/2026, DD-28):**
+  - [ ] CNPJ alfanumérico fora do cadastro: `accessKeyParts` da NFC-e (`packages/core/src/media/nfce.ts`, chave de acesso com 12 posições alfanuméricas no CNPJ do emitente), o chat de desenvolvimento (`apps/api/src/dev/chat-session.ts`) e `units.cnpj` (sem `check`, mas conferir leituras) ainda assumem CNPJ só numérico. Revisar na E9/E13 (RF14, RF31).
+  - [ ] Roteiro à mão da tela de cadastro com leitor de tela (NVDA): ler dica e erro dos campos com máscara; conferir o cursor da máscara no celular real (Android e iOS).
+- **Pendências deixadas pela F1c (09/11/2026, DD-26):**
+  - [x] **Migrations `0015` e `0016` aplicadas no banco de dev em 10/11/2026 (Luís)** (`DATABASE_ADMIN_URL=... pnpm db:migrate`, que não lê o `.env`). Em outro banco de dev, repetir: sem a `0015`, concluir a recuperação e trocar o nome no perfil gravam a troca e depois devolvem erro, porque a auditoria recusa os eventos novos.
+  - [x] **Feito em 10/11/2026 (DD-30):** auditoria que falha depois de gravar a senha ou o nome passa a ser tratada como sucesso, com a falha só no log e alerta no Sentry (`recover-password.ts`, `profile-service.ts`). Antes, o usuário via erro mesmo com a troca feita e, na recuperação, o link já gasto mostrava "Link inválido".
+  - [ ] Troca do próprio e-mail (RF02.Obs3), adiada da F1c (DD-26): candidata à F6.
+  - [ ] Sem limite de tentativas na rota da senha atual (`/api/profile/password`).
+  - [ ] `/api/profile` é lido no navegador (TanStack Query) até a F2 criar a leitura autenticada no servidor.
+  - [ ] Envio real do aviso de troca de senha e `trustProxy`/IP real: F8.
+  - [x] **Feito em 10/11/2026 (DD-30):** todos os erros de código no login por código (`/api/auth/sign-in/email-otp`) viram `INVALID_OTP`, iguais para e-mail com e sem conta, com texto "código incorreto ou vencido; peça um novo" na tela. Antes, `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` diferiam e permitiam descobrir se o e-mail tem conta (RF02.R1). Não impede queimar o código da vítima com tentativas erradas; a recuperação por link (DD-27) não tem o problema.
+  - [ ] Rotas `/api/profile/*` sem checagem própria de content-type e `Origin` (CSRF só protegido por `SameSite=Lax`).
+  - [ ] Nome do perfil aceita caracteres invisíveis (ex.: U+200B).
+  - [ ] Nome no menu do usuário só atualiza ao recarregar a página depois de salvar o nome.
+  - [ ] Lint do monorepo acusa CRLF em arquivos antigos no checkout do Windows (índice em LF): ambiente, não código.
+  - [ ] E2E local em paralelo: o teste "Sair" de `login.spec.ts` falha de vez em quando por corrida de hidratação (passa com `--workers=1`, como no CI).
+  - [ ] Cota de envio compartilhada: o link de recuperação usa a mesma cota do código de login (5 por hora por e-mail, RF02.R4); quem pede link ou código repetidamente para a vítima esgota a do login por código dela. Risco conhecido, junto com os limites reais da F8.
+  - [ ] `background.run` descarta tarefas quando a fila enche (`maxPending`): uma inundação de pedidos pode suprimir links e códigos legítimos em silêncio (F8).
+  - [x] **Feito em 10/11/2026 (DD-30):** um link de recuperação novo invalida os anteriores; só o mais recente vale (RF03.R2 já alterado na v1.9). Risco aceito: quem pede links repetidos para a vítima pode invalidar o legítimo; as cotas do RF02 limitam.
+  - [ ] `peekResetToken` compara a validade com `Date.now()` e não com o relógio injetado; o Better Auth confere de novo no consumo, então não é falha, só limita o teste de vencimento.
+  - [ ] Testes de borda do `AuthStore` que faltam (`packages/db/test/auth-store.int.test.ts`): `keepSessionId` de outro usuário, conta de outro provedor em `getPasswordHash`/`setPasswordHash` e `expiresAt` exatamente igual a `now` em `listSessions`.
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 

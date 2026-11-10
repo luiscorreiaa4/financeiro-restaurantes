@@ -7,7 +7,7 @@ import { AppShell } from "./app-shell";
 describe("casca da aplicação", () => {
   it("mostra um link na navegação principal para cada item de NAV_ITEMS", () => {
     render(
-      <AppShell>
+      <AppShell userName="Maria">
         <p>conteúdo da página</p>
       </AppShell>,
     );
@@ -23,7 +23,7 @@ describe("casca da aplicação", () => {
 
   it("tem o item 'Criar outra empresa' apontando para /nova-empresa", () => {
     render(
-      <AppShell>
+      <AppShell userName="Maria">
         <p>conteúdo</p>
       </AppShell>,
     );
@@ -37,7 +37,7 @@ describe("casca da aplicação", () => {
 
   it("mostra o conteúdo da página dentro da casca", () => {
     render(
-      <AppShell>
+      <AppShell userName="Maria">
         <p>conteúdo da página</p>
       </AppShell>,
     );
@@ -48,7 +48,7 @@ describe("casca da aplicação", () => {
   it("abre a navegação do celular ao tocar em 'Abrir menu'", async () => {
     const user = userEvent.setup();
     render(
-      <AppShell>
+      <AppShell userName="Maria">
         <p>conteúdo</p>
       </AppShell>,
     );
@@ -60,5 +60,21 @@ describe("casca da aplicação", () => {
     for (const item of NAV_ITEMS) {
       expect(within(dialog).getByRole("link", { name: item.label })).toBeInTheDocument();
     }
+  });
+});
+
+describe("casca: menu do usuário", () => {
+  it("mostra o nome e o acesso a 'Meu perfil' sem criar item novo em NAV_ITEMS", () => {
+    render(
+      <AppShell userName="Maria Souza">
+        <p>conteúdo</p>
+      </AppShell>,
+    );
+
+    expect(screen.getAllByText("Maria Souza").length).toBeGreaterThan(0);
+    for (const link of screen.getAllByRole("link", { name: "Meu perfil" })) {
+      expect(link).toHaveAttribute("href", "/perfil");
+    }
+    expect(NAV_ITEMS.some((item) => item.href === "/perfil")).toBe(false);
   });
 });

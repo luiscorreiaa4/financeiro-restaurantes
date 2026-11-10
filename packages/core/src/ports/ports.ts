@@ -54,8 +54,25 @@ export type AccessCodeMessage =
   | { to: string; code: string; purpose: Exclude<AccessCodePurpose, "account-exists"> }
   | { to: string; purpose: "account-exists"; loginUrl: string };
 
+export type SecurityNoticeKind = "password-changed";
+
+export interface SecurityNoticeMessage {
+  to: string;
+  kind: SecurityNoticeKind;
+  /** Momento da troca; o texto mostra em America/Sao_Paulo. */
+  at: Date;
+}
+
+export interface PasswordResetLinkMessage {
+  to: string;
+  /** Link completo para redefinir a senha (RF03, DD-27); vale 30 minutos e é de uso único. */
+  url: string;
+}
+
 export interface EmailSender {
   sendAccessCode(message: AccessCodeMessage): Promise<void>;
+  sendPasswordResetLink(message: PasswordResetLinkMessage): Promise<void>;
+  sendSecurityNotice(message: SecurityNoticeMessage): Promise<void>;
 }
 
 export interface TenantExtractionContext {

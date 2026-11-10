@@ -10,6 +10,7 @@ import {
   TRIAL_DAYS,
   validateSignupInput,
 } from "@app/core";
+import { citiesForForm } from "./cities-for-form";
 import { hashSignupEmail } from "./signup-hashing";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -51,7 +52,9 @@ export type CreateCompany = (
  */
 export function createCreateCompany(deps: CreateCompanyDeps): CreateCompany {
   return async (input) => {
-    const validated = validateSignupInput(input.form, "existing_user");
+    const validated = validateSignupInput(input.form, "existing_user", {
+      cities: await citiesForForm(input.form),
+    });
     if (!validated.ok) return err({ kind: "invalid_fields", fields: validated.error });
     const form = validated.value;
 

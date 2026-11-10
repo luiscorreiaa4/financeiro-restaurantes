@@ -1,27 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SignupApi } from "./signup-api";
 import { SignupFlow } from "./signup-flow";
-import { apiError, fakeSignupApi } from "./signup-test-helpers";
+import { apiError, fakeSignupApi, pickCity } from "./signup-test-helpers";
 
 type User = ReturnType<typeof userEvent.setup>;
 
 async function reachForm(user: User, email = "dono@novo.dev") {
   await user.type(screen.getByLabelText("E-mail"), email);
   await user.click(screen.getByRole("button", { name: "Enviar código" }));
+  // O sexto dígito confirma sozinho.
   await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
-  await user.click(screen.getByRole("button", { name: "Confirmar código" }));
   await screen.findByLabelText("Nome fantasia");
 }
 
 async function fillValidForm(user: User, { acceptTerms = true } = {}) {
   await user.type(screen.getByLabelText("Nome completo"), "Maria da Silva");
-  await user.type(screen.getByLabelText("Celular (WhatsApp)"), "82 99658-5647");
+  await user.type(screen.getByLabelText("Celular (WhatsApp)"), "11 98765-4321");
   await user.type(screen.getByLabelText("Nome fantasia"), "Cantina da Maria");
   await user.selectOptions(screen.getByLabelText("Segmento"), "restaurant");
-  await user.type(screen.getByLabelText("Município"), "Maceió");
   await user.selectOptions(screen.getByLabelText("Estado (UF)"), "AL");
+  await pickCity(user, "Maceió");
   if (acceptTerms) {
     await user.click(
       screen.getByRole("checkbox", {
@@ -76,21 +76,107 @@ describe("cadastro do dono", () => {
     await user.click(screen.getByRole("button", { name: "Enviar código" }));
     const code = await screen.findByLabelText("Código de 6 dígitos");
     await user.type(code, "000000");
-    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/código incorreto/i);
     expect(code).toHaveAttribute("aria-invalid", "true");
 
     for (const attempt of ["111111", "222222"]) {
       await user.clear(screen.getByLabelText("Código de 6 dígitos"));
       await user.type(screen.getByLabelText("Código de 6 dígitos"), attempt);
-      await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     }
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/muitas tentativas/i);
     expect(screen.getByRole("button", { name: "Confirmar código" })).toBeDisabled();
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Colar código" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Reenviar código em \d+ s/ })).toBeDisabled();
     expect(verifyCode).toHaveBeenCalledTimes(3);
     expect(screen.queryByLabelText("Nome fantasia")).not.toBeInTheDocument();
+  });
+
+  it("confirms by itself when the sixth digit is typed", async () => {
+    const user = userEvent.setup();
+    const api = fakeSignupApi();
+    renderFlow(api);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+
+    await screen.findByLabelText("Nome fantasia");
+    expect(api.verifyCode).toHaveBeenCalledTimes(1);
+    expect(api.verifyCode).toHaveBeenCalledWith("dono@novo.dev", "123456");
+  });
+
+  it("does not confirm twice when the form is submitted during the automatic confirmation", async () => {
+    const user = userEvent.setup();
+    const verifyCode = vi.fn(() => new Promise<never>(() => {}));
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+    await user.keyboard("{Enter}");
+
+    expect(verifyCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("after a wrong code, clicking the button without changing the field sends the same code again", async () => {
+    const user = userEvent.setup();
+    const verifyCode = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(400, "INVALID_CODE", "Código inválido ou vencido."))
+      .mockResolvedValueOnce({ receipt: "comprovante-1" });
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
+
+    await screen.findByLabelText("Nome fantasia");
+    expect(verifyCode).toHaveBeenCalledTimes(2);
+    expect(verifyCode).toHaveBeenLastCalledWith("dono@novo.dev", "000000");
+  });
+
+  it("the code cannot be edited while it is being confirmed; after the error the field gets the focus back", async () => {
+    const user = userEvent.setup();
+    let reject: (cause: unknown) => void = () => {};
+    const verifyCode = vi.fn(
+      () =>
+        new Promise<never>((_, fail) => {
+          reject = fail;
+        }),
+    );
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeDisabled();
+
+    await act(async () => {
+      reject(apiError(400, "INVALID_CODE", "Código inválido ou vencido."));
+    });
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeEnabled();
+    expect(screen.getByLabelText("Código de 6 dígitos")).toHaveFocus();
+  });
+
+  it("an incomplete code still shows the message when the button is clicked", async () => {
+    const user = userEvent.setup();
+    const api = fakeSignupApi();
+    renderFlow(api);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123");
+    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Digite os 6 dígitos do código.");
+    expect(api.verifyCode).not.toHaveBeenCalled();
   });
 
   it("step 2 only appears after a valid code; unit name is prefilled with the trade name (R7)", async () => {
@@ -104,7 +190,6 @@ describe("cadastro do dono", () => {
     expect(screen.queryByLabelText("Nome fantasia")).not.toBeInTheDocument();
 
     await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
-    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     await screen.findByLabelText("Nome fantasia");
 
     expect(api.verifyCode).toHaveBeenCalledWith("dono@novo.dev", "123456");
@@ -137,7 +222,7 @@ describe("cadastro do dono", () => {
     expect(cnpj).toHaveAccessibleDescription(/dígito verificador/i);
     expect(cnpj).toHaveValue("11.222.333/0001-00");
     expect(screen.getByLabelText("Nome completo")).toHaveValue("Maria da Silva");
-    expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveValue("82 99658-5647");
+    expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveValue("(11) 98765-4321");
     expect(screen.getByLabelText("Nome fantasia")).toHaveValue("Cantina da Maria");
     expect(screen.getByLabelText("Segmento")).toHaveValue("restaurant");
     expect(screen.getByLabelText("Município")).toHaveValue("Maceió");
@@ -185,7 +270,7 @@ describe("cadastro do dono", () => {
       owner: {
         name: "Maria da Silva",
         email: "dono@novo.dev",
-        phone: "82 99658-5647",
+        phone: "(11) 98765-4321",
         password: "",
       },
       company: {
@@ -251,7 +336,7 @@ describe("cadastro do dono", () => {
     expect(alert).toHaveTextContent(/celular já está em uso/i);
     expect(alert).toHaveTextContent(/suporte/i);
     expect(alert).not.toHaveTextContent("dono@novo.dev");
-    expect(alert).not.toHaveTextContent("99658");
+    expect(alert).not.toHaveTextContent("98765");
     expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Nome fantasia")).toHaveValue("Cantina da Maria");
   });
@@ -279,5 +364,160 @@ describe("cadastro do dono", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/venceu ou já foi usada/);
     expect(screen.queryByLabelText("Nome fantasia")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar código" })).toBeEnabled();
+  });
+});
+
+describe("cadastro: máscaras, validação ao sair do campo e acessibilidade", () => {
+  async function openForm() {
+    const user = userEvent.setup();
+    renderFlow(fakeSignupApi());
+    await reachForm(user);
+    return user;
+  }
+
+  it("celular ganha máscara enquanto digita e ao colar com +55", async () => {
+    const user = await openForm();
+    const phone = screen.getByLabelText("Celular (WhatsApp)");
+
+    await user.type(phone, "11987654321");
+    expect(phone).toHaveValue("(11) 98765-4321");
+
+    await user.clear(phone);
+    await user.click(phone);
+    await user.paste("+55 (11) 3456-7890");
+    expect(phone).toHaveValue("(11) 3456-7890");
+  });
+
+  it("CNPJ ganha máscara, aceita letras (CNPJ novo) e vira maiúsculo ao colar", async () => {
+    const user = await openForm();
+    const cnpj = screen.getByLabelText("CNPJ (opcional)");
+
+    await user.type(cnpj, "11222333000181");
+    expect(cnpj).toHaveValue("11.222.333/0001-81");
+
+    await user.clear(cnpj);
+    await user.click(cnpj);
+    await user.paste("12.abc.345/01de-35");
+    expect(cnpj).toHaveValue("12.ABC.345/01DE-35");
+  });
+
+  it("campos mostram exemplo no placeholder, sem trocar o rótulo", async () => {
+    await openForm();
+    expect(screen.getByLabelText("Nome completo")).toHaveAttribute(
+      "placeholder",
+      "Digite seu nome completo",
+    );
+    expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveAttribute(
+      "placeholder",
+      "(11) 98765-4321",
+    );
+    expect(screen.getByLabelText("CNPJ (opcional)")).toHaveAttribute(
+      "placeholder",
+      "00.000.000/0000-00",
+    );
+    expect(screen.getByLabelText("Município")).toHaveAttribute(
+      "placeholder",
+      "Escolha o estado primeiro",
+    );
+  });
+
+  it("estado vem antes do município", async () => {
+    await openForm();
+    const city = screen.getByLabelText("Município");
+    const state = screen.getByLabelText("Estado (UF)");
+    expect(state.compareDocumentPosition(city) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("erro aparece ao sair do campo, não enquanto digita, e o foco segue para o próximo campo", async () => {
+    const user = await openForm();
+    const phone = screen.getByLabelText("Celular (WhatsApp)");
+
+    await user.type(phone, "123");
+    expect(phone).not.toHaveAttribute("aria-invalid");
+
+    await user.tab();
+    expect(phone).toHaveAttribute("aria-invalid", "true");
+    expect(phone).toHaveAccessibleDescription(/celular inválido/i);
+    // A validação não pode puxar o foco de volta para o campo com erro.
+    expect(screen.getByLabelText("Senha (opcional)")).toHaveFocus();
+
+    // Digitar de novo limpa o erro; só volta ao sair, se ainda estiver errado.
+    await user.click(phone);
+    await user.type(phone, "9");
+    expect(phone).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("campo obrigatório vazio é marcado ao sair; campo opcional vazio não", async () => {
+    const user = await openForm();
+    const name = screen.getByLabelText("Nome completo");
+    const cnpj = screen.getByLabelText("CNPJ (opcional)");
+
+    await user.click(name);
+    await user.tab();
+    expect(name).toHaveAttribute("aria-invalid", "true");
+
+    await user.click(cnpj);
+    await user.tab();
+    expect(cnpj).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("CNPJ com dígito verificador errado é marcado ao sair", async () => {
+    const user = await openForm();
+    const cnpj = screen.getByLabelText("CNPJ (opcional)");
+    await user.type(cnpj, "11222333000182");
+    await user.tab();
+    expect(cnpj).toHaveAttribute("aria-invalid", "true");
+    expect(cnpj).toHaveAccessibleDescription(/dígito verificador/i);
+  });
+
+  it("senhas diferentes são apontadas ao sair da confirmação", async () => {
+    const user = await openForm();
+    await user.type(screen.getByLabelText("Senha (opcional)"), "cantina2026");
+    await user.type(screen.getByLabelText("Confirmar senha"), "cantina2027");
+    await user.tab();
+    expect(screen.getByLabelText("Confirmar senha")).toHaveAccessibleDescription(/não conferem/i);
+  });
+
+  it("dica e obrigatoriedade chegam ao leitor de tela", async () => {
+    await openForm();
+    expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveAccessibleDescription(
+      /número que vai lançar pelo whatsapp/i,
+    );
+    expect(screen.getByLabelText("Senha (opcional)")).toHaveAccessibleDescription(
+      /de 8 a 64 caracteres, com letras e números/i,
+    );
+    expect(screen.getByLabelText("Celular (WhatsApp)")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText("Nome fantasia")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText("Segmento")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText("Senha (opcional)")).not.toHaveAttribute("aria-required");
+    expect(screen.getByLabelText("CNPJ (opcional)")).not.toHaveAttribute("aria-required");
+  });
+
+  it("botão de mostrar senha alterna o campo e informa o estado", async () => {
+    const user = await openForm();
+    const password = screen.getByLabelText("Senha (opcional)");
+    const toggle = screen.getByRole("button", { name: "Mostrar senha" });
+
+    expect(password).toHaveAttribute("type", "password");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(toggle).toHaveAttribute("aria-controls", password.id);
+
+    await user.click(toggle);
+    expect(password).toHaveAttribute("type", "text");
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(toggle);
+    expect(password).toHaveAttribute("type", "password");
+    // A confirmação tem o próprio botão, com outro nome.
+    expect(
+      screen.getByRole("button", { name: "Mostrar confirmação da senha" }),
+    ).toBeInTheDocument();
+  });
+
+  it("contador mostra quantos caracteres já foram usados", async () => {
+    const user = await openForm();
+    await user.type(screen.getByLabelText("Nome fantasia"), "Cantina");
+    expect(screen.getByText("7 / 100")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nome fantasia")).toHaveAttribute("maxlength", "100");
   });
 });

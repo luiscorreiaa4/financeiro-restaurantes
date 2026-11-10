@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { OtpCodeField } from "@/components/otp-code-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,27 @@ const ERROR_ID = "login-error";
 const GENERIC_SENT = "Se o e-mail estiver cadastrado, você receberá o código.";
 
 type Mode = "code" | "password";
+
+/** Chave que a recuperação deixa para o login: aviso e, se houver, o e-mail (nunca senha nem token). */
+export const PREFILL_KEY = "login:prefill";
+
+type Prefill = { email: string | null; notice: string | null };
+
+function takePrefill(): Prefill | null {
+  try {
+    const raw = window.sessionStorage.getItem(PREFILL_KEY);
+    if (raw === null) return null;
+    window.sessionStorage.removeItem(PREFILL_KEY);
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const email = "email" in parsed && typeof parsed.email === "string" ? parsed.email : null;
+    const notice = "notice" in parsed && typeof parsed.notice === "string" ? parsed.notice : null;
+    return email !== null || notice !== null ? { email, notice } : null;
+  } catch {
+    // sessionStorage bloqueado ou JSON torto: segue sem preencher.
+  }
+  return null;
+}
 
 type Props = {
   client?: AuthClient;
@@ -34,7 +56,10 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   const otpRef = useRef<HTMLInputElement>(null);
+  // Trava síncrona: o sexto dígito e o botão podem disparar no mesmo instante, e são só 3 tentativas.
+  const busyRef = useRef(false);
 
   const counting = secondsLeft > 0;
   useEffect(() => {
@@ -43,9 +68,21 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
     return () => clearInterval(id);
   }, [counting]);
 
+  // O campo fica travado durante o envio; ao liberar (código recusado), o foco volta para ele.
   useEffect(() => {
-    if (codeSent) otpRef.current?.focus();
-  }, [codeSent]);
+    if (codeSent && !pending) otpRef.current?.focus();
+  }, [codeSent, pending]);
+
+  // Vindo da recuperação (RF03): abre no modo senha com o e-mail preenchido. O e-mail viaja por
+  // sessionStorage (não pela URL) e a chave é removida na primeira leitura.
+  useEffect(() => {
+    const prefilled = takePrefill();
+    if (prefilled) {
+      if (prefilled.email) setEmail(prefilled.email);
+      setNotice(prefilled.notice);
+      setMode("password");
+    }
+  }, []);
 
   function switchMode(target: Mode) {
     setMode(target);
@@ -68,6 +105,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   }
 
   async function run(action: () => Promise<void>): Promise<boolean> {
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setPending(true);
     setError(null);
     try {
@@ -84,8 +123,14 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       }
       return false;
     } finally {
+      busyRef.current = false;
       setPending(false);
     }
+  }
+
+  /** Recebe o código por argumento: ao completar o sexto dígito o estado ainda não atualizou. */
+  async function signInWithCode(code: string) {
+    if (await run(() => auth.signInWithCode({ email, otp: code, rememberMe }))) signedIn();
   }
 
   async function sendCode() {
@@ -104,8 +149,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       if (await run(() => auth.signInWithPassword({ email, password, rememberMe }))) signedIn();
     } else if (!codeSent) {
       await sendCode();
-    } else if (await run(() => auth.signInWithCode({ email, otp, rememberMe }))) {
-      signedIn();
+    } else {
+      await signInWithCode(otp);
     }
   }
 
@@ -148,25 +193,20 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       ) : null}
 
       <p role="status" className="text-sm text-muted-foreground empty:hidden">
-        {showOtp ? GENERIC_SENT : null}
+        {showOtp ? GENERIC_SENT : notice}
       </p>
 
       {showOtp ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="login-otp">Código de 6 dígitos</Label>
-          <Input
-            id="login-otp"
-            ref={otpRef}
-            name="otp"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            required
-            aria-invalid={invalid}
-            aria-describedby={describedBy}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          />
-        </div>
+        <OtpCodeField
+          id="login-otp"
+          ref={otpRef}
+          value={otp}
+          onChange={setOtp}
+          onComplete={signInWithCode}
+          disabled={pending}
+          invalid={invalid}
+          describedBy={describedBy}
+        />
       ) : null}
 
       <div className="flex items-center gap-2">
@@ -203,6 +243,18 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       >
         {mode === "code" ? "Entrar com senha" : "Entrar com código"}
       </Button>
+
+      {mode === "password" ? (
+        <div className="flex flex-col items-center gap-1 text-center text-sm text-muted-foreground">
+          <Link
+            href="/recuperar-senha"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Esqueci a senha
+          </Link>
+          <p>Ainda não tem senha? Entre com o código ou toque em Esqueci a senha.</p>
+        </div>
+      ) : null}
 
       <p className="text-center text-sm text-muted-foreground">
         Ainda não tem conta?{" "}

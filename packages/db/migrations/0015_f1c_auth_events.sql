@@ -1,0 +1,2 @@
+ALTER TABLE "auth_audit" DROP CONSTRAINT "auth_audit_event_check";--> statement-breakpoint
+ALTER TABLE "auth_audit" ADD CONSTRAINT "auth_audit_event_check" CHECK (event in ('otp_sent', 'login', 'login_failed', 'password_locked', 'logout', 'signup_code_sent', 'signup_verified', 'signup_completed', 'company_created', 'password_reset', 'password_changed', 'password_set', 'other_sessions_revoked', 'name_changed'));

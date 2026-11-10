@@ -3,6 +3,7 @@ import type { DomainError } from "../errors/domain-errors";
 import { fail } from "../errors/domain-errors";
 import type { Result } from "../errors/result";
 import { ok } from "../errors/result";
+import { findOfficialCity } from "./municipalities";
 
 export const UNIT_STATUSES = ["active", "inactive"] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];
@@ -56,6 +57,8 @@ export interface UnitInput {
   readonly cnpj: string | null;
   readonly city: string;
   readonly uf: string;
+  /** Municípios oficiais da UF (DD-29). Sem a lista, o município só precisa estar preenchido. */
+  readonly cities?: readonly string[];
   readonly others: readonly UnitRecord[];
 }
 
@@ -73,21 +76,36 @@ type InvalidUnit = Extract<DomainError, { code: "InvalidUnit" }>;
 const invalid = (field: InvalidUnit["field"], reason: InvalidUnit["reason"]) =>
   fail("InvalidUnit", { field, reason });
 
-/** CNPJ com dígitos verificadores corretos (14 dígitos, sem sequência repetida). */
+/** Tira pontuação e espaços e põe em maiúsculas: "12.abc.345/01de-35" vira "12ABC34501DE35". */
+export function normalizeCnpj(value: string): string {
+  return value.replace(/[.\-/\s]/g, "").toUpperCase();
+}
+
+/** Formata 14 posições como AA.AAA.AAA/AAAA-DD; qualquer outro tamanho volta como veio. */
+export function formatCnpj(value: string): string {
+  const raw = normalizeCnpj(value);
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(raw)) return value;
+  return `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5, 8)}/${raw.slice(8, 12)}-${raw.slice(12)}`;
+}
+
+/**
+ * CNPJ numérico ou alfanumérico (IN RFB 2.229/2024): 12 posições de 0-9 e A-Z mais 2 dígitos
+ * verificadores numéricos. Módulo 11, valor do caractere = código ASCII - 48. Sequência repetida é recusada.
+ */
 export function isValidCnpj(value: string): boolean {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length !== 14 || /^(\d)\1+$/.test(digits)) return false;
+  const cnpj = normalizeCnpj(value);
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(cnpj) || /^(.)\1+$/.test(cnpj)) return false;
   const check = (length: number): number => {
     let sum = 0;
     let weight = length - 7;
     for (let i = 0; i < length; i++) {
-      sum += Number(digits[i]) * weight--;
+      sum += (cnpj.charCodeAt(i) - 48) * weight--;
       if (weight < 2) weight = 9;
     }
     const rest = sum % 11;
     return rest < 2 ? 0 : 11 - rest;
   };
-  return check(12) === Number(digits[12]) && check(13) === Number(digits[13]);
+  return check(12) === Number(cnpj[12]) && check(13) === Number(cnpj[13]);
 }
 
 /** Confere os dados da unidade (RF04.R1 a R3 e município/UF) antes de gravar. */
@@ -115,11 +133,16 @@ export function validateUnit(input: UnitInput): Result<ValidUnit, DomainError> {
   let cnpj: string | null = null;
   if (input.cnpj !== null && input.cnpj.trim() !== "") {
     if (!isValidCnpj(input.cnpj)) return invalid("cnpj", "invalid");
-    cnpj = input.cnpj.replace(/\D/g, "");
+    cnpj = normalizeCnpj(input.cnpj);
   }
 
-  const city = input.city.trim();
+  let city = input.city.trim();
   if (city === "") return invalid("city", "required");
+  if (input.cities) {
+    const official = findOfficialCity(input.cities, city);
+    if (official === null) return invalid("city", "invalid");
+    city = official;
+  }
   const uf = input.uf.trim().toUpperCase();
   if (!(BRAZILIAN_STATES as readonly string[]).includes(uf)) return invalid("uf", "invalid");
 

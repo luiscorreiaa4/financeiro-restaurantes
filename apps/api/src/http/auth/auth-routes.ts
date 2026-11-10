@@ -11,19 +11,15 @@ export interface AuthRoutesDeps {
 }
 
 /**
- * Rotas de entrada e saída: não exigem vínculo ativo da sessão atual (um cookie velho de outra
- * pessoa no mesmo navegador não pode impedir o login). As demais (`get-session`,
- * `change-password`, `update-user`, `list-sessions`...) recusam quem perdeu o vínculo.
+ * Lista fechada de rotas do Better Auth que o painel pode chamar (comparação exata, após
+ * `normalizePath`). Qualquer outra em `/api/auth/*` responde 404: perfil, senha e sessões passam
+ * por rotas próprias da API. As abertas aqui não exigem vínculo ativo da sessão atual (um cookie
+ * velho de outra pessoa no mesmo navegador não pode impedir o login).
  */
-const OPEN_PATHS = new Set([
+const ALLOWED_PATHS = new Set([
   "/api/auth/sign-in/email",
   "/api/auth/sign-in/email-otp",
   "/api/auth/email-otp/send-verification-otp",
-  "/api/auth/email-otp/request-password-reset",
-  "/api/auth/forget-password/email-otp",
-  "/api/auth/email-otp/check-verification-otp",
-  "/api/auth/email-otp/reset-password",
-  "/api/auth/reset-password",
   "/api/auth/sign-out",
 ]);
 
@@ -34,12 +30,29 @@ const INTERNAL_HEADER_PREFIX = "x-auth-internal-";
 const DROPPED_HEADERS = new Set(["content-length", "x-forwarded-for", "connection"]);
 
 /**
- * Forma canônica para comparar com `OPEN_PATHS`: o roteador do Better Auth aceita barra final
+ * Forma canônica para comparar com `ALLOWED_PATHS`: o roteador do Better Auth aceita barra final
  * e barras repetidas; minúsculas para que caixa diferente nunca escape da lista.
  */
 export function normalizePath(pathname: string): string {
   const collapsed = pathname.replace(/\/{2,}/g, "/").toLowerCase();
   return collapsed.length > 1 ? collapsed.replace(/\/+$/, "") : collapsed;
+}
+
+/**
+ * Login por código: código vencido e tentativas esgotadas só acontecem para e-mail com conta;
+ * viram o mesmo `INVALID_OTP` (400) do código errado para não revelar quem é cliente
+ * (RF02.R1, DD-30).
+ */
+export function unifyOtpFailure(
+  path: string,
+  status: number,
+  code: unknown,
+): { status: number; code: unknown } {
+  const isOtpSignIn = path === "/api/auth/sign-in/email-otp";
+  if (isOtpSignIn && (code === "OTP_EXPIRED" || code === "TOO_MANY_ATTEMPTS")) {
+    return { status: 400, code: "INVALID_OTP" };
+  }
+  return { status, code };
 }
 
 function parseJson(text: string): unknown {
@@ -82,8 +95,8 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
       headers.set("x-forwarded-for", request.ip);
 
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
-      if (!OPEN_PATHS.has(normalizePath(url.pathname)) && (await deps.sessionBlocked(headers))) {
-        return reply.code(401).send(authError(401));
+      if (!ALLOWED_PATHS.has(normalizePath(url.pathname))) {
+        return reply.code(404).send(authError(404));
       }
       const hasBody = request.method === "POST" && request.body !== undefined;
       const response = await deps.gateway.handle(
@@ -108,7 +121,9 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
         if (response.status >= 500) {
           request.log.error({ status: response.status }, "falha no Better Auth");
         }
-        return reply.type("application/json").send(authError(response.status, body?.code));
+        const failure = unifyOtpFailure(normalizePath(url.pathname), response.status, body?.code);
+        reply.code(failure.status);
+        return reply.type("application/json").send(authError(failure.status, failure.code));
       }
       return reply.send(text);
     },

@@ -16,6 +16,7 @@ export class ApiError extends Error {
 export type ApiClient = {
   get<T>(path: string, schema: z.ZodType<T>): Promise<T>;
   post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
+  patch<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
 };
 
 export function createApiClient(options: { baseUrl: string; fetch?: typeof fetch }): ApiClient {
@@ -43,17 +44,15 @@ export function createApiClient(options: { baseUrl: string; fetch?: typeof fetch
     }
   }
 
+  function withBody(method: "POST" | "PATCH"): RequestInit {
+    return { method, headers: { "content-type": "application/json" } };
+  }
+
   return {
     get: (path, schema) => request(path, {}, schema),
     post: (path, body, schema) =>
-      request(
-        path,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        },
-        schema,
-      ),
+      request(path, { ...withBody("POST"), body: JSON.stringify(body) }, schema),
+    patch: (path, body, schema) =>
+      request(path, { ...withBody("PATCH"), body: JSON.stringify(body) }, schema),
   };
 }

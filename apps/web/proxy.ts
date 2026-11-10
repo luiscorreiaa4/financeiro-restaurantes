@@ -8,7 +8,14 @@ const STATIC_FILE =
   /\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|map|woff2?|ttf|otf|txt|xml|webmanifest)$/i;
 
 // Telas abertas sem sessão: acesso, autocadastro (RF01.Obs1) e os textos legais.
-const PUBLIC_PAGES = ["/login", "/cadastro", "/termos", "/privacidade"];
+const PUBLIC_PAGES = [
+  "/login",
+  "/cadastro",
+  "/recuperar-senha",
+  "/redefinir-senha",
+  "/termos",
+  "/privacidade",
+];
 
 function isPublic(pathname: string): boolean {
   return (
