@@ -28,9 +28,11 @@ test("pede o código, digita e entra; 'Sair' volta ao /login", async ({ page }) 
     .getByRole("textbox", { name: /^(Código de 6 dígitos|Dígito \d de 6)$/ })
     .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
   expect(rects).toHaveLength(6);
+  const [first] = rects;
+  if (!first) throw new Error("nenhuma caixa de dígito encontrada");
   for (const rect of rects) {
-    expect(Math.abs(rect.top - rects[0].top)).toBeLessThan(1);
-    expect(Math.abs(rect.width - rects[0].width)).toBeLessThan(1);
+    expect(Math.abs(rect.top - first.top)).toBeLessThan(1);
+    expect(Math.abs(rect.width - first.width)).toBeLessThan(1);
     expect(rect.width).toBeGreaterThanOrEqual(36);
   }
   // O sexto dígito envia sozinho, sem clicar em "Entrar".

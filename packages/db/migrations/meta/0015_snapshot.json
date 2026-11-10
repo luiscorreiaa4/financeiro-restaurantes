@@ -111,12 +111,8 @@
           "name": "accounts_user_id_users_id_fk",
           "tableFrom": "accounts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -128,9 +124,7 @@
           "name": "accounts_auth",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true",
           "withCheck": "true"
         }
@@ -192,12 +186,8 @@
           "name": "auth_audit_user_id_users_id_fk",
           "tableFrom": "auth_audit",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -209,18 +199,14 @@
           "name": "auth_audit_auth_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true"
         },
         "auth_audit_auth_insert": {
           "name": "auth_audit_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -316,12 +302,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -331,9 +313,7 @@
         "sessions_token_unique": {
           "name": "sessions_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {
@@ -341,9 +321,7 @@
           "name": "sessions_auth",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true",
           "withCheck": "true"
         }
@@ -476,9 +454,7 @@
           "name": "signup_verifications_auth",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true",
           "withCheck": "true"
         }
@@ -567,9 +543,7 @@
           "name": "verifications_auth",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true",
           "withCheck": "true"
         }
@@ -681,12 +655,8 @@
           "name": "categories_tenant_id_tenants_id_fk",
           "tableFrom": "categories",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -696,11 +666,7 @@
         "categories_scope_parent_name_unique": {
           "name": "categories_scope_parent_name_unique",
           "nullsNotDistinct": true,
-          "columns": [
-            "tenant_id",
-            "parent_id",
-            "name"
-          ]
+          "columns": ["tenant_id", "parent_id", "name"]
         }
       },
       "policies": {
@@ -708,18 +674,14 @@
           "name": "categories_read",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id is null or tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "categories_tenant_isolation": {
           "name": "categories_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
@@ -839,12 +801,8 @@
           "name": "payment_methods_tenant_id_tenants_id_fk",
           "tableFrom": "payment_methods",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -854,18 +812,12 @@
         "payment_methods_tenant_id_id_unique": {
           "name": "payment_methods_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         },
         "payment_methods_tenant_name_unique": {
           "name": "payment_methods_tenant_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "name"
-          ]
+          "columns": ["tenant_id", "name"]
         }
       },
       "policies": {
@@ -873,9 +825,7 @@
           "name": "payment_methods_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -883,9 +833,7 @@
           "name": "payment_methods_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -977,12 +925,8 @@
           "name": "sales_channels_tenant_id_tenants_id_fk",
           "tableFrom": "sales_channels",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -992,18 +936,12 @@
         "sales_channels_tenant_id_id_unique": {
           "name": "sales_channels_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         },
         "sales_channels_tenant_name_unique": {
           "name": "sales_channels_tenant_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "name"
-          ]
+          "columns": ["tenant_id", "name"]
         }
       },
       "policies": {
@@ -1011,9 +949,7 @@
           "name": "sales_channels_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -1021,9 +957,7 @@
           "name": "sales_channels_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -1118,12 +1052,8 @@
           "name": "suppliers_tenant_id_tenants_id_fk",
           "tableFrom": "suppliers",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1133,10 +1063,7 @@
         "suppliers_tenant_id_id_unique": {
           "name": "suppliers_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         }
       },
       "policies": {
@@ -1144,9 +1071,7 @@
           "name": "suppliers_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
@@ -1442,12 +1367,8 @@
           "name": "entries_tenant_id_tenants_id_fk",
           "tableFrom": "entries",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1455,12 +1376,8 @@
           "name": "entries_category_id_categories_id_fk",
           "tableFrom": "entries",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1468,12 +1385,8 @@
           "name": "entries_created_by_users_id_fk",
           "tableFrom": "entries",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1481,12 +1394,8 @@
           "name": "entries_deleted_by_users_id_fk",
           "tableFrom": "entries",
           "tableTo": "users",
-          "columnsFrom": [
-            "deleted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deleted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1494,14 +1403,8 @@
           "name": "entries_unit_fk",
           "tableFrom": "entries",
           "tableTo": "units",
-          "columnsFrom": [
-            "tenant_id",
-            "unit_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "unit_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1509,14 +1412,8 @@
           "name": "entries_supplier_fk",
           "tableFrom": "entries",
           "tableTo": "suppliers",
-          "columnsFrom": [
-            "tenant_id",
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "supplier_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1524,14 +1421,8 @@
           "name": "entries_payment_method_fk",
           "tableFrom": "entries",
           "tableTo": "payment_methods",
-          "columnsFrom": [
-            "tenant_id",
-            "payment_method_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "payment_method_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1539,14 +1430,8 @@
           "name": "entries_sales_channel_fk",
           "tableFrom": "entries",
           "tableTo": "sales_channels",
-          "columnsFrom": [
-            "tenant_id",
-            "sales_channel_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "sales_channel_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1554,14 +1439,8 @@
           "name": "entries_inbound_message_fk",
           "tableFrom": "entries",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1571,18 +1450,12 @@
         "entries_tenant_id_id_unique": {
           "name": "entries_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         },
         "entries_inbound_position_unique": {
           "name": "entries_inbound_position_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "inbound_message_id",
-            "position"
-          ]
+          "columns": ["inbound_message_id", "position"]
         }
       },
       "policies": {
@@ -1590,9 +1463,7 @@
           "name": "entries_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
@@ -1739,12 +1610,8 @@
           "name": "entry_versions_tenant_id_tenants_id_fk",
           "tableFrom": "entry_versions",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1752,12 +1619,8 @@
           "name": "entry_versions_changed_by_users_id_fk",
           "tableFrom": "entry_versions",
           "tableTo": "users",
-          "columnsFrom": [
-            "changed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["changed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1765,14 +1628,8 @@
           "name": "entry_versions_entry_fk",
           "tableFrom": "entry_versions",
           "tableTo": "entries",
-          "columnsFrom": [
-            "tenant_id",
-            "entry_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "entry_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1782,10 +1639,7 @@
         "entry_versions_entry_version_unique": {
           "name": "entry_versions_entry_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "entry_id",
-            "version"
-          ]
+          "columns": ["entry_id", "version"]
         }
       },
       "policies": {
@@ -1793,18 +1647,14 @@
           "name": "entry_versions_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "entry_versions_tenant_insert": {
           "name": "entry_versions_tenant_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
       },
@@ -1903,12 +1753,8 @@
           "name": "fiscal_documents_tenant_id_tenants_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1916,12 +1762,8 @@
           "name": "fiscal_documents_created_by_users_id_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1929,14 +1771,8 @@
           "name": "fiscal_documents_inbound_message_fk",
           "tableFrom": "fiscal_documents",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1946,10 +1782,7 @@
         "fiscal_documents_tenant_key_unique": {
           "name": "fiscal_documents_tenant_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "access_key"
-          ]
+          "columns": ["tenant_id", "access_key"]
         }
       },
       "policies": {
@@ -1957,9 +1790,7 @@
           "name": "fiscal_documents_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
@@ -2117,12 +1948,8 @@
           "name": "inbound_messages_tenant_id_tenants_id_fk",
           "tableFrom": "inbound_messages",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2130,12 +1957,8 @@
           "name": "inbound_messages_user_id_users_id_fk",
           "tableFrom": "inbound_messages",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2145,17 +1968,12 @@
         "inbound_messages_wa_message_id_unique": {
           "name": "inbound_messages_wa_message_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "wa_message_id"
-          ]
+          "columns": ["wa_message_id"]
         },
         "inbound_messages_tenant_id_id_unique": {
           "name": "inbound_messages_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         }
       },
       "policies": {
@@ -2163,9 +1981,7 @@
           "name": "inbound_messages_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -2173,27 +1989,21 @@
           "name": "inbound_messages_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "inbound_messages_ingest_insert": {
           "name": "inbound_messages_ingest_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "withCheck": "true"
         },
         "inbound_messages_ingest_update": {
           "name": "inbound_messages_ingest_update",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true",
           "withCheck": "true"
         }
@@ -2341,12 +2151,8 @@
           "name": "outbound_messages_tenant_id_tenants_id_fk",
           "tableFrom": "outbound_messages",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2354,12 +2160,8 @@
           "name": "outbound_messages_inbound_message_id_inbound_messages_id_fk",
           "tableFrom": "outbound_messages",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["inbound_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2367,14 +2169,8 @@
           "name": "outbound_messages_tenant_inbound_fk",
           "tableFrom": "outbound_messages",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2384,9 +2180,7 @@
         "outbound_messages_wa_message_id_unique": {
           "name": "outbound_messages_wa_message_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "wa_message_id"
-          ]
+          "columns": ["wa_message_id"]
         }
       },
       "policies": {
@@ -2394,9 +2188,7 @@
           "name": "outbound_messages_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -2404,18 +2196,14 @@
           "name": "outbound_messages_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "outbound_messages_ingest_insert": {
           "name": "outbound_messages_ingest_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "withCheck": "true"
         }
       },
@@ -2551,12 +2339,8 @@
           "name": "pending_questions_tenant_id_tenants_id_fk",
           "tableFrom": "pending_questions",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2564,12 +2348,8 @@
           "name": "pending_questions_user_id_users_id_fk",
           "tableFrom": "pending_questions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2577,14 +2357,8 @@
           "name": "pending_questions_inbound_message_fk",
           "tableFrom": "pending_questions",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2596,9 +2370,7 @@
           "name": "pending_questions_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
@@ -2663,12 +2435,8 @@
           "name": "whatsapp_opt_ins_tenant_id_tenants_id_fk",
           "tableFrom": "whatsapp_opt_ins",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2676,12 +2444,8 @@
           "name": "whatsapp_opt_ins_user_id_users_id_fk",
           "tableFrom": "whatsapp_opt_ins",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2689,14 +2453,8 @@
           "name": "whatsapp_opt_ins_inbound_message_fk",
           "tableFrom": "whatsapp_opt_ins",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2706,10 +2464,7 @@
         "whatsapp_opt_ins_tenant_user_unique": {
           "name": "whatsapp_opt_ins_tenant_user_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "user_id"
-          ]
+          "columns": ["tenant_id", "user_id"]
         }
       },
       "policies": {
@@ -2717,18 +2472,14 @@
           "name": "whatsapp_opt_ins_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "whatsapp_opt_ins_tenant_insert": {
           "name": "whatsapp_opt_ins_tenant_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
       },
@@ -2855,12 +2606,8 @@
           "name": "whatsapp_status_events_tenant_id_tenants_id_fk",
           "tableFrom": "whatsapp_status_events",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2870,10 +2617,7 @@
         "whatsapp_status_events_message_status_unique": {
           "name": "whatsapp_status_events_message_status_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "wa_message_id",
-            "status"
-          ]
+          "columns": ["wa_message_id", "status"]
         }
       },
       "policies": {
@@ -2881,36 +2625,28 @@
           "name": "whatsapp_status_events_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "whatsapp_status_events_tenant_insert": {
           "name": "whatsapp_status_events_tenant_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "whatsapp_status_events_ingest_select": {
           "name": "whatsapp_status_events_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "whatsapp_status_events_ingest_insert": {
           "name": "whatsapp_status_events_ingest_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "withCheck": "true"
         }
       },
@@ -3029,12 +2765,8 @@
           "name": "ai_usage_tenant_id_tenants_id_fk",
           "tableFrom": "ai_usage",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3042,14 +2774,8 @@
           "name": "ai_usage_inbound_message_fk",
           "tableFrom": "ai_usage",
           "tableTo": "inbound_messages",
-          "columnsFrom": [
-            "tenant_id",
-            "inbound_message_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "inbound_message_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3061,18 +2787,14 @@
           "name": "ai_usage_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "ai_usage_tenant_insert": {
           "name": "ai_usage_tenant_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
       },
@@ -3156,12 +2878,8 @@
           "name": "audit_log_tenant_id_tenants_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3169,12 +2887,8 @@
           "name": "audit_log_actor_id_users_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "users",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3186,18 +2900,14 @@
           "name": "audit_log_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "audit_log_tenant_insert": {
           "name": "audit_log_tenant_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         }
       },
@@ -3253,10 +2963,7 @@
         "tax_rules_regime_valid_from_unique": {
           "name": "tax_rules_regime_valid_from_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "regime",
-            "valid_from"
-          ]
+          "columns": ["regime", "valid_from"]
         }
       },
       "policies": {
@@ -3264,9 +2971,7 @@
           "name": "tax_rules_read",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "true"
         }
       },
@@ -3348,12 +3053,8 @@
           "name": "tax_settings_tenant_id_tenants_id_fk",
           "tableFrom": "tax_settings",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3361,12 +3062,8 @@
           "name": "tax_settings_created_by_users_id_fk",
           "tableFrom": "tax_settings",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3376,10 +3073,7 @@
         "tax_settings_tenant_valid_from_unique": {
           "name": "tax_settings_tenant_valid_from_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "valid_from"
-          ]
+          "columns": ["tenant_id", "valid_from"]
         }
       },
       "policies": {
@@ -3387,9 +3081,7 @@
           "name": "tax_settings_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -3397,9 +3089,7 @@
           "name": "tax_settings_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -3461,12 +3151,8 @@
           "name": "membership_units_tenant_id_tenants_id_fk",
           "tableFrom": "membership_units",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3474,14 +3160,8 @@
           "name": "membership_units_membership_fk",
           "tableFrom": "membership_units",
           "tableTo": "memberships",
-          "columnsFrom": [
-            "tenant_id",
-            "membership_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3489,14 +3169,8 @@
           "name": "membership_units_unit_fk",
           "tableFrom": "membership_units",
           "tableTo": "units",
-          "columnsFrom": [
-            "tenant_id",
-            "unit_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "unit_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3506,10 +3180,7 @@
         "membership_units_membership_unit_unique": {
           "name": "membership_units_membership_unit_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "membership_id",
-            "unit_id"
-          ]
+          "columns": ["membership_id", "unit_id"]
         }
       },
       "policies": {
@@ -3517,9 +3188,7 @@
           "name": "membership_units_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -3527,18 +3196,14 @@
           "name": "membership_units_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "membership_units_auth_insert": {
           "name": "membership_units_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -3645,12 +3310,8 @@
           "name": "memberships_tenant_id_tenants_id_fk",
           "tableFrom": "memberships",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3658,12 +3319,8 @@
           "name": "memberships_user_id_users_id_fk",
           "tableFrom": "memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3671,12 +3328,8 @@
           "name": "memberships_invited_by_users_id_fk",
           "tableFrom": "memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "invited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3684,14 +3337,8 @@
           "name": "memberships_default_unit_fk",
           "tableFrom": "memberships",
           "tableTo": "units",
-          "columnsFrom": [
-            "tenant_id",
-            "default_unit_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "default_unit_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3701,18 +3348,12 @@
         "memberships_tenant_user_unique": {
           "name": "memberships_tenant_user_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "user_id"
-          ]
+          "columns": ["tenant_id", "user_id"]
         },
         "memberships_tenant_id_id_unique": {
           "name": "memberships_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         }
       },
       "policies": {
@@ -3720,9 +3361,7 @@
           "name": "memberships_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -3730,27 +3369,21 @@
           "name": "memberships_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "memberships_auth_insert": {
           "name": "memberships_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         },
         "memberships_auth_select": {
           "name": "memberships_auth_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true"
         }
       },
@@ -3897,12 +3530,8 @@
           "name": "tenants_terms_accepted_by_users_id_fk",
           "tableFrom": "tenants",
           "tableTo": "users",
-          "columnsFrom": [
-            "terms_accepted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["terms_accepted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3914,27 +3543,21 @@
           "name": "tenants_self_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
         "tenants_ingest_select": {
           "name": "tenants_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "tenants_auth_insert": {
           "name": "tenants_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -4039,12 +3662,8 @@
           "name": "units_tenant_id_tenants_id_fk",
           "tableFrom": "units",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4052,14 +3671,8 @@
           "name": "units_default_sales_channel_fk",
           "tableFrom": "units",
           "tableTo": "sales_channels",
-          "columnsFrom": [
-            "tenant_id",
-            "default_sales_channel_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
+          "columnsFrom": ["tenant_id", "default_sales_channel_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4069,18 +3682,12 @@
         "units_tenant_id_id_unique": {
           "name": "units_tenant_id_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
+          "columns": ["tenant_id", "id"]
         },
         "units_tenant_name_unique": {
           "name": "units_tenant_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "name"
-          ]
+          "columns": ["tenant_id", "name"]
         }
       },
       "policies": {
@@ -4088,9 +3695,7 @@
           "name": "units_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
           "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
         },
@@ -4098,18 +3703,14 @@
           "name": "units_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "units_auth_insert": {
           "name": "units_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },
@@ -4211,16 +3812,12 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_phone_e164_unique": {
           "name": "users_phone_e164_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "phone_e164"
-          ]
+          "columns": ["phone_e164"]
         }
       },
       "policies": {
@@ -4228,36 +3825,28 @@
           "name": "users_same_tenant_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app"
-          ],
+          "to": ["app"],
           "using": "exists (\n        select 1 from memberships m\n        where m.user_id = users.id and m.tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid\n      )"
         },
         "users_ingest_select": {
           "name": "users_ingest_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_ingest"
-          ],
+          "to": ["app_ingest"],
           "using": "true"
         },
         "users_auth_select": {
           "name": "users_auth_select",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true"
         },
         "users_auth_update": {
           "name": "users_auth_update",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "using": "true",
           "withCheck": "true"
         },
@@ -4265,9 +3854,7 @@
           "name": "users_auth_insert",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "app_auth"
-          ],
+          "to": ["app_auth"],
           "withCheck": "true"
         }
       },

@@ -93,13 +93,14 @@ const login = {
 };
 
 function isValidCnpj(value) {
-  const d = value.replace(/\D/g, "");
-  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  // CNPJ numérico ou alfanumérico (valor do caractere = ASCII - 48), igual ao core.
+  const d = value.replace(/[.\-/\s]/g, "").toUpperCase();
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(d) || /^(.)\1+$/.test(d)) return false;
   const digit = (len) => {
     let sum = 0;
     let weight = len - 7;
     for (let i = 0; i < len; i++) {
-      sum += Number(d[i]) * weight--;
+      sum += (d.charCodeAt(i) - 48) * weight--;
       if (weight < 2) weight = 9;
     }
     const r = sum % 11;

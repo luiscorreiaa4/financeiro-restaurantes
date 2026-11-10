@@ -10,15 +10,18 @@ import {
   CompanyFields,
   type CompanyValues,
   EMPTY_COMPANY,
+  PhoneField,
   TermsField,
   toCompanyPayload,
   toFieldMessages,
   updateCompany,
   useFocusFirstInvalid,
+  useMunicipalities,
   validateLocally,
+  withFieldValidation,
   withoutError,
 } from "./company-form";
-import { type FieldErrors, FormAlert, TextField, TOUCH } from "./form-fields";
+import { type FieldErrors, FormAlert, PasswordField, TextField, TOUCH } from "./form-fields";
 import {
   CHECK_FIELDS,
   createSignupApi,
@@ -79,7 +82,8 @@ export function SignupFlow({ api, onDone }: Props) {
   const [alert, setAlert] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const formRef = useFocusFirstInvalid(errors);
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid();
+  const municipalities = useMunicipalities(company.uf);
 
   const counting = secondsLeft > 0;
   useEffect(() => {
@@ -172,12 +176,10 @@ export function SignupFlow({ api, onDone }: Props) {
     setErrors((current) => withoutError(current, COMPANY_PATHS[field]));
   }
 
-  async function onFormSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (submitting || done || receipt === null) return;
+  function buildPayload(currentReceipt: string): SignupPayload {
     const normalizedEmail = email.trim();
-    const payload: SignupPayload = {
-      receipt,
+    return {
+      receipt: currentReceipt,
       email: normalizedEmail,
       owner: {
         name: owner.name,
@@ -187,13 +189,37 @@ export function SignupFlow({ api, onDone }: Props) {
       },
       ...toCompanyPayload(company),
     };
-    const local = validateLocally(payload, "new_user");
+  }
+
+  /** Mesmas regras do envio, para todos os campos; quem chama escolhe o que mostrar. */
+  function validateAll(currentReceipt: string): FieldErrors {
+    const local = validateLocally(buildPayload(currentReceipt), "new_user", municipalities.cities);
     if (owner.password !== "" && owner.password !== owner.passwordConfirm) {
       local["owner.passwordConfirm"] = PASSWORDS_DIFFER;
     }
+    return local;
+  }
+
+  /**
+   * Ao sair do campo: valida só ele. A confirmação de senha só reclama depois de digitada, para
+   * não gritar "não conferem" a quem ainda está no campo de cima (o envio cobra de qualquer jeito).
+   */
+  function blurPath(path: string) {
+    if (receipt === null) return;
+    const validated = validateAll(receipt);
+    if (path === "owner.passwordConfirm" && owner.passwordConfirm === "") delete validated[path];
+    setErrors((current) => withFieldValidation(current, validated, path));
+  }
+
+  async function onFormSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (submitting || done || receipt === null) return;
+    const payload = buildPayload(receipt);
+    const local = validateAll(receipt);
     setErrors(local);
     if (Object.keys(local).length > 0) {
       setAlert(CHECK_FIELDS);
+      focusFirstInvalid();
       return;
     }
 
@@ -218,6 +244,7 @@ export function SignupFlow({ api, onDone }: Props) {
       if (conflict) messages[conflict.path] = conflict.message;
       setErrors(messages);
       setAlert(signupErrorMessage(cause));
+      focusFirstInvalid();
     } finally {
       setSubmitting(false);
     }
@@ -232,6 +259,10 @@ export function SignupFlow({ api, onDone }: Props) {
           label="E-mail"
           type="email"
           autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="nome@exemplo.com"
           required
           value={email}
           onChange={changeEmail}
@@ -298,39 +329,42 @@ export function SignupFlow({ api, onDone }: Props) {
         <TextField
           id="signup-owner-name"
           label="Nome completo"
+          required
           autoComplete="name"
+          autoCapitalize="words"
+          placeholder="Digite seu nome completo"
           value={owner.name}
           onChange={(v) => changeOwner("name", v)}
+          onBlur={() => blurPath(OWNER_PATHS.name)}
           error={errors["owner.name"]}
         />
-        <TextField
+        <PhoneField
           id="signup-owner-phone"
-          label="Celular (WhatsApp)"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
           hint="É o número que vai lançar pelo WhatsApp."
           value={owner.phone}
           onChange={(v) => changeOwner("phone", v)}
+          onBlur={() => blurPath(OWNER_PATHS.phone)}
           error={errors["owner.phone"]}
         />
-        <TextField
+        <PasswordField
           id="signup-owner-password"
           label="Senha (opcional)"
-          type="password"
-          autoComplete="new-password"
-          hint="Sem senha, você entra com um código enviado por e-mail."
+          toggleLabel="Mostrar senha"
+          placeholder="Crie uma senha segura"
+          hint="De 8 a 64 caracteres, com letras e números. Sem senha, você entra com um código enviado por e-mail."
           value={owner.password}
           onChange={(v) => changeOwner("password", v)}
+          onBlur={() => blurPath(OWNER_PATHS.password)}
           error={errors["owner.password"]}
         />
-        <TextField
+        <PasswordField
           id="signup-owner-password-confirm"
           label="Confirmar senha"
-          type="password"
-          autoComplete="new-password"
+          toggleLabel="Mostrar confirmação da senha"
+          placeholder="Digite a senha novamente"
           value={owner.passwordConfirm}
           onChange={(v) => changeOwner("passwordConfirm", v)}
+          onBlur={() => blurPath(OWNER_PATHS.passwordConfirm)}
           error={errors["owner.passwordConfirm"]}
         />
       </fieldset>
@@ -340,7 +374,9 @@ export function SignupFlow({ api, onDone }: Props) {
         values={company}
         errors={errors}
         disabled={locked}
+        municipalities={municipalities}
         onChange={changeCompany}
+        onBlurField={(field) => blurPath(COMPANY_PATHS[field])}
       />
 
       <TermsField

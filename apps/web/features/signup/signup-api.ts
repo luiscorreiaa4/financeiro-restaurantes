@@ -116,7 +116,7 @@ const FIELD_PATHS: readonly SignupFieldPath[] = [
 const FIELD_MESSAGES: Record<SignupErrorCode, string> = {
   required: "Preencha este campo.",
   owner_name_invalid: "Informe o nome completo: de 3 a 120 letras, sem números.",
-  phone_invalid: "Celular inválido. Informe o DDD e o número, por exemplo (82) 99658-5647.",
+  phone_invalid: "Celular inválido. Informe o DDD e o número, por exemplo (11) 98765-4321.",
   phone_required: "Informe o celular (WhatsApp) do dono para criar a empresa.",
   password_weak:
     "A senha precisa ter de 8 a 64 caracteres, com letras e números, e ser diferente do e-mail.",
@@ -128,6 +128,7 @@ const FIELD_MESSAGES: Record<SignupErrorCode, string> = {
   revenue_range_invalid: "Escolha uma opção da lista.",
   unit_name_invalid: "O nome da unidade precisa ter de 2 a 60 caracteres.",
   city_required: "Informe o município.",
+  city_invalid: "Escolha um município da lista.",
   uf_invalid: "Escolha o estado (UF).",
   terms_required: "Para continuar, aceite os Termos de Uso e a Política de Privacidade.",
 };

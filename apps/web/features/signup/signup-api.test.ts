@@ -30,7 +30,7 @@ describe("cliente das rotas de cadastro", () => {
     const payload = {
       receipt: "r-1",
       email: "dono@novo.dev",
-      owner: { name: "Maria", email: "dono@novo.dev", phone: "82996585647", password: "" },
+      owner: { name: "Maria", email: "dono@novo.dev", phone: "11987654321", password: "" },
       company: {
         tradeName: "Cantina",
         legalName: "",

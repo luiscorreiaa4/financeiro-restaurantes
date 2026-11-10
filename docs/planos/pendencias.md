@@ -85,6 +85,7 @@
 | F1b-14 | Usuário só com vínculos desativados não cria empresa | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-15 | API falsa do E2E não espelha todos os erros do cadastro | F1b | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-16 | Constantes duplicadas a juntar no `core` | refatoração | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
+| F1b-17 | CNPJ alfanumérico na chave da NFC-e e no chat de dev; roteiro com leitor de tela | E9, E13 | [andamento §6](andamento.md#6-painel) · bloco "DD-28" |
 
 ### F1c
 

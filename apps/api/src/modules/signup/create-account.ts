@@ -11,6 +11,7 @@ import {
   TRIAL_DAYS,
   validateSignupInput,
 } from "@app/core";
+import { citiesForForm } from "./cities-for-form";
 import { hashSecret, hashSignupEmail } from "./signup-hashing";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -73,6 +74,7 @@ export function createCreateAccount(deps: CreateAccountDeps): CreateAccount {
     const validated = validateSignupInput(
       { ...input.form, owner: { ...owner, email } },
       "new_user",
+      { cities: await citiesForForm(input.form) },
     );
     if (!validated.ok) return err({ kind: "invalid_fields", fields: validated.error });
     const form = validated.value;

@@ -38,6 +38,10 @@ describe("validateSignupInput", () => {
     const res = run((r) => ({ ...r, company: { ...r.company, cnpj: "  " } }));
     expect(res.ok && res.value.company.cnpj).toBeNull();
   });
+  it("accepts alphanumeric cnpj in lowercase and stores it uppercase without punctuation", () => {
+    const res = run((r) => ({ ...r, company: { ...r.company, cnpj: "12.abc.345/01de-35" } }));
+    expect(res.ok && res.value.company.cnpj).toBe("12ABC34501DE35");
+  });
   it("accepts formatted cnpj and stores digits only", () => {
     const res = run((r) => ({ ...r, company: { ...r.company, cnpj: "11.222.333/0001-81" } }));
     expect(res.ok && res.value.company.cnpj).toBe("11222333000181");
@@ -100,6 +104,21 @@ describe("validateSignupInput", () => {
       "unit.city": "city_required",
       "unit.uf": "uf_invalid",
     });
+  });
+  it("com a lista oficial, recusa município fora dela e grava a grafia oficial (DD-29)", () => {
+    const cities = ["Maceió", "Marechal Deodoro"];
+    const withCity = (city: string) =>
+      validateSignupInput({ ...base(), unit: { name: "Centro", city, uf: "AL" } }, "new_user", {
+        cities,
+      });
+    expect(errs(withCity("Cidade Inventada"))["unit.city"]).toBe("city_invalid");
+    expect(errs(withCity(""))["unit.city"]).toBe("city_required");
+    const ok = withCity("  maceio ");
+    expect(ok.ok && ok.value.unit.city).toBe("Maceió");
+  });
+  it("sem a lista oficial, só exige município preenchido", () => {
+    const res = run((r) => ({ ...r, unit: { ...r.unit, city: "Qualquer" } }));
+    expect(res.ok && res.value.unit.city).toBe("Qualquer");
   });
   it("existing_user mode ignores owner name and password", () => {
     const res = run((r) => ({ ...r, owner: { name: "123", password: "1" } }), "existing_user");

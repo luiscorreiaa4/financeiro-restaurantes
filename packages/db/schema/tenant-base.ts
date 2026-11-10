@@ -103,7 +103,7 @@ export const tenants = pgTable(
     oneOf("tenants_status_check", "status", ACCOUNT_STATUSES),
     oneOf("tenants_segment_check", "segment", SEGMENTS),
     oneOf("tenants_revenue_range_check", "revenue_range", REVENUE_RANGES),
-    check("tenants_cnpj_check", sql`${t.cnpj} ~ '^[0-9]{14}$'`),
+    check("tenants_cnpj_check", sql`${t.cnpj} ~ '^[0-9A-Z]{12}[0-9]{2}$'`),
     // Também vale em cadastros simultâneos: o segundo recebe 23505 com este nome (CA04).
     uniqueIndex("tenants_cnpj_open_unique")
       .on(t.cnpj)

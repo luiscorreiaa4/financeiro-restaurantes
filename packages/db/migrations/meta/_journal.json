@@ -113,6 +113,13 @@
       "when": 1794255430026,
       "tag": "0015_f1c_auth_events",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794290940454,
+      "tag": "0016_cnpj_alfanumerico",
+      "breakpoints": true
     }
   ]
 }

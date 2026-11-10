@@ -92,6 +92,8 @@ describe("tenants: campos do autocadastro (RF01)", () => {
     ["revenue_range", "'muito'"],
     ["cnpj", "'12.345.678/0001-90'"],
     ["cnpj", "'1234567800019'"],
+    ["cnpj", "'12abc34501de35'"],
+    ["cnpj", "'12ABC34501DEAB'"],
   ])("%s fora do domínio é recusado (23514)", async (column, value) => {
     const result = await outcome(() =>
       db.admin.query(`insert into tenants (id, name, ${column}) values ($1, 'X', ${value})`, [
@@ -99,6 +101,11 @@ describe("tenants: campos do autocadastro (RF01)", () => {
       ]),
     );
     expect(result).toMatchObject({ code: CHECK_VIOLATION });
+  });
+
+  it("cnpj alfanumérico em maiúsculas é aceito", async () => {
+    const result = await outcome(() => insertTenant(db.admin, uuidv7(), "12ABC34501DE35"));
+    expect(result).toBe("ok");
   });
 
   it("terms_accepted_by aponta para users (23503 se não existe)", async () => {
