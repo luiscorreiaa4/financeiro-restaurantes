@@ -94,6 +94,8 @@ test('logged user opens "Criar outra empresa" and finishes on /bem-vindo', async
     { name: "better-auth.session_token", value: "sessao-falsa", url: baseURL as string },
   ]);
   await page.goto("/");
+  // A casca grava o cookie de contexto e recarrega na primeira visita: só clique depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   if (isMobile) {
     await page.getByRole("button", { name: "Abrir menu" }).click();

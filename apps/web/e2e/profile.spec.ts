@@ -9,6 +9,12 @@ async function signIn(page: Page) {
       value: `sessao-falsa-${randomUUID()}`,
       url: "http://localhost:3100",
     },
+    // Aparelho que já abriu o painel: sem isso a primeira visita grava o contexto e recarrega.
+    {
+      name: "fr_ctx",
+      value: "0190a000-0000-7000-8000-000000000001.all",
+      url: "http://localhost:3100",
+    },
   ]);
 }
 
@@ -28,6 +34,8 @@ test("sem sessão, /perfil leva ao /login guardando a rota", async ({ page }) =>
 test("pelo menu do usuário abre 'Meu perfil', sem rolagem horizontal", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
+  // A casca grava o cookie de contexto e recarrega na primeira visita: só clique depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   await page.getByRole("link", { name: "Meu perfil" }).filter({ visible: true }).click();
 

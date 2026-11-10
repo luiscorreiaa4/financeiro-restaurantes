@@ -23,6 +23,8 @@ test("a página inicial abre e responde sem erro no console", async ({ page }) =
 
 test("a casca navega pelo menu e marca a página atual", async ({ page, isMobile }) => {
   await page.goto("/");
+  // A casca grava o cookie de contexto e recarrega na primeira visita: só clique depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   if (isMobile) {
     await page.getByRole("button", { name: "Abrir menu" }).click();

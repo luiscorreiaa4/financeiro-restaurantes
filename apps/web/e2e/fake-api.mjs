@@ -88,8 +88,124 @@ function readJson(req) {
   });
 }
 
+// Contexto do painel (F2, DD-31): personas escolhidas pelo valor do cookie de sessão
+// (`sessao-falsa-owner2`, `-manager`, `-staff`, `-accountant`, `-readonly`, `-expira`); qualquer
+// outro valor é o dono de uma empresa só. Os dados são fixos: a regra mora nos testes da API.
+const CONTEXT_COOKIE = "fr_ctx";
+const T1 = "0190a000-0000-7000-8000-000000000001";
+const T2 = "0190a000-0000-7000-8000-000000000002";
+const U1 = "0190a000-0000-7000-8000-0000000000a1";
+const U2 = "0190a000-0000-7000-8000-0000000000a2";
+const U3 = "0190a000-0000-7000-8000-0000000000a3";
+
+const ACTIONS_BY_ROLE = {
+  owner: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
+  manager: ["entry:view", "report:view", "catalog:view", "panel:access"],
+  staff: ["entry:view", "panel:access"],
+  accountant: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
+};
+
+function company(tenantId, name, role, units, extra = {}) {
+  const allUnits = extra.allUnits ?? true;
+  const accessible = extra.unitIds ?? units.map((u) => u.id);
+  return {
+    tenantId,
+    name,
+    role,
+    accountStatus: extra.accountStatus ?? "active",
+    allUnits,
+    unitIds: accessible,
+    units: units.filter((u) => accessible.includes(u.id)),
+    startUnitId: allUnits ? "all" : accessible[0],
+  };
+}
+
+const MATRIZ = { id: U1, name: "Matriz" };
+const FILIAL = { id: U2, name: "Filial" };
+const CENTRO = { id: U3, name: "Centro" };
+
+const PERSONAS = {
+  owner2: [
+    company(T1, "Bistrô Demo", "owner", [MATRIZ, FILIAL]),
+    company(T2, "Pizzaria Sul", "owner", [CENTRO]),
+  ],
+  manager: [
+    company(T1, "Bistrô Demo", "manager", [MATRIZ, FILIAL], { allUnits: false, unitIds: [U1, U2] }),
+  ],
+  staff: [company(T1, "Bistrô Demo", "staff", [MATRIZ], { allUnits: false, unitIds: [U1] })],
+  accountant: [company(T1, "Bistrô Demo", "accountant", [MATRIZ, FILIAL])],
+  readonly: [company(T1, "Bistrô Demo", "owner", [MATRIZ], { accountStatus: "read_only" })],
+};
+const DEFAULT_PERSONA = [company(T1, "Bistrô Demo", "owner", [MATRIZ])];
+
+function personaCompanies(req) {
+  const value = sessionValue(req) ?? "";
+  const name = value.startsWith(`${SESSION_VALUE}-`) ? value.slice(SESSION_VALUE.length + 1) : "";
+  return PERSONAS[name] ?? DEFAULT_PERSONA;
+}
+
+function cookieValue(req, name) {
+  const prefix = `${name}=`;
+  for (const part of (req.headers.cookie ?? "").split(/;\s*/)) {
+    if (part.startsWith(prefix)) return part.slice(prefix.length);
+  }
+  return null;
+}
+
+function parseCtx(raw) {
+  const m = /^([0-9a-f-]{36})\.([0-9a-f-]{36}|all)$/.exec(raw ?? "");
+  return m ? { tenantId: m[1], unitId: m[2] } : null;
+}
+
+function choiceValid(companies, choice) {
+  const c = companies.find((x) => x.tenantId === choice.tenantId);
+  if (!c) return false;
+  return choice.unitId === "all" ? c.allUnits : c.unitIds.includes(choice.unitId);
+}
+
+// Espelha resolvePanelContext do core, sem a regra completa de situação da conta.
+function resolveContext(req) {
+  const companies = personaCompanies(req);
+  const requested = parseCtx(cookieValue(req, CONTEXT_COOKIE));
+  if (requested && choiceValid(companies, requested)) {
+    return { company: companies.find((c) => c.tenantId === requested.tenantId), unitId: requested.unitId, source: "cookie", companies };
+  }
+  const kept = requested ? companies.find((c) => c.tenantId === requested.tenantId) : undefined;
+  const company = kept ?? companies[0];
+  return { company, unitId: company.startUnitId, source: requested ? "invalid_cookie" : "fallback", companies };
+}
+
+function meBody(req) {
+  const { company, unitId, source, companies } = resolveContext(req);
+  return {
+    userId: "u-1",
+    name: "Dono Demo",
+    email: "dono@demo.dev",
+    companies: companies.map((c) => ({
+      tenantId: c.tenantId,
+      name: c.name,
+      role: c.role,
+      accountStatus: c.accountStatus,
+      startUnitId: c.startUnitId,
+    })),
+    context: {
+      tenantId: company.tenantId,
+      unitId,
+      role: company.role,
+      permissions: [],
+      allUnits: company.allUnits,
+      unitIds: company.unitIds,
+      accountStatus: company.accountStatus,
+      allowedActions: ACTIONS_BY_ROLE[company.role],
+    },
+    contextSource: source,
+  };
+}
+
+const EXPIRE_CTX = `${CONTEXT_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`;
+
 const login = {
-  "set-cookie": `${SESSION_COOKIE}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax`,
+  "set-cookie": [`${SESSION_COOKIE}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax`, EXPIRE_CTX],
 };
 
 function isValidCnpj(value) {
@@ -117,8 +233,36 @@ createServer(async (req, res) => {
 
   if (method === "GET" && url === "/api/me") {
     return hasSession(req)
-      ? send(res, 200, { userId: "u-1", name: "Dono Demo", email: "dono@demo.dev" })
+      ? send(res, 200, meBody(req))
       : send(res, 401, { code: "UNAUTHORIZED", message: "Entre para continuar." });
+  }
+
+  // Contexto do painel (F2): o cookie fr_ctx só é gravado aqui, e só se o par for válido.
+  if (method === "POST" && url === "/api/context") {
+    if (!hasSession(req)) return send(res, 401, UNAUTHORIZED);
+    const body = await readJson(req);
+    const choice = { tenantId: body.tenantId, unitId: body.unitId };
+    if (!choiceValid(personaCompanies(req), choice)) {
+      return send(res, 403, { code: "context_invalid" });
+    }
+    res.setHeader(
+      "set-cookie",
+      `${CONTEXT_COOKIE}=${choice.tenantId}.${choice.unitId}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`,
+    );
+    res.statusCode = 204;
+    return res.end();
+  }
+
+  if (method === "GET" && url === "/api/units") {
+    if (!hasSession(req) || sessionValue(req) === `${SESSION_VALUE}-expira`) {
+      return send(res, 401, UNAUTHORIZED);
+    }
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    return send(res, 200, { units: company.units });
   }
 
   if (method === "POST" && url === "/api/auth/email-otp/send-verification-otp") {
@@ -150,7 +294,7 @@ createServer(async (req, res) => {
       res,
       200,
       { success: true },
-      { "set-cookie": `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly` },
+      { "set-cookie": [`${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly`, EXPIRE_CTX] },
     );
   }
 
