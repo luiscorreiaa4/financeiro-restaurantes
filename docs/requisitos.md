@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Versão:** 1.6 (09/11/2026). RF03: a recuperação de acesso passa a ser por **link temporário** enviado ao e-mail (uso único, vale 30 minutos), no lugar do código de 6 dígitos; vale também para definir a primeira senha pelo "Meu perfil" (DD-27). Antes: 1.5 (09/11/2026). F1c: RF02.R8 alinhado ao RF02.CA09 (trocar a senha pelo perfil encerra as outras sessões e mantém a atual; a recuperação encerra todas; DD-26). Antes: 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
 - **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
 - **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
@@ -435,7 +435,7 @@ Requisito responsável pelo acesso ao painel. O usuário entra com e-mail e senh
 - **R5** Manter Conectado estende a sessão para 30 dias com renovação a cada uso; sem ele, a sessão expira após 12 horas de inatividade. A sessão é guardada em cookie httpOnly, secure e sameSite=lax.
 - **R6** Ao entrar, o sistema seleciona a última empresa e unidade usadas. Usuário com vínculo em mais de uma empresa ou unidade vê um seletor sempre visível no topo do painel. A cada requisição, o servidor revalida que o vínculo com a empresa e a unidade ativas existe e está ativo; trocar o cookie para outra empresa é recusado. Unidade Ativa = TODAS só aparece para quem tem acesso a todas as unidades.
 - **R7** Após 5 tentativas de senha erradas seguidas, o acesso por senha fica bloqueado por 15 minutos (o acesso por código continua disponível). O bloqueio é informado sem dizer se o e-mail existe.
-- **R8** O usuário pode ver suas sessões ativas (dispositivo, data do último uso) e encerrar todas as outras. Desativar o usuário (RF05) ou trocar a senha encerra todas as sessões dele.
+- **R8** O usuário pode ver suas sessões ativas (dispositivo, data do último uso) e encerrar todas as outras. Desativar o usuário (RF05) encerra todas as sessões dele. Trocar a senha pelo "Meu perfil" encerra as **outras** sessões e mantém a atual (RF02.CA09). Concluir a recuperação de acesso (RF03) encerra **todas** as sessões.
 
 - **Obs1:** Atores: todos os usuários com acesso ao painel (Dono, Gerente, Contador e o Lançador, quando o dono liberar o painel para ele).
 - **Obs2:** A autorização real acontece no servidor em toda leitura e ação. Esconder botões na tela é conforto, não segurança.
@@ -470,21 +470,21 @@ Não se aplica.
 
 **Prioridade:** Essencial · **Fase:** MVP · **Módulo:** Conta e acesso
 
-Requisito responsável por permitir que o usuário recupere o acesso ao painel quando esqueceu a senha, ou defina uma senha pela primeira vez, usando o e-mail verificado.
+Requisito responsável por permitir que o usuário recupere o acesso ao painel quando esqueceu a senha, ou defina uma senha pela primeira vez, usando o e-mail verificado. O usuário pede o link na tela de recuperação ou, já logado, no "Meu perfil" ("Não lembro a senha atual" ou "Definir senha"); em ambos os casos o link leva à mesma tela de nova senha e concluir é uma recuperação (Obs1).
 
 **Recuperação:**
 
 | Campo | Tipo | Obrig. | Regra |
 |---|---|---|---|
 | E-mail | String | Sim | R1 |
-| Código de Recuperação | String (6 dígitos) | Sim | R2 |
+| Link de Recuperação | URL enviada ao e-mail (token aleatório) | Sim | R2 |
 | Nova Senha | String | Sim | R3 |
 | Confirmação da Nova Senha | String | Sim | R3 |
 
 **Regras e observações do preenchimento dos campos:**
 
 - **R1** A resposta ao pedido é sempre a mesma, exista ou não o e-mail, para não revelar quem é cliente.
-- **R2** O código segue as regras do RF02 (6 dígitos, 5 minutos, 3 tentativas, reenvio após 60 segundos, limites por hora).
+- **R2** O link é de uso único e vale 30 minutos. O pedido segue os limites de envio do RF02 (reenvio após 60 segundos, limites por hora por e-mail e por IP). Abrir o link não o consome: só concluir a troca. Um pedido novo não invalida os anteriores, que continuam valendo até vencer ou serem usados. Link vencido, usado ou inválido mostra a mesma mensagem e pede um novo.
 - **R3** Nova Senha segue as regras do RF01 e não pode ser igual à senha atual.
 
 - **Obs1:** Concluída a recuperação, todas as sessões do usuário são encerradas e ele recebe um e-mail avisando da troca de senha, com orientação para procurar o suporte caso não tenha sido ele.
