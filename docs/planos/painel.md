@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 09/11/2026 (F0 feita; F1 inteira feita: F1a, F1b e F1c; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 10/11/2026 (F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -24,7 +24,7 @@ Legenda de confiança, usada em todo o documento:
 | F1a Login por código e por senha (Better Auth) | **Feita (09/11/2026)** | Prova de conceito confirmou o caminho A (Better Auth sobre `users`, papel `app_auth`, `disableSignUp`). Tabelas `sessions`, `accounts`, `verifications` e `auth_audit` (migrations 0011 e 0012), `phone_e164` opcional (DD-20), porta `EmailSender` com envio falso em arquivo (DD-21), tela `/login`, `proxy.ts`, `lib/auth/session.ts` e sair. Desenho: `docs/superpowers/specs/2026-11-07-f1-autenticacao-design.md`; plano: `docs/superpowers/plans/2026-11-07-f1a-login-better-auth.md` |
 | F1b Autocadastro do dono | **Feita (09/11/2026)** | E-mail primeiro (código de 6 dígitos e comprovante de uso único), formulário único, gravação atômica pelo `app_auth` só com INSERT (migration 0014, `signup_verifications`), sessão aberta pela API, `/bem-vindo` com link e QR do WhatsApp, "Criar outra empresa" (`/nova-empresa`) para quem já tem login, termos e privacidade provisórios. DD-25. Fica para depois: código de indicação (F10), consulta pública de CNPJ (sem etapa) e texto final dos termos. Desenho em `docs/superpowers/specs/2026-11-09-f1b-autocadastro-design.md` |
 | F1c Recuperação de senha, perfil e lista de sessões | **Feita (09/11/2026)** | Recuperação de senha por link temporário (DD-27), "Meu perfil" com nome, senha e sessões (encerrar as outras), rotas próprias `/api/recovery/reset` e `/api/profile/*`, lista de rotas permitidas em `/api/auth/*`. DD-26, requisitos 1.5. Desenho: `docs/superpowers/specs/2026-11-09-f1c-recuperacao-perfil-sessoes-design.md`; plano: `docs/superpowers/plans/2026-11-09-f1c-recuperacao-perfil-sessoes.md` Pendências abertas (auditoria após a troca e login por código) em [`andamento.md`](andamento.md). |
-| F2 Conta, unidade e permissões | A fazer | Herda da F1a: renovar o cookie de "manter conectado" (o Next não grava cookie em layout; chamar a API pelo navegador por rewrite) e tratar 401 na camada de dados redirecionando para `/login` |
+| F2 Conta, unidade e permissões | **Feita (10/11/2026)** | Cookie `fr_ctx` revalidado pela API a cada requisição (DD-31), seletor de empresa e unidade, menu e rotas por `can()`, faixas de RF37, `SessionKeeper` (renova a sessão pelo navegador), 401 leva ao login e 409 recarrega; migration 0017; perfil lido no servidor. Desenho: `docs/superpowers/specs/2026-11-10-f2-conta-unidade-permissoes-design.md`; plano: `docs/superpowers/plans/2026-11-10-f2-conta-unidade-permissoes.md` |
 | F3 Lançamentos | A fazer | |
 | F4 Dashboard | A fazer | |
 | F5 Exportação Excel/CSV | A fazer | Escolher a biblioteca de planilha (D-F7) |
@@ -240,7 +240,7 @@ Cada etapa do front traz o seu pedaço da API. Todos os endpoints validam entrad
 | `POST /api/signup` (autocadastro, endpoint próprio) | F1 | RF01: empresa, unidade e dono em uma transação, depois do e-mail verificado |
 | `POST /api/auth/*` (Better Auth) | F1 | Código por e-mail e senha (RF02); recuperação de acesso (RF03); o login comum não cria usuário |
 | `GET/DELETE /api/sessions` | F1 | Sessões ativas e encerramento das outras (RF02.R8) |
-| `GET /api/me` | F1, F2 | Usuário, contas, unidades, papéis e permissões adicionais |
+| `GET /api/me` | F1, F2 | Usuário, contas, unidades, papéis e permissões adicionais; a partir da F2 também devolve o contexto efetivo. `POST /api/context` e `GET /api/units` passam a existir na F2 |
 | `GET /api/entries` | F3 | Filtros: período, tipo, categoria, unidade, busca; cursor; exclui apagados |
 | `GET /api/entries/:id` | F3 | Inclui origem e versões |
 | `PATCH /api/entries/:id` | F3 | Exige a versão esperada (409 se mudou); gera `entry_versions` |
@@ -305,14 +305,16 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 ### F2: Conta, unidade e permissões — M
 
+**Feita em 10/11/2026.** Desenho e plano em docs/superpowers/ (links acima)
+
 **Entrega os requisitos:** RF02.R6 (seletor de empresa e unidade, revalidação a cada requisição), RF06 (papéis, hierarquia e permissões; a matriz da seção 2.3 como referência), RF05 (leitura de papéis e permissões do usuário logado), RNF02.R6 (nada de cache compartilhado). Critérios: RF02.CA05 a CA07, RF06.CA02, CA04 e CA06.
 
-**Mudança pelos requisitos v1.0 (DN-04):** **quatro papéis** (DONO, GERENTE, LANCADOR; CONTADOR é da Fase 2) e **quatro permissões adicionais** (VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP). O `core` ganha isso na etapa E11 do plano do canal.
+**Mudança pelos requisitos v1.0 (DN-04):** **quatro papéis** (DONO, GERENTE, LANCADOR e CONTADOR, este no MVP pelo DD-03; lista de empresas do contador na F13) e **quatro permissões adicionais** (VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP). O `core` ganha isso na etapa E11 do plano do canal.
 
 **Entregas**
 - Seletor de conta (tenant) e de unidade, sempre visível no topo, com a escolha guardada e **revalidada no servidor** a cada requisição (vínculo existe e está ativo). "Todas as unidades" só aparece para quem tem acesso a todas.
 - `can()` do `core` aplicado à navegação e às ações, com papel e permissões adicionais. A API repete a checagem; categorias sensíveis filtradas na resposta (RF06.R3).
-- Estados para usuário sem vínculo e para conta desativada ou em somente leitura (RF37).
+- Estados para usuário sem vínculo e para conta em somente leitura, cancelada ou encerrada (RF37); vínculo desativado leva ao login.
 
 **Testes:** matriz papel × ação no E2E e na API (RF06.CA06); trocar de conta não mostra dado da anterior (inclusive com cache do TanStack Query: chave de query inclui tenant e unidade); manipular o cookie da conta ativa para outro tenant é recusado pela API; mudar o papel vale na próxima requisição (RF05.CA09).
 

@@ -2,7 +2,7 @@
 
 > **Só índice.** Cada linha aponta para o arquivo que explica a pendência; o texto, o contexto e a decisão moram lá. Ao fechar uma pendência, marque na fonte e **tire a linha daqui**. Pendência nova entra primeiro na fonte e depois ganha uma linha aqui, na etapa de origem.
 >
-> Atualizado em 10/11/2026 (DD-28 fechado, F1c-1 resolvida). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
+> Atualizado em 10/11/2026 (F2 feita: F1a-1, F1b-12 e F1c-6 saíram daqui). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
 
 **Fontes:** [`andamento.md`](andamento.md) (pendências técnicas, quem está travado e documentação) · [`requisitos.md` §5](../requisitos.md#5-pendências-e-decisões-em-aberto) (pendências de negócio P01 a P18) · [`contingencia-canal.md`](contingencia-canal.md) · [`politica-meta-whatsapp.md`](../politica-meta-whatsapp.md) · `matheus.md` e `luis.md` (locais, fora do git).
 
@@ -60,7 +60,6 @@
 
 | ID | Pendência | Resolver em | Detalhe |
 |---|---|---|---|
-| F1a-1 | Renovar cookie de "manter conectado"; 401 redireciona ao login | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1a" |
 | F1a-2 | `trustProxy`/IP real; produção só com autenticação real | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1a" |
 | F1a-3 | Fila persistente de e-mail | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1a" |
 | F1a-4 | Minors do review (juntar 0011 e 0012, índices de `auth_audit`…) | antes de produção | [andamento §6](andamento.md#6-painel) · bloco "F1a" |
@@ -80,7 +79,6 @@
 | F1b-9 | `tax_settings.valid_from` e fusos fora de São Paulo | F10 | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-10 | GRANT de `membership_units` sem uso (menor privilégio) | migration futura | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-11 | Consulta pública de CNPJ | sem etapa | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
-| F1b-12 | `/api/me` ignora `preferred_at` | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-13 | Mapa `timezoneForUf` vs RF04.R4 | F10 | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-14 | Usuário só com vínculos desativados não cria empresa | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
 | F1b-15 | API falsa do E2E não espelha todos os erros do cadastro | F1b | [andamento §6](andamento.md#6-painel) · bloco "F1b" |
@@ -93,7 +91,6 @@
 |---|---|---|---|
 | F1c-4 | Troca do próprio e-mail (RF02.Obs3) | F6 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-5 | Sem limite de tentativas na senha atual | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
-| F1c-6 | `/api/profile` lido no navegador | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-7 | Aviso real de troca de senha e IP real | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-8 | `/api/profile/*` sem checagem de `Origin` | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-9 | Nome do perfil aceita caracteres invisíveis | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
@@ -104,6 +101,17 @@
 | F1c-14 | Fila de segundo plano descarta tarefas quando enche | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-16 | `peekResetToken` não usa o relógio injetado | refatoração | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-17 | Testes de borda do `AuthStore` | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
+
+### F2
+
+| ID | Pendência | Resolver em | Detalhe |
+|---|---|---|---|
+| F2-1 | Conferir `Origin` contra a URL do app nas rotas de escrita da API (hoje só SameSite=Lax e JSON protegem `POST /api/context`); aplicar também às rotas da F3 em diante | F3 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-2 | Dono cuja empresa ficou sem unidade ativa não consegue mais entrar (`hasActiveMembership` segue a regra do painel, DD-31): decidir com os sócios se aceitamos ou damos mensagem própria na tela de login | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-3 | Filtro de categoria sensível na resposta (RF06.R3, CA02) e matriz papel × ação por rota: acrescentar linha a cada rota nova | F3 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-4 | Encerrar sessões ao rebaixar papel ou desativar vínculo (RF05 Alteração, CA09 "sessão encerrada") | F6 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-5 | Lista de empresas do contador com busca e convite com aviso de folha (RF36) | F13 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-6 | `pnpm lint` da raiz falha por fim de linha (CRLF) em arquivos antigos, e o E2E local com `next dev` oscila sob carga (no CI, com `next build`, passa) | qualquer | [andamento §6](andamento.md#6-painel) · bloco "F2" |
 
 ## Negócio (requisitos §5)
 
@@ -133,6 +141,7 @@ Pendências de negócio dos sócios. As já fechadas (P02, P05, P09, P10) não e
 | D3 | Limpar o que sobrou do OpenSpec | Decisão | [andamento §7](andamento.md#7-documentação) |
 | D4 | Reescrever ou apagar o guia que ainda cita `/opsx:*` | Decisão | [andamento §7](andamento.md#7-documentação) |
 | D5 | "Antes de iniciar a E11, reler `arquitetura.md`": provavelmente obsoleta (E11 feita) | rever | [andamento §6](andamento.md#6-painel) |
+| D6 | DD-23 citada em README.md:33 e andamento.md:53, mas ausente de decisoes.md: recuperar pelo git log (Luís) | Decisão | [decisoes](../decisoes.md) |
 
 ## Fora das etapas (sócios, arquivos locais)
 

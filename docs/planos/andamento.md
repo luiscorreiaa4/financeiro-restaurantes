@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 10/11/2026 (F0, F1a, F1b e F1c do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 10/11/2026 (F0, F1a, F1b, F1c e F2 do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. CI no GitHub rodou verde em 09/11/2026 (inclusive `e2e` e `integration`) |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 feita em 09/11/2026** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto, DE-25; contador só por e-mail e pendências do review, DE-26; evals resolvidos); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026) feitas**; F2 a F13 a fazer, **F2 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026) e F2 (10/11/2026) feitas**; F3 a F13 a fazer, **F3 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -34,7 +34,7 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 ## 3. Próximos passos
 
 1. ~~**E11 (canal): modelo de dados dos requisitos**~~ (feita em 09/11/2026, DE-25 e DE-26; mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-2. ~~**F1b (painel): autocadastro do dono**~~ e ~~**F1c (recuperação, perfil e sessões)**~~ (feitas em 09/11/2026, DD-25, DD-26 e DD-27). Próxima do painel: **F2**; planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`). As etapas seguintes do painel (F3 a F6, F12 e F13) seguem o mesmo fluxo.
+2. ~~**F1b (painel): autocadastro do dono**~~ e ~~**F1c (recuperação, perfil e sessões)**~~ (feitas em 09/11/2026, DD-25, DD-26 e DD-27) e ~~**F2 (conta, unidade e permissões)**~~ (feita em 10/11/2026, DD-31). Próxima do painel: **F3**; planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`). As etapas seguintes do painel (F3 a F6, F12 e F13) seguem o mesmo fluxo.
 3. ~~**Rodar o CI no GitHub**~~ (feito em 09/11/2026, tudo verde), agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
 5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
@@ -85,7 +85,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 
 ## 6. Painel
 
-**F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026**; F2 a F13 a fazer, a **F2 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
+**F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026 e F2 em 10/11/2026**; F3 a F13 a fazer, a **F3 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
@@ -99,7 +99,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 - **Pendências deixadas pela F1a (09/11/2026):**
   - [x] **Fluxo à mão feito em 09/11/2026 (Luís):** `.env` preenchido (`AUTH_SECRET`, `DATABASE_AUTH_URL`, `DEV_MAIL_DIR`), papel `app_auth` criado, migrations 0011 a 0013 aplicadas, `pnpm db:seed:dev` rodado e login testado em `http://localhost:3000/login` (passos 3.1 a 3.5 do guia da próxima sessão). Detalhes do que apareceu na tela não foram registrados.
   - [x] **Volumes Postgres existentes** não recebem o papel `app_auth` sozinhos: resolvido em 09/11/2026 rodando o `init.sql` no banco dev (é idempotente). Em outro volume antigo, repetir o comando ou recriar o volume.
-  - [ ] F2: renovar o cookie de "manter conectado" (o Next não grava cookie em layout/server component; até lá ele vence 30 dias após o login) e tratar 401 na camada de dados redirecionando para `/login`.
+  - [x] **Feito na F2 (10/11/2026):** renovar o cookie de "manter conectado" (o Next não grava cookie em layout/server component; até lá ele vence 30 dias após o login) e tratar 401 na camada de dados redirecionando para `/login`.
   - [ ] F8: `trustProxy` e o IP real atrás do rewrite do Next; produção só sobe com autenticação (`DATABASE_AUTH_URL`) e e-mail reais configurados (sem chave liga/desliga).
   - [x] F1b: INSERT em `users`, `memberships` e `tenants` para `app_auth`: feito na migration 0014 (09/11/2026, DD-25).
   - [ ] Fila de e-mail: o envio do código roda em memória por processo, sem fila persistente (DD-21); trocar na F8.
@@ -117,7 +117,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [ ] `tax_settings.valid_from` usa a data em `America/Sao_Paulo` mesmo para unidades em Manaus ou Rio Branco (diferença de no máximo um dia na data de início).
   - [ ] GRANT e política de INSERT em `membership_units` para `app_auth` não são usados pelo código (o dono tem `all_units`); avaliar retirar numa migration futura (menor privilégio).
   - [ ] Consulta pública de CNPJ (RF01.R2, Obs1 "opcionalmente"): sugestão sem etapa; hoje o CNPJ só passa pelo dígito verificador.
-  - [ ] `GET /api/me` devolve só `userId`, `name` e `email` e ignora `memberships.preferred_at`; na F2 (empresa ativa do painel) usar a empresa mais recente pelo `preferred_at`, como o canal (`resolveSender`).
+  - [x] **Feito na F2 (10/11/2026):** `GET /api/me` devolve só `userId`, `name` e `email` e ignora `memberships.preferred_at`; na F2 (empresa ativa do painel) usar a empresa mais recente pelo `preferred_at`, como o canal (`resolveSender`).
   - [ ] `timezoneForUf` (cadastro) mapeia alguns estados para fusos próprios (AL, BA etc.) e o resto para `America/Sao_Paulo`; conferir o mapa com o RF04.R4.
   - [ ] Usuário só com vínculos desativados não cria empresa (`/api/companies` dá 401, igual ao `/api/me`); decisão de produto se precisar permitir.
   - [x] Teste instável `apps/api/test/signup-code.int.test.ts` ("auditoria e logs..."): com o relógio congelado os dois eventos tinham o mesmo `created_at` e o desempate pelo id (UUID v7 sem contador) era sorteado; o teste agora avança 1 s entre o envio e a verificação (revisão final da F1b).
@@ -132,7 +132,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] **Feito em 10/11/2026 (DD-30):** auditoria que falha depois de gravar a senha ou o nome passa a ser tratada como sucesso, com a falha só no log e alerta no Sentry (`recover-password.ts`, `profile-service.ts`). Antes, o usuário via erro mesmo com a troca feita e, na recuperação, o link já gasto mostrava "Link inválido".
   - [ ] Troca do próprio e-mail (RF02.Obs3), adiada da F1c (DD-26): candidata à F6.
   - [ ] Sem limite de tentativas na rota da senha atual (`/api/profile/password`).
-  - [ ] `/api/profile` é lido no navegador (TanStack Query) até a F2 criar a leitura autenticada no servidor.
+  - [x] **Feito na F2 (10/11/2026):** `/api/profile` passou a ser lido no servidor (antes, TanStack Query no navegador).
   - [ ] Envio real do aviso de troca de senha e `trustProxy`/IP real: F8.
   - [x] **Feito em 10/11/2026 (DD-30):** todos os erros de código no login por código (`/api/auth/sign-in/email-otp`) viram `INVALID_OTP`, iguais para e-mail com e sem conta, com texto "código incorreto ou vencido; peça um novo" na tela. Antes, `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` diferiam e permitiam descobrir se o e-mail tem conta (RF02.R1). Não impede queimar o código da vítima com tentativas erradas; a recuperação por link (DD-27) não tem o problema.
   - [ ] Rotas `/api/profile/*` sem checagem própria de content-type e `Origin` (CSRF só protegido por `SameSite=Lax`).
@@ -145,6 +145,19 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] **Feito em 10/11/2026 (DD-30):** um link de recuperação novo invalida os anteriores; só o mais recente vale (RF03.R2 já alterado na v1.9). Risco aceito: quem pede links repetidos para a vítima pode invalidar o legítimo; as cotas do RF02 limitam.
   - [ ] `peekResetToken` compara a validade com `Date.now()` e não com o relógio injetado; o Better Auth confere de novo no consumo, então não é falha, só limita o teste de vencimento.
   - [ ] Testes de borda do `AuthStore` que faltam (`packages/db/test/auth-store.int.test.ts`): `keepSessionId` de outro usuário, conta de outro provedor em `getPasswordHash`/`setPasswordHash` e `expiresAt` exatamente igual a `now` em `listSessions`.
+- **F2 feita em 10/11/2026 (DD-31):** conta, unidade e permissões do painel. Desenho e plano em `docs/superpowers/` (links na tabela de [`painel.md`](painel.md)).
+  - Cookie `fr_ctx` por aparelho (1 ano, httpOnly), gravado só pela API. `resolvePanelContext` e `accountAllows` no `core`.
+  - Migration 0017: `app_auth` lê `tenants(id, name, status)`, `units(id, tenant_id, status)` e `membership_units`.
+  - Guards na API: `requirePanelContext`, `requireTenantRoute`, `requirePermission` e `requireWritable`. Rotas `GET /api/me` (com o contexto efetivo), `POST /api/context` e `GET /api/units`.
+  - Web: `Me`, cabeçalho `X-Context`, `tenantKey`, `SessionKeeper`, `ContextSwitcher`, menu por permissão e faixas da situação da conta (RF37). 401 leva ao login; 409 recarrega. Perfil lido no servidor.
+  - Decisões deste bloco: `companies` do `/api/me` ganhou `startUnitId` para trocar de empresa; `/api/units` exige `panel:access`; `hasActiveMembership` passou a seguir a regra do painel; ao abrir a primeira vez a casca grava o `fr_ctx` e recarrega; consulta que dá 4xx não é repetida.
+- **Pendências deixadas pela F2 (10/11/2026):**
+  - [ ] **F2-1 (F3):** conferir `Origin` contra a URL do app nas rotas de escrita da API (hoje só SameSite=Lax e JSON protegem `POST /api/context`); aplicar também às rotas da F3 em diante.
+  - [ ] **F2-2 (decisão dos sócios; F3/F6):** dono cuja empresa ficou sem unidade ativa não consegue mais entrar (`hasActiveMembership` segue a regra do painel, DD-31): aceitar ou dar mensagem própria na tela de login.
+  - [ ] **F2-3 (F3):** filtro de categoria sensível na resposta (RF06.R3, CA02) e matriz papel × ação por rota: acrescentar linha a cada rota nova.
+  - [ ] **F2-4 (F6):** encerrar sessões ao rebaixar papel ou desativar vínculo (RF05 Alteração, CA09 "sessão encerrada").
+  - [ ] **F2-5 (F13):** lista de empresas do contador com busca e convite com aviso de folha (RF36).
+  - [ ] **F2-6 (qualquer etapa):** `pnpm lint` da raiz falha por fim de linha (CRLF) em arquivos antigos, e o E2E local com `next dev` oscila sob carga (no CI, com `next build`, passa).
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 
