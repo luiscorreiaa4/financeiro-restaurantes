@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { meFixture } from "@/lib/api/me-fixture";
 import { getSession, requireSessionOrRedirect } from "./session";
 
 const base = "http://api.local";
@@ -30,21 +31,31 @@ describe("sessão no servidor", () => {
     expect(session).toBeNull();
   });
 
-  it("API devolve a sessão: objeto com userId, name e email (repassa o cookie, sem cache)", async () => {
+  it("API devolve a sessão com o contexto (repassa o cookie, sem cache)", async () => {
     let called: { url: string; init?: RequestInit } | undefined;
     const session = await getSession({
       baseUrl: base,
       cookieHeader: "better-auth.session_token=x",
       fetch: async (url, init) => {
         called = { url: String(url), init };
-        return json({ userId: "u1", name: "Dono", email: "dono@demo.dev" });
+        return json(meFixture());
       },
     });
 
-    expect(session).toEqual({ userId: "u1", name: "Dono", email: "dono@demo.dev" });
+    expect(session).toEqual(meFixture());
     expect(called?.url).toBe("http://api.local/api/me");
     expect(new Headers(called?.init?.headers).get("cookie")).toBe("better-auth.session_token=x");
     expect(called?.init?.cache).toBe("no-store");
+  });
+
+  it("resposta sem context (contrato antigo): null", async () => {
+    const session = await getSession({
+      baseUrl: base,
+      cookieHeader: "a=b",
+      fetch: async () => json({ userId: "u1", name: "Dono", email: "dono@demo.dev" }),
+    });
+
+    expect(session).toBeNull();
   });
 
   it("resposta fora do contrato ou API fora do ar: null (nunca autoriza por engano)", async () => {
@@ -82,7 +93,7 @@ describe("sessão no servidor", () => {
     const session = await requireSessionOrRedirect({
       baseUrl: base,
       cookieHeader: "a=b",
-      fetch: async () => json({ userId: "u1", name: "Dono", email: "dono@demo.dev" }),
+      fetch: async () => json(meFixture()),
       redirect: (): never => {
         throw new Error("não devia redirecionar");
       },

@@ -9,7 +9,7 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 3. **Data de negócio é texto `YYYY-MM-DD`.** Formate com `formatBusinessDate`. Nunca `new Date("YYYY-MM-DD")` (lê como UTC e pode mostrar o dia anterior).
 4. **A autorização real é da API.** Esconder botão é conforto. O `proxy.ts` (F1) só redireciona quem não tem cookie.
 5. **Toda chamada à API passa por `lib/api`** (`createApiClient`), com schema Zod na resposta. Erro vira `ApiError` (`status` 0 = API fora do ar). Nunca use dado da API sem validar.
-6. **Chave de query do TanStack Query inclui o tenant e a unidade** quando a F2 existir. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
+6. **Toda chave de query de dado de tenant usa `tenantKey(ctx, ...)`** (`lib/query/keys.ts`), que inclui empresa e unidade. Chave escrita à mão para dado de tenant é proibida. Dado do usuário (perfil) não é do tenant e usa chave própria. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
 7. Texto de mensagem de usuário é entrada não confiável: renderize como texto, nunca como HTML.
 
 ## Estrutura e UI

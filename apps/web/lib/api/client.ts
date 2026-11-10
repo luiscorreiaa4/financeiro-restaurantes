@@ -19,26 +19,53 @@ export type ApiClient = {
   patch<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
 };
 
-export function createApiClient(options: { baseUrl: string; fetch?: typeof fetch }): ApiClient {
+export type ApiClientOptions = {
+  baseUrl: string;
+  fetch?: typeof fetch;
+  /** Valor do cabeçalho `X-Context` (empresa.unidade); `null` = não envia. */
+  contextHeader?: () => string | null;
+  /** Chamado com todo `ApiError` antes de ele ser lançado (401, 409, API fora do ar...). */
+  onError?: (e: ApiError) => void;
+};
+
+export function createApiClient(options: ApiClientOptions): ApiClient {
   const doFetch = options.fetch ?? fetch;
+
+  function fail(error: ApiError): never {
+    options.onError?.(error);
+    throw error;
+  }
+
+  function withContext(init: RequestInit): RequestInit {
+    const context = options.contextHeader?.() ?? null;
+    if (context === null) return init;
+    const headers = new Headers(init.headers);
+    headers.set("x-context", context);
+    return { ...init, headers };
+  }
 
   async function request<T>(path: string, init: RequestInit, schema: z.ZodType<T>): Promise<T> {
     {
       let response: Response;
       try {
-        response = await doFetch(`${options.baseUrl}${path}`, { credentials: "include", ...init });
+        response = await doFetch(`${options.baseUrl}${path}`, {
+          credentials: "include",
+          ...withContext(init),
+        });
       } catch (cause) {
-        throw new ApiError(`API indisponível: ${path}`, 0, cause);
+        return fail(new ApiError(`API indisponível: ${path}`, 0, cause));
       }
 
       const body: unknown = await response.json().catch(() => undefined);
       if (!response.ok) {
-        throw new ApiError(`A API respondeu ${response.status}: ${path}`, response.status, body);
+        return fail(
+          new ApiError(`A API respondeu ${response.status}: ${path}`, response.status, body),
+        );
       }
 
       const parsed = schema.safeParse(body);
       if (!parsed.success) {
-        throw new ApiError(`Resposta fora do contrato: ${path}`, response.status, body);
+        return fail(new ApiError(`Resposta fora do contrato: ${path}`, response.status, body));
       }
       return parsed.data;
     }
