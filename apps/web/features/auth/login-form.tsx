@@ -15,6 +15,27 @@ const GENERIC_SENT = "Se o e-mail estiver cadastrado, você receberá o código.
 
 type Mode = "code" | "password";
 
+/** Chave que a recuperação deixa para o login: aviso e, se houver, o e-mail (nunca senha nem token). */
+export const PREFILL_KEY = "login:prefill";
+
+type Prefill = { email: string | null; notice: string | null };
+
+function takePrefill(): Prefill | null {
+  try {
+    const raw = window.sessionStorage.getItem(PREFILL_KEY);
+    if (raw === null) return null;
+    window.sessionStorage.removeItem(PREFILL_KEY);
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const email = "email" in parsed && typeof parsed.email === "string" ? parsed.email : null;
+    const notice = "notice" in parsed && typeof parsed.notice === "string" ? parsed.notice : null;
+    return email !== null || notice !== null ? { email, notice } : null;
+  } catch {
+    // sessionStorage bloqueado ou JSON torto: segue sem preencher.
+  }
+  return null;
+}
+
 type Props = {
   client?: AuthClient;
   /** Chamado depois de entrar. O padrão é navegar (página inteira, para o servidor ler o cookie novo). */
@@ -34,6 +55,7 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   const otpRef = useRef<HTMLInputElement>(null);
 
   const counting = secondsLeft > 0;
@@ -46,6 +68,17 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   useEffect(() => {
     if (codeSent) otpRef.current?.focus();
   }, [codeSent]);
+
+  // Vindo da recuperação (RF03): abre no modo senha com o e-mail preenchido. O e-mail viaja por
+  // sessionStorage (não pela URL) e a chave é removida na primeira leitura.
+  useEffect(() => {
+    const prefilled = takePrefill();
+    if (prefilled) {
+      if (prefilled.email) setEmail(prefilled.email);
+      setNotice(prefilled.notice);
+      setMode("password");
+    }
+  }, []);
 
   function switchMode(target: Mode) {
     setMode(target);
@@ -148,7 +181,7 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       ) : null}
 
       <p role="status" className="text-sm text-muted-foreground empty:hidden">
-        {showOtp ? GENERIC_SENT : null}
+        {showOtp ? GENERIC_SENT : notice}
       </p>
 
       {showOtp ? (
@@ -203,6 +236,18 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       >
         {mode === "code" ? "Entrar com senha" : "Entrar com código"}
       </Button>
+
+      {mode === "password" ? (
+        <div className="flex flex-col items-center gap-1 text-center text-sm text-muted-foreground">
+          <Link
+            href="/recuperar-senha"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Esqueci a senha
+          </Link>
+          <p>Ainda não tem senha? Entre com o código ou toque em Esqueci a senha.</p>
+        </div>
+      ) : null}
 
       <p className="text-center text-sm text-muted-foreground">
         Ainda não tem conta?{" "}

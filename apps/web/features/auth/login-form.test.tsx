@@ -11,6 +11,8 @@ function fakeClient(overrides: Partial<AuthClient> = {}): AuthClient {
     signInWithCode: vi.fn(async () => {}),
     signInWithPassword: vi.fn(async () => {}),
     signOut: vi.fn(async () => {}),
+    requestPasswordReset: vi.fn(async () => {}),
+    resetPassword: vi.fn(async () => {}),
     ...overrides,
   };
 }
@@ -21,6 +23,7 @@ function apiError(status: number, code: string, message: string): ApiError {
 
 afterEach(() => {
   vi.useRealTimers();
+  window.sessionStorage.clear();
 });
 
 describe("formulário de acesso", () => {
@@ -249,5 +252,56 @@ describe("formulário de acesso", () => {
     render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
 
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+});
+
+describe("recuperação de acesso no login (RF03, RF02.R2)", () => {
+  it("o link 'Esqueci a senha' e a dica só aparecem no modo senha", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    expect(screen.queryByRole("link", { name: "Esqueci a senha" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ainda não tem senha\?/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Entrar com senha" }));
+
+    expect(screen.getByRole("link", { name: "Esqueci a senha" })).toHaveAttribute(
+      "href",
+      "/recuperar-senha",
+    );
+    expect(
+      screen.getByText("Ainda não tem senha? Entre com o código ou toque em Esqueci a senha."),
+    ).toBeInTheDocument();
+  });
+
+  it("com login:prefill abre no modo senha com o e-mail preenchido e remove a chave", async () => {
+    window.sessionStorage.setItem("login:prefill", JSON.stringify({ email: "dono@demo.dev" }));
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    expect(await screen.findByLabelText("Senha")).toBeInTheDocument();
+    expect(screen.getByLabelText("E-mail")).toHaveValue("dono@demo.dev");
+    expect(window.sessionStorage.getItem("login:prefill")).toBeNull();
+  });
+
+  it("login:prefill só com aviso (vindo do link de recuperação) abre no modo senha e mostra o aviso", async () => {
+    window.sessionStorage.setItem(
+      "login:prefill",
+      JSON.stringify({ notice: "Senha alterada. Entre com a nova senha." }),
+    );
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    expect(await screen.findByLabelText("Senha")).toBeInTheDocument();
+    expect(screen.getByLabelText("E-mail")).toHaveValue("");
+    expect(screen.getByText("Senha alterada. Entre com a nova senha.")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("login:prefill")).toBeNull();
+  });
+
+  it("login:prefill torto é ignorado e removido", async () => {
+    window.sessionStorage.setItem("login:prefill", "não é json");
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    expect(screen.queryByLabelText("Senha")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("E-mail")).toHaveValue("");
+    expect(window.sessionStorage.getItem("login:prefill")).toBeNull();
   });
 });

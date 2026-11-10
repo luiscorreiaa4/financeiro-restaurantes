@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { SignOutButton } from "@/features/auth/sign-out-button";
+import { UserMenu } from "@/components/user-menu";
 import { NAV_ITEMS } from "@/lib/navigation";
 
 function NavLinks({ label, onNavigate }: { label: string; onNavigate?: () => void }) {
@@ -31,16 +31,14 @@ function NavLinks({ label, onNavigate }: { label: string; onNavigate?: () => voi
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, userName }: { children: ReactNode; userName: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="flex min-h-svh flex-col md:flex-row">
       <aside className="hidden w-56 shrink-0 border-r p-4 md:block">
         <NavLinks label="Principal" />
-        <div className="mt-4">
-          <SignOutButton />
-        </div>
+        <UserMenu name={userName} className="mt-4 flex flex-col gap-2" />
       </aside>
 
       <header className="flex items-center gap-2 border-b p-2 md:hidden">
@@ -55,8 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </SheetContent>
         </Sheet>
-        <span className="flex-1 text-sm font-medium">Finanças para restaurantes</span>
-        <SignOutButton />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          Finanças para restaurantes
+        </span>
+        <UserMenu name={userName} className="flex items-center gap-2" />
       </header>
 
       <main className="min-w-0 flex-1 p-4">{children}</main>

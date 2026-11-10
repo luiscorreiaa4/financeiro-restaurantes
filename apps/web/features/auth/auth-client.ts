@@ -10,6 +10,10 @@ export type AuthClient = {
     rememberMe: boolean;
   }): Promise<void>;
   signOut(): Promise<void>;
+  /** Pede o link de recuperação por e-mail (RF03.R1): a resposta é a mesma para qualquer e-mail. */
+  requestPasswordReset(email: string): Promise<void>;
+  /** Conclui a recuperação com o token do link e a senha nova (RF03, DD-27). */
+  resetPassword(input: { token: string; password: string }): Promise<void>;
 };
 
 const anyJson = z.unknown();
@@ -34,6 +38,12 @@ export function createAuthClient(fetchImpl?: typeof fetch): AuthClient {
     async signOut() {
       await api.post("/api/auth/sign-out", {}, anyJson);
     },
+    async requestPasswordReset(email) {
+      await api.post("/api/recovery/request", { email }, anyJson);
+    },
+    async resetPassword(input) {
+      await api.post("/api/recovery/reset", input, anyJson);
+    },
   };
 }
 
@@ -47,6 +57,13 @@ const FALLBACKS: Record<string, string> = {
   PASSWORD_LOCKED: "Muitas tentativas. Use o código ou tente de novo em 15 minutos.",
   TOO_MANY_REQUESTS: "Muitas tentativas. Aguarde um pouco e tente de novo.",
   INVALID_EMAIL: "Informe um e-mail válido.",
+  INVALID_TOKEN: "Link inválido ou expirado. Peça um novo.",
+  SAME_PASSWORD: "A nova senha não pode ser igual à atual.",
+  NO_PASSWORD: "Você ainda não tem senha. Defina uma pelo link enviado ao e-mail.",
+  PASSWORD_TOO_SHORT: "A senha precisa ter de 8 a 64 caracteres.",
+  PASSWORD_TOO_LONG: "A senha precisa ter de 8 a 64 caracteres.",
+  PASSWORD_NEEDS_LETTER_AND_DIGIT: "A senha precisa ter letras e números.",
+  PASSWORD_SAME_AS_EMAIL: "A senha não pode ser igual ao e-mail.",
 };
 
 const GENERIC = "Algo deu errado. Tente de novo.";

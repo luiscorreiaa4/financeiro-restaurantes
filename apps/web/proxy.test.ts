@@ -35,7 +35,15 @@ describe("proxy de acesso", () => {
   });
 
   it("/login, /_next, /api e arquivos estáticos passam sem cookie", () => {
-    for (const path of ["/login", "/login/", "/_next/static/a.js", "/api/health", "/favicon.ico"]) {
+    for (const path of [
+      "/login",
+      "/login/",
+      "/recuperar-senha",
+      "/redefinir-senha",
+      "/_next/static/a.js",
+      "/api/health",
+      "/favicon.ico",
+    ]) {
       const response = proxy(request(path));
       expect(response.headers.get("location"), path).toBeNull();
     }

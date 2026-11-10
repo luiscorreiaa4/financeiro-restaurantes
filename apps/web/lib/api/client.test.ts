@@ -104,3 +104,22 @@ describe("cliente da API: POST", () => {
     });
   });
 });
+
+describe("cliente da API: PATCH", () => {
+  it("envia JSON com o método PATCH e valida a resposta", async () => {
+    let called: { url: string; init?: RequestInit } | undefined;
+    const api = createApiClient({
+      baseUrl: "",
+      fetch: async (url, init) => {
+        called = { url: String(url), init };
+        return jsonResponse({ ok: true });
+      },
+    });
+
+    await expect(api.patch("/api/x", { a: 1 }, healthSchema)).resolves.toEqual({ ok: true });
+
+    expect(called?.init?.method).toBe("PATCH");
+    expect(called?.init?.credentials).toBe("include");
+    expect(called?.init?.body).toBe('{"a":1}');
+  });
+});
