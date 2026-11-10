@@ -71,8 +71,10 @@ beforeAll(async () => {
         gateway,
         checkSession: createCheckSession({ gateway, access: store, clock }),
         sessionBlocked: createSessionBlocked({ gateway, access: store }),
+        secure: true,
       },
       signup: {
+        secure: true,
         requestCode: createRequestSignupCode({
           store: signupStore,
           users: store,
@@ -127,6 +129,11 @@ async function createUser(address: string = newEmail()) {
   const userId = uuidv7();
   const tenantId = uuidv7();
   await db.admin.query("insert into tenants (id, name) values ($1, 'Restaurante')", [tenantId]);
+  // O painel exige ao menos uma unidade ativa (DD-31).
+  await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
+    uuidv7(),
+    tenantId,
+  ]);
   await db.admin.query(
     "insert into users (id, name, email, email_verified) values ($1, 'Pessoa', $2, true)",
     [userId, address],

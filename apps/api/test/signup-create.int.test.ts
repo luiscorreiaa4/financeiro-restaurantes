@@ -3,6 +3,7 @@ import { TRIAL_DAYS } from "@app/core";
 import {
   createAuthStore,
   createDatabase,
+  createPanelAccessStore,
   createPool,
   createSignupRepo,
   createSignupStore,
@@ -28,6 +29,7 @@ const SESSION_COOKIE = "__Secure-better-auth.session_token=";
 
 let db: TestDatabase;
 let authPool: ReturnType<typeof createPool>;
+let appPool: ReturnType<typeof createPool>;
 let app: ReturnType<typeof buildApp>;
 /** Liga a falha injetada logo depois do INSERT da unidade (CA08). */
 let failAfterUnit = false;
@@ -37,6 +39,7 @@ let hashCalls = 0;
 beforeAll(async () => {
   db = await startTestDatabase();
   authPool = createPool(db.urls.auth);
+  appPool = createPool(db.urls.app);
   const clock = createSystemClock();
   const authDb = createDatabase(authPool);
   const store = createAuthStore(authDb, clock);
@@ -69,8 +72,16 @@ beforeAll(async () => {
         gateway,
         checkSession: createCheckSession({ gateway, access: store, clock }),
         sessionBlocked: createSessionBlocked({ gateway, access: store }),
+        secure: true,
+      },
+      panel: {
+        checkSession: createCheckSession({ gateway, access: store, clock }),
+        access: createPanelAccessStore(authDb),
+        appDb: createDatabase(appPool),
+        secure: true,
       },
       signup: {
+        secure: true,
         requestCode: createRequestSignupCode({
           store: signupStore,
           users: store,
@@ -102,6 +113,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await authPool?.end();
+  await appPool?.end();
   await db?.stop();
 });
 
@@ -316,6 +328,17 @@ describe("gravação da conta no autocadastro (RF01)", () => {
       await count("auth_audit where user_id = $1 and event = 'signup_completed'", [user.id]),
     ).toBe(1);
     expect(await receiptConsumed(email)).toBe(true);
+  });
+
+  it("2xx opens a new session and expires the remembered fr_ctx; a refusal does not touch it", async () => {
+    const { response } = await signup();
+    expect(response.statusCode).toBe(201);
+    expect(setCookies(response)).toContain(
+      "__Secure-fr_ctx=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax; Secure",
+    );
+    const refused = await signup({ termsAccepted: false });
+    expect(refused.response.statusCode).toBe(400);
+    expect(setCookies(refused.response).some((c) => c.includes("fr_ctx"))).toBe(false);
   });
 
   it("response carries a session cookie and GET /api/me with it returns the new owner", async () => {

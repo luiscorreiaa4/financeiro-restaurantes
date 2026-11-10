@@ -8,12 +8,15 @@ import type { RequestSignupCode } from "../../modules/signup/request-signup-code
 import type { VerifySignupCode } from "../../modules/signup/verify-signup-code";
 import { authError } from "../auth/auth-messages";
 import { toWebHeaders } from "../auth/require-session";
+import { expiredContextCookie } from "../panel/panel-context";
 import { signupError } from "./signup-messages";
 
 export interface SignupRoutesDeps {
   readonly requestCode: RequestSignupCode;
   readonly verifyCode: VerifySignupCode;
   readonly createAccount: CreateAccount;
+  /** Cookie `__Secure-` e atributo `Secure` (fora de development); define qual `fr_ctx` expirar. */
+  readonly secure: boolean;
   /** "Criar outra empresa" (`POST /api/companies`), só com sessão. */
   readonly companies?: {
     readonly checkSession: CheckSession;
@@ -104,7 +107,8 @@ export const signupRoutes: FastifyPluginAsync<{ deps: SignupRoutesDeps }> = asyn
     });
     if (result.ok) {
       const { tenantId, setCookies } = result.value;
-      if (setCookies.length > 0) reply.header("set-cookie", setCookies);
+      // Sessão nova: o contexto lembrado de quem usou o navegador antes não vale (chamada 5).
+      reply.header("set-cookie", [...setCookies, expiredContextCookie(deps.secure)]);
       return reply.code(201).send({ tenantId });
     }
     const failure = result.error;

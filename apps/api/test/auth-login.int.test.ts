@@ -1,3 +1,4 @@
+import { allowedActions } from "@app/core";
 import { DEV_EMAILS, DEV_PASSWORD } from "@app/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -50,7 +51,38 @@ describe("login por código (RF02.R4)", () => {
 
     const profile = await h.me(h.sessionCookie(response));
     expect(profile.statusCode).toBe(200);
-    expect(profile.json()).toEqual({ userId: user.userId, name: "Pessoa", email: user.email });
+    const { rows } = await h.db.admin.query<{ tenant_id: string; unit_id: string }>(
+      "select m.tenant_id, (select id from units u where u.tenant_id = m.tenant_id) as unit_id from memberships m where m.user_id = $1",
+      [user.userId],
+    );
+    const tenantId = rows[0]?.tenant_id as string;
+    const unitId = rows[0]?.unit_id as string;
+    const owner = { role: "owner", permissions: [], units: "all", panelAccess: true } as const;
+    expect(profile.json()).toEqual({
+      userId: user.userId,
+      name: "Pessoa",
+      email: user.email,
+      companies: [
+        {
+          tenantId,
+          name: "Restaurante",
+          role: "owner",
+          accountStatus: "active",
+          startUnitId: "all",
+        },
+      ],
+      context: {
+        tenantId,
+        unitId: "all",
+        role: "owner",
+        permissions: [],
+        allUnits: true,
+        unitIds: [unitId],
+        accountStatus: "active",
+        allowedActions: allowedActions(owner),
+      },
+      contextSource: "fallback",
+    });
   });
 
   it("e-mail desconhecido: mesma resposta (status e corpo) que um conhecido e nenhum e-mail enviado", async () => {

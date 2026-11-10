@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { createAuthStore, createDatabase, createPool, seedDevData, uuidv7 } from "@app/db";
+import {
+  createAuthStore,
+  createDatabase,
+  createPanelAccessStore,
+  createPool,
+  seedDevData,
+  uuidv7,
+} from "@app/db";
 import { startTestDatabase, type TestDatabase } from "@app/db/testing";
 import { hashPassword } from "better-auth/crypto";
 import type { LightMyRequestResponse } from "fastify";
@@ -37,6 +44,7 @@ export function setCookies(response: LightMyRequestResponse): string[] {
 export interface AuthHarness {
   db: TestDatabase;
   authPool: ReturnType<typeof createPool>;
+  appPool: ReturnType<typeof createPool>;
   app: ReturnType<typeof buildApp>;
   gateway: ReturnType<typeof createAuthGateway>;
   email: ReturnType<typeof createMemoryEmailSender>;
@@ -77,6 +85,7 @@ export interface AuthHarness {
 export async function startAuthHarness(): Promise<AuthHarness> {
   const db = await startTestDatabase();
   const authPool = createPool(db.urls.auth);
+  const appPool = createPool(db.urls.app);
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(START);
   const clock = createSystemClock();
@@ -104,6 +113,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
         gateway,
         checkSession,
         sessionBlocked: createSessionBlocked({ gateway, access: store }),
+        secure: true,
       },
       recovery: {
         recover: createRecoverPassword({ store, gateway, email, background: tasks, clock }),
@@ -112,6 +122,12 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       profile: {
         checkSession,
         service: createProfileService({ store, gateway, email, background: tasks, clock }),
+      },
+      panel: {
+        checkSession,
+        access: createPanelAccessStore(createDatabase(authPool)),
+        appDb: createDatabase(appPool),
+        secure: true,
       },
       logStream: { write: (line) => logLines.push(line) },
     },
@@ -193,6 +209,11 @@ export async function startAuthHarness(): Promise<AuthHarness> {
     const userId = uuidv7();
     const tenantId = uuidv7();
     await db.admin.query("insert into tenants (id, name) values ($1, 'Restaurante')", [tenantId]);
+    // O painel exige ao menos uma unidade ativa (DD-31): sem ela o vínculo não abre o login.
+    await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
+      uuidv7(),
+      tenantId,
+    ]);
     await db.admin.query(
       "insert into users (id, name, email, email_verified) values ($1, 'Pessoa', $2, true)",
       [userId, address],
@@ -216,6 +237,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
   return {
     db,
     authPool,
+    appPool,
     app,
     gateway,
     email,
@@ -242,6 +264,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       vi.useRealTimers();
       await app?.close();
       await authPool?.end();
+      await appPool?.end();
       await db?.stop();
     },
     createUser,

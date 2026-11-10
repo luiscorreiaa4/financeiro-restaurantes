@@ -23,6 +23,7 @@ import {
   createInboundProcessingRepo,
   createInboundSenderRepo,
   createOutboundMessageRepo,
+  createPanelAccessStore,
   createPool,
   createSenderDirectory,
   createSignupRepo,
@@ -90,6 +91,7 @@ export async function compose(
       signup: auth.signup,
       recovery: auth.recovery,
       profile: auth.profile,
+      panel: auth.panel,
     },
     async close() {
       await queue.stop();
@@ -107,6 +109,7 @@ function composeAuth(env: Env): {
   signup: NonNullable<AppDeps["signup"]>;
   recovery: NonNullable<AppDeps["recovery"]>;
   profile: NonNullable<AppDeps["profile"]>;
+  panel: NonNullable<AppDeps["panel"]>;
   close(): Promise<void>;
 } {
   if (env.DATABASE_AUTH_URL === undefined) {
@@ -119,6 +122,10 @@ function composeAuth(env: Env): {
   const pool = createPool(env.DATABASE_AUTH_URL);
   const clock = createSystemClock();
   const authDb = createDatabase(pool);
+  // Painel (F2): dado de tenant pelo papel `app`, sob RLS; os vínculos pelo `app_auth`.
+  const appPool = createPool(env.DATABASE_URL);
+  const appDb = createDatabase(appPool);
+  const panelAccess = createPanelAccessStore(authDb);
   const store = createAuthStore(authDb, clock);
   const signupStore = createSignupStore(authDb, clock);
   // Só o texto fixo das mensagens do Better Auth chega ao log (regra 9).
@@ -160,8 +167,10 @@ function composeAuth(env: Env): {
       gateway,
       checkSession,
       sessionBlocked: createSessionBlocked({ gateway, access: store }),
+      secure: env.NODE_ENV !== "development",
     },
     signup: {
+      secure: env.NODE_ENV !== "development",
       requestCode: createRequestSignupCode({
         store: signupStore,
         users: store,
@@ -204,9 +213,15 @@ function composeAuth(env: Env): {
       checkSession,
       service: createProfileService({ store, gateway, email, background, clock, onAuditFailure }),
     },
+    panel: {
+      checkSession,
+      access: panelAccess,
+      appDb,
+      secure: env.NODE_ENV !== "development",
+    },
     async close() {
       await background.drain();
-      await pool.end();
+      await Promise.all([pool.end(), appPool.end()]);
     },
   };
 }

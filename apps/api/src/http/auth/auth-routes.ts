@@ -1,13 +1,16 @@
 import type { FastifyError, FastifyPluginAsync } from "fastify";
 import type { AuthGateway, CheckSession, SessionBlocked } from "../../modules/auth/check-session";
+import { expiredContextCookie } from "../panel/panel-context";
 import { authError } from "./auth-messages";
-import { requireSession, toWebHeaders } from "./require-session";
+import { toWebHeaders } from "./require-session";
 
 export interface AuthRoutesDeps {
   readonly gateway: AuthGateway;
   readonly checkSession: CheckSession;
   /** Sessão válida de quem perdeu o vínculo ativo (RF02.CA07). */
   readonly sessionBlocked: SessionBlocked;
+  /** Cookie `__Secure-` e atributo `Secure` (fora de development); define qual `fr_ctx` expirar. */
+  readonly secure: boolean;
 }
 
 /**
@@ -22,6 +25,10 @@ const ALLOWED_PATHS = new Set([
   "/api/auth/email-otp/send-verification-otp",
   "/api/auth/sign-out",
 ]);
+
+/** Entrar (2xx) e sair (qualquer status) apagam o cookie de contexto do painel (`fr_ctx`). */
+const SIGN_OUT = "/api/auth/sign-out";
+const EXPIRES_CONTEXT = new Set(["/api/auth/sign-in/email", "/api/auth/sign-in/email-otp"]);
 
 /** Prefixo dos cabeçalhos que só os ganchos do Better Auth usam (ver infra/auth). */
 const INTERNAL_HEADER_PREFIX = "x-auth-internal-";
@@ -64,7 +71,7 @@ function parseJson(text: string): unknown {
 }
 
 /**
- * `/api/auth/*` (Better Auth) e `/api/me`. Nunca loga corpo, cookie nem e-mail (regra 9): o
+ * `/api/auth/*` (Better Auth); `/api/me` mora em `panel-routes.ts`. Nunca loga corpo, cookie nem e-mail (regra 9): o
  * serializer de requisição do app só registra método e caminho.
  */
 export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (app, { deps }) => {
@@ -113,6 +120,13 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
       });
       // Lista, não string única: login manda mais de um cookie (nota da Task 1).
       const cookies = response.headers.getSetCookie();
+      // Entrar e sair apagam o contexto lembrado: o próximo login nunca herda a empresa de
+      // outra pessoa (chamada 5 da F2).
+      const path = normalizePath(url.pathname);
+      // Sair apaga em qualquer status (sessão já vencida também); entrar só quando deu certo.
+      if (path === SIGN_OUT || (response.status < 300 && EXPIRES_CONTEXT.has(path))) {
+        cookies.push(expiredContextCookie(deps.secure));
+      }
       if (cookies.length > 0) reply.header("set-cookie", cookies);
 
       const text = await response.text();
@@ -127,11 +141,5 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
       }
       return reply.send(text);
     },
-  });
-
-  app.get("/api/me", { preHandler: requireSession(deps.checkSession) }, async (request) => {
-    const session = request.session;
-    if (session === null) throw new Error("requireSession não preencheu a sessão");
-    return { userId: session.userId, name: session.name, email: session.email };
   });
 };

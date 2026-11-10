@@ -68,8 +68,10 @@ beforeAll(async () => {
         gateway,
         checkSession,
         sessionBlocked: createSessionBlocked({ gateway, access: store }),
+        secure: true,
       },
       signup: {
+        secure: true,
         requestCode: createRequestSignupCode({
           store: signupStore,
           users: store,
@@ -164,6 +166,11 @@ async function seedUser(
     tenantId,
     `Antiga ${unique()}`,
   ]);
+  // O painel exige ao menos uma unidade ativa (DD-31).
+  await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
+    uuidv7(),
+    tenantId,
+  ]);
   await db.admin.query(
     `insert into memberships (id, tenant_id, user_id, role, all_units, panel_access, created_at)
      values ($1, $2, $3, $4, true, true, $5)`,
@@ -236,6 +243,10 @@ describe("criar outra empresa com usuário logado (F1b, RF01)", () => {
     const { tenantId } = response.json();
     expect(tenantId).toEqual(expect.any(String));
     expect(tenantId).not.toBe(user.tenantId);
+    // Mesmo usuário, mesma sessão: o contexto lembrado continua valendo (DD-25), nada é expirado.
+    expect(
+      [response.headers["set-cookie"] ?? []].flat().some((c) => String(c).includes("fr_ctx")),
+    ).toBe(false);
 
     const tenant = (
       await db.admin.query(
