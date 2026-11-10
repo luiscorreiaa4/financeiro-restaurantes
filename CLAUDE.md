@@ -23,6 +23,7 @@ Hierarquia da documentação, da mais forte para a mais fraca:
 | `docs/escopo-por-fase.md` | Escopo por fase, por RF (MVP, v1.1, Fase 2). |
 | `docs/planos/canal-whatsapp.md`, `docs/planos/painel.md` | Ordem de execução. Listam os RFs que cada etapa entrega e **não** copiam regra de negócio. |
 | `docs/planos/andamento.md` | Situação do projeto e pendências técnicas abertas. Tarefas de cada sócio em `docs/planos/matheus.md` e `docs/planos/luis.md` (locais, fora do git). |
+| `docs/planos/pendencias.md` | **Índice** das pendências abertas por etapa (só links; o texto mora em `andamento.md`, `requisitos.md` §5 e nos outros). Pendência nova entra na fonte e ganha uma linha aqui; ao fechar, tire a linha. |
 
 Índice completo em `docs/README.md`: na raiz de `docs/` só o que é referência permanente; o trabalho em andamento fica em `docs/planos/`.
 
