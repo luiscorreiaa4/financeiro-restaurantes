@@ -62,6 +62,7 @@ beforeAll(async () => {
       secureCookies: true,
       background: tasks,
     }),
+    { store, clock, background: tasks },
   );
   app = buildApp(
     { LOG_LEVEL: "debug" },

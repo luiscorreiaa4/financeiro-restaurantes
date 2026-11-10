@@ -57,6 +57,7 @@ beforeAll(async () => {
       secureCookies: true,
       background: tasks,
     }),
+    { store, clock, background: tasks },
   );
   const repo = createSignupRepo(authDb);
   const checkSession = createCheckSession({ gateway, access: store, clock });

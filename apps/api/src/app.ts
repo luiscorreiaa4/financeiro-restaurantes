@@ -1,6 +1,8 @@
 import type { Env } from "@app/config/env";
 import Fastify from "fastify";
 import { type AuthRoutesDeps, authRoutes } from "./http/auth/auth-routes";
+import { type ProfileRoutesDeps, profileRoutes } from "./http/profile/profile-routes";
+import { type RecoveryRoutesDeps, recoveryRoutes } from "./http/recovery/recovery-routes";
 import { type SignupRoutesDeps, signupRoutes } from "./http/signup/signup-routes";
 import { type WhatsAppWebhookDeps, whatsappWebhookRoutes } from "./http/webhooks/whatsapp";
 
@@ -13,6 +15,10 @@ export interface AppDeps {
    * `/api/companies` ("Criar outra empresa", com sessão).
    */
   readonly signup?: SignupRoutesDeps;
+  /** Recuperação de senha pelo link do e-mail (F1c): `POST /api/recovery/request` e `/reset`, públicas. */
+  readonly recovery?: RecoveryRoutesDeps;
+  /** Perfil do usuário logado (F1c): `/api/profile*`, nome, senha e sessões. */
+  readonly profile?: ProfileRoutesDeps;
   /** Destino dos logs; o padrão é stdout. Existe para os testes lerem o que foi registrado. */
   readonly logStream?: { write(line: string): void };
 }
@@ -38,6 +44,8 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL">, deps: AppDeps = {}) {
   if (deps.whatsapp) app.register(whatsappWebhookRoutes, { deps: deps.whatsapp });
   if (deps.auth) app.register(authRoutes, { deps: deps.auth });
   if (deps.signup) app.register(signupRoutes, { deps: deps.signup });
+  if (deps.recovery) app.register(recoveryRoutes, { deps: deps.recovery });
+  if (deps.profile) app.register(profileRoutes, { deps: deps.profile });
 
   return app;
 }

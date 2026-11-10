@@ -26,6 +26,29 @@ export interface AuthGateway {
   openSession(input: { userId: string; ip?: string; userAgent?: string }): Promise<string[]>;
   /** Hash de senha pelo mesmo mecanismo do login por senha (conta `credential`). */
   hashPassword(password: string): Promise<string>;
+  /** Confere a senha contra um hash guardado (mesmo mecanismo do login por senha). */
+  verifyPassword(input: { hash: string; password: string }): Promise<boolean>;
+  /**
+   * Pede o link de recuperação de senha (RF03, DD-27). Resolve SEMPRE do mesmo jeito: o envio e
+   * a conferência de vínculo e de limites (RF02.R4) rodam em segundo plano, então nada revela se
+   * o e-mail existe.
+   */
+  requestPasswordLink(input: { email: string; ip?: string; userAgent?: string }): Promise<void>;
+  /** Lê o link sem consumi-lo; `null` se não existe ou venceu. */
+  peekResetToken(token: string): Promise<{ userId: string } | null>;
+  /**
+   * Consome o link e grava a senha (cria a conta `credential` se faltar). Lança `ResetTokenError`
+   * para link inválido, vencido ou já usado.
+   */
+  resetPasswordWithToken(input: { token: string; password: string }): Promise<void>;
+}
+
+/** Link de recuperação inválido, vencido ou já usado (`INVALID_TOKEN`). */
+export class ResetTokenError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = "ResetTokenError";
+  }
 }
 
 export interface SessionAccess {
