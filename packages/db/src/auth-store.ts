@@ -1,14 +1,8 @@
-import { and, count, desc, eq, gt, gte, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
-import {
-  type AUTH_EVENTS,
-  accounts,
-  authAudit,
-  memberships,
-  sessions,
-  users,
-  verifications,
-} from "../schema";
+import { resolvePanelContext } from "@app/core";
+import { and, count, desc, eq, gt, gte, like, ne, sql } from "drizzle-orm";
+import { type AUTH_EVENTS, accounts, authAudit, sessions, users, verifications } from "../schema";
 import type { Database, Transaction } from "./client";
+import { loadPanelMemberships } from "./panel-access-store";
 import { uuidv7 } from "./uuid";
 
 export type AuthEvent = (typeof AUTH_EVENTS)[number];
@@ -32,9 +26,6 @@ async function recentSends(
   return { byEmail, byIp };
 }
 
-/** Papéis que entram no painel mesmo sem `panel_access` (o Dono libera o painel só ao lançador). */
-const PANEL_ROLES = ["owner", "manager", "accountant"];
-
 export interface AuthUserState {
   id: string;
   passwordLockedUntil: Date | null;
@@ -42,7 +33,7 @@ export interface AuthUserState {
 }
 
 export interface AuthStore {
-  /** Existe vínculo ativo com acesso ao painel (RF02.R1). */
+  /** Existe vínculo que serve ao painel: ativo, com painel, empresa legível e unidade ativa (RF02.R1, DD-31). */
   hasActiveMembership(userId: string): Promise<boolean>;
   /** `email` já normalizado (minúsculas, sem espaços nas pontas). */
   findUserByEmail(email: string): Promise<AuthUserState | null>;
@@ -134,19 +125,8 @@ export function createAuthStore(
 ): AuthStore {
   return {
     async hasActiveMembership(userId) {
-      const rows = await db
-        .select({ id: memberships.id })
-        .from(memberships)
-        .where(
-          and(
-            eq(memberships.userId, userId),
-            eq(memberships.status, "active"),
-            isNull(memberships.deactivatedAt),
-            or(eq(memberships.panelAccess, true), inArray(memberships.role, PANEL_ROLES)),
-          ),
-        )
-        .limit(1);
-      return rows.length > 0;
+      // Mesma regra do painel (DD-31): o login só abre para quem `resolvePanelContext` aceita.
+      return resolvePanelContext(await loadPanelMemberships(db, userId), null).ok;
     },
 
     async findUserByEmail(email) {

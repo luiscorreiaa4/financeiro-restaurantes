@@ -116,6 +116,8 @@ export const tenants = pgTable(
     }),
     ingestCanRead("tenants"),
     authCanInsert("tenants"),
+    // Contexto do painel (DD-31): lê nome e situação da empresa; o GRANT só de colunas esconde o resto.
+    pgPolicy("tenants_auth_select", { for: "select", to: authRole, using: sql`true` }),
   ],
 );
 

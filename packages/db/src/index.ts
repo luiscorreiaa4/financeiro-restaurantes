@@ -10,6 +10,7 @@ export * from "./inbound-media-repo";
 export * from "./inbound-processing-repo";
 export * from "./inbound-sender-repo";
 export * from "./outbound-message-repo";
+export * from "./panel-access-store";
 export * from "./sender-directory";
 export * from "./signup-repo";
 export * from "./signup-store";
