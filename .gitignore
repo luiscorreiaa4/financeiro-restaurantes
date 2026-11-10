@@ -44,3 +44,6 @@ test-results/
 
 # E-mails de desenvolvimento (códigos de acesso)
 .dev-mail/
+
+# Gerado pelo next dev (regras para agentes)
+apps/web/AGENTS.md
