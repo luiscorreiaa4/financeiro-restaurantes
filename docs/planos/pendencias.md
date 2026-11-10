@@ -2,7 +2,7 @@
 
 > **Só índice.** Cada linha aponta para o arquivo que explica a pendência; o texto, o contexto e a decisão moram lá. Ao fechar uma pendência, marque na fonte e **tire a linha daqui**. Pendência nova entra primeiro na fonte e depois ganha uma linha aqui, na etapa de origem.
 >
-> Atualizado em 09/11/2026 (F1c). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
+> Atualizado em 10/11/2026 (DD-28 fechado, F1c-1 resolvida). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
 
 **Fontes:** [`andamento.md`](andamento.md) (pendências técnicas, quem está travado e documentação) · [`requisitos.md` §5](../requisitos.md#5-pendências-e-decisões-em-aberto) (pendências de negócio P01 a P18) · [`contingencia-canal.md`](contingencia-canal.md) · [`politica-meta-whatsapp.md`](../politica-meta-whatsapp.md) · `matheus.md` e `luis.md` (locais, fora do git).
 
@@ -91,9 +91,6 @@
 
 | ID | Pendência | Resolver em | Detalhe |
 |---|---|---|---|
-| F1c-1 | Aplicar a migration `0015` no banco de dev | agora | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
-| F1c-2 | Auditoria que falha depois da troca devolve erro | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
-| F1c-3 | Login por código revela se o e-mail tem conta | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-4 | Troca do próprio e-mail (RF02.Obs3) | F6 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-5 | Sem limite de tentativas na senha atual | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-6 | `/api/profile` lido no navegador | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
@@ -105,7 +102,6 @@
 | F1c-12 | E2E local em paralelo: "Sair" instável | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-13 | Cota de envio compartilhada entre link e código | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-14 | Fila de segundo plano descarta tarefas quando enche | F8 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
-| F1c-15 | Link novo não invalida os anteriores (confirmar) | Decisão | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-16 | `peekResetToken` não usa o relógio injetado | refatoração | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 | F1c-17 | Testes de borda do `AuthStore` | F2 | [andamento §6](andamento.md#6-painel) · bloco "F1c" |
 

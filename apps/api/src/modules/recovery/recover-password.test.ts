@@ -18,12 +18,14 @@ function setup(
     samePassword?: boolean;
     resetError?: unknown;
     deleteError?: unknown;
+    auditError?: unknown;
   } = {},
 ) {
   const calls: string[] = [];
   const notices: unknown[] = [];
   const audits: unknown[] = [];
   const tasks: Array<() => Promise<void>> = [];
+  const auditFailures: string[] = [];
   const recover = createRecoverPassword({
     store: {
       findUserById: async () => {
@@ -49,6 +51,7 @@ function setup(
       },
       recordAudit: async (event: unknown) => {
         calls.push("audit");
+        if (options.auditError) throw options.auditError;
         audits.push(event);
       },
     },
@@ -73,8 +76,9 @@ function setup(
     },
     background: { run: (task: () => Promise<void>) => void tasks.push(task) },
     clock: { now: () => NOW, today: () => "2026-11-09" },
+    onAuditFailure: (event) => auditFailures.push(event),
   });
-  return { recover, calls, notices, audits, tasks };
+  return { recover, calls, notices, audits, tasks, auditFailures };
 }
 
 const input = { token: "tok123", password: "senhaNova1" };
@@ -191,5 +195,16 @@ describe("pedir o link de recuperação", () => {
     });
     await requestLink({ email: "  Dona@Ex.com ", ip: "1.2.3.4", userAgent: "ua" });
     expect(requested).toEqual([{ email: "dona@ex.com", ip: "1.2.3.4", userAgent: "ua" }]);
+  });
+});
+
+describe("recuperar senha: auditoria que falha depois da troca (DD-30)", () => {
+  it("a senha já trocada vale: não lança, reporta a falha e o aviso de troca ainda sai", async () => {
+    const t = setup({ auditError: new Error("banco") });
+    await expect(t.recover(input)).resolves.toBeUndefined();
+    expect(t.calls).toContain("reset");
+    expect(t.auditFailures).toEqual(["password_reset"]);
+    await t.tasks[0]?.();
+    expect(t.notices).toEqual([{ to: "dona1@ex.com", kind: "password-changed", at: NOW }]);
   });
 });

@@ -9,6 +9,7 @@ import {
 import type { AuthStore } from "@app/db";
 import type { BackgroundTasks } from "../../infra/auth/background-tasks";
 import type { AuthGateway, AuthSession } from "../auth/check-session";
+import { type AuditFailureReporter, recordAuditSafely } from "../auth/record-audit-safely";
 
 export type ProfileErrorCode =
   | "NO_PASSWORD"
@@ -68,6 +69,8 @@ export interface ProfileServiceDeps {
   readonly email: Pick<EmailSender, "sendSecurityNotice">;
   readonly background: Pick<BackgroundTasks, "run">;
   readonly clock: Clock;
+  /** Falha do registro de auditoria depois da troca já feita: só vai para o log (DD-30). */
+  readonly onAuditFailure?: AuditFailureReporter;
 }
 
 const NAME_MAX = 120;
@@ -111,7 +114,11 @@ export function createProfileService(deps: ProfileServiceDeps): ProfileService {
     audit: AuditContext,
   ): Promise<void> {
     await store.deleteSessionsExcept(session.userId, session.sessionId);
-    await store.recordAudit({ event, userId: session.userId, ...auditFields(audit) });
+    await recordAuditSafely(
+      event,
+      () => store.recordAudit({ event, userId: session.userId, ...auditFields(audit) }),
+      deps.onAuditFailure,
+    );
     const to = normalizeEmail(session.email);
     const at = deps.clock.now();
     deps.background.run(() => deps.email.sendSecurityNotice({ to, kind: "password-changed", at }));
@@ -139,7 +146,11 @@ export function createProfileService(deps: ProfileServiceDeps): ProfileService {
       const trimmed = name.trim();
       if (trimmed.length < 1 || trimmed.length > NAME_MAX) throw new ProfileError("INVALID_NAME");
       await store.updateUserName(session.userId, trimmed);
-      await store.recordAudit({ event: "name_changed", userId: session.userId });
+      await recordAuditSafely(
+        "name_changed",
+        () => store.recordAudit({ event: "name_changed", userId: session.userId }),
+        deps.onAuditFailure,
+      );
     },
 
     async changePassword(session, input) {

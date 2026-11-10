@@ -8,6 +8,7 @@ import {
 import type { AuthStore } from "@app/db";
 import type { BackgroundTasks } from "../../infra/auth/background-tasks";
 import { type AuthGateway, ResetTokenError } from "../auth/check-session";
+import { type AuditFailureReporter, recordAuditSafely } from "../auth/record-audit-safely";
 import { hashSignupEmail } from "../signup/signup-hashing";
 
 export type RecoveryErrorCode =
@@ -69,6 +70,8 @@ export interface RecoverPasswordDeps {
   readonly email: Pick<EmailSender, "sendSecurityNotice">;
   readonly background: Pick<BackgroundTasks, "run">;
   readonly clock: Clock;
+  /** Falha do registro de auditoria depois da troca já feita: só vai para o log (DD-30). */
+  readonly onAuditFailure?: AuditFailureReporter;
 }
 
 const PASSWORD_CODES: Record<PasswordError, RecoveryErrorCode> = {
@@ -121,13 +124,19 @@ export function createRecoverPassword(deps: RecoverPasswordDeps): RecoverPasswor
 
     // De novo, para fechar a janela de uma sessão aberta entre a primeira revogação e a troca.
     await store.deleteSessionsExcept(user.id, null);
-    await store.recordAudit({
-      event: "password_reset",
-      userId: user.id,
-      emailHash: hashSignupEmail(email),
-      ...(input.ip !== undefined ? { ip: input.ip } : {}),
-      ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
-    });
+    // A senha já foi trocada e o link gasto: se a auditoria falhar, o usuário não vê erro (DD-30).
+    await recordAuditSafely(
+      "password_reset",
+      () =>
+        store.recordAudit({
+          event: "password_reset",
+          userId: user.id,
+          emailHash: hashSignupEmail(email),
+          ...(input.ip !== undefined ? { ip: input.ip } : {}),
+          ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
+        }),
+      deps.onAuditFailure,
+    );
 
     const at = deps.clock.now();
     deps.background.run(() =>

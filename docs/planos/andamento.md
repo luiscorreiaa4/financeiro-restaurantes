@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 09/11/2026 (F0, F1a, F1b e F1c do painel feitas; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 10/11/2026 (F0, F1a, F1b e F1c do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -123,17 +123,18 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] Teste instável `apps/api/test/signup-code.int.test.ts` ("auditoria e logs..."): com o relógio congelado os dois eventos tinham o mesmo `created_at` e o desempate pelo id (UUID v7 sem contador) era sorteado; o teste agora avança 1 s entre o envio e a verificação (revisão final da F1b).
   - [ ] A API falsa do E2E (`apps/web/e2e/fake-api.mjs`) não espelha todos os erros do cadastro (só `INVALID_CODE`, `RECEIPT_INVALID`, `cnpj_invalid` e 401 de `/api/companies`); os demais ficam nos testes unitários e de integração.
   - [ ] Constantes duplicadas a juntar no `core`: `hashSignupEmail` e `hashEmail` (`signup-hashing.ts` e `create-auth.ts`); `MAX_CODE_ATTEMPTS` (`signup-store.ts`) e `allowedAttempts: 3` (Better Auth); `SIGNUP_CODE_TTL_MS` e `expiresIn: 300`; `DAY_MS` e `SIGNUP_TIME_ZONE` copiados em `create-account.ts` e `create-company.ts`.
+- **Ajuste da tela de cadastro (DD-28) fechado em 10/11/2026** (commit `df12fa8`): `pnpm typecheck`, `pnpm lint` e `pnpm test` (1108), `pnpm test:int` (485: db 264, api 221) e E2E (58 passaram, 2 pulados por serem só do celular) verdes. Na rodada saíram o erro de tipo de `apps/web/e2e/login.spec.ts` (`noUncheckedIndexedAccess`) e o formato do Biome nos componentes novos (`combobox`, `input-group`, `textarea`); a árvore de trabalho foi normalizada para LF (F1c-11 segue aberta: falta um `.gitattributes`). O clique no adorno do `input-group.tsx` (foca o campo) não tem teste dedicado: conferir à mão.
 - **Pendências deixadas pelo ajuste da tela de cadastro (10/11/2026, DD-28):**
   - [ ] CNPJ alfanumérico fora do cadastro: `accessKeyParts` da NFC-e (`packages/core/src/media/nfce.ts`, chave de acesso com 12 posições alfanuméricas no CNPJ do emitente), o chat de desenvolvimento (`apps/api/src/dev/chat-session.ts`) e `units.cnpj` (sem `check`, mas conferir leituras) ainda assumem CNPJ só numérico. Revisar na E9/E13 (RF14, RF31).
   - [ ] Roteiro à mão da tela de cadastro com leitor de tela (NVDA): ler dica e erro dos campos com máscara; conferir o cursor da máscara no celular real (Android e iOS).
 - **Pendências deixadas pela F1c (09/11/2026, DD-26):**
-  - [ ] Antes de testar à mão em qualquer banco de dev: aplicar a migration `0015` (`DATABASE_ADMIN_URL=... pnpm db:migrate`, que não lê o `.env`). Sem ela, concluir a recuperação e trocar o nome no perfil gravam a senha ou o nome e depois devolvem erro, porque a auditoria recusa os eventos novos.
-  - [ ] Auditoria que falha depois de gravar a senha ou o nome: hoje o usuário vê erro mesmo com a troca já feita (na recuperação o link já foi gasto e a segunda tentativa mostra "Link inválido"). Decisão do Luís pendente: tratar a troca como sucesso e só registrar a falha no log (recomendado) ou manter o erro. Vale para `recover-password.ts` e `profile-service.ts`.
+  - [x] **Migrations `0015` e `0016` aplicadas no banco de dev em 10/11/2026 (Luís)** (`DATABASE_ADMIN_URL=... pnpm db:migrate`, que não lê o `.env`). Em outro banco de dev, repetir: sem a `0015`, concluir a recuperação e trocar o nome no perfil gravam a troca e depois devolvem erro, porque a auditoria recusa os eventos novos.
+  - [x] **Feito em 10/11/2026 (DD-30):** auditoria que falha depois de gravar a senha ou o nome passa a ser tratada como sucesso, com a falha só no log e alerta no Sentry (`recover-password.ts`, `profile-service.ts`). Antes, o usuário via erro mesmo com a troca feita e, na recuperação, o link já gasto mostrava "Link inválido".
   - [ ] Troca do próprio e-mail (RF02.Obs3), adiada da F1c (DD-26): candidata à F6.
   - [ ] Sem limite de tentativas na rota da senha atual (`/api/profile/password`).
   - [ ] `/api/profile` é lido no navegador (TanStack Query) até a F2 criar a leitura autenticada no servidor.
   - [ ] Envio real do aviso de troca de senha e `trustProxy`/IP real: F8.
-  - [ ] `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` no login por código (F1a, `/api/auth/sign-in/email-otp`) diferem entre e-mail com conta e sem conta: quem pede o código e erra 4 vezes descobre se o e-mail tem conta (RF02.R1) e queima o código da vítima. A recuperação por link (DD-27) não tem o problema. Decisão do Luís pendente: reduzir a `INVALID_OTP` (fecha a brecha, perde a dica de pedir código novo) ou aceitar.
+  - [x] **Feito em 10/11/2026 (DD-30):** todos os erros de código no login por código (`/api/auth/sign-in/email-otp`) viram `INVALID_OTP`, iguais para e-mail com e sem conta, com texto "código incorreto ou vencido; peça um novo" na tela. Antes, `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` diferiam e permitiam descobrir se o e-mail tem conta (RF02.R1). Não impede queimar o código da vítima com tentativas erradas; a recuperação por link (DD-27) não tem o problema.
   - [ ] Rotas `/api/profile/*` sem checagem própria de content-type e `Origin` (CSRF só protegido por `SameSite=Lax`).
   - [ ] Nome do perfil aceita caracteres invisíveis (ex.: U+200B).
   - [ ] Nome no menu do usuário só atualiza ao recarregar a página depois de salvar o nome.
@@ -141,7 +142,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [ ] E2E local em paralelo: o teste "Sair" de `login.spec.ts` falha de vez em quando por corrida de hidratação (passa com `--workers=1`, como no CI).
   - [ ] Cota de envio compartilhada: o link de recuperação usa a mesma cota do código de login (5 por hora por e-mail, RF02.R4); quem pede link ou código repetidamente para a vítima esgota a do login por código dela. Risco conhecido, junto com os limites reais da F8.
   - [ ] `background.run` descarta tarefas quando a fila enche (`maxPending`): uma inundação de pedidos pode suprimir links e códigos legítimos em silêncio (F8).
-  - [ ] Confirmar com o Luís: um link de recuperação novo não invalida os anteriores (RF03.R2). Alternativa: o mais recente invalida os outros.
+  - [x] **Feito em 10/11/2026 (DD-30):** um link de recuperação novo invalida os anteriores; só o mais recente vale (RF03.R2 já alterado na v1.9). Risco aceito: quem pede links repetidos para a vítima pode invalidar o legítimo; as cotas do RF02 limitam.
   - [ ] `peekResetToken` compara a validade com `Date.now()` e não com o relógio injetado; o Better Auth confere de novo no consumo, então não é falha, só limita o teste de vencimento.
   - [ ] Testes de borda do `AuthStore` que faltam (`packages/db/test/auth-store.int.test.ts`): `keepSessionId` de outro usuário, conta de outro provedor em `getPasswordHash`/`setPasswordHash` e `expiresAt` exatamente igual a `now` em `listSessions`.
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.

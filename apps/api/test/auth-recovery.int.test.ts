@@ -159,16 +159,26 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
     expect(rows).toEqual([{ ip: "10.201.0.9" }]);
   });
 
-  it("RF03.R2: dois links pedidos em sequência valem os dois; usar um não invalida o outro", async () => {
+  it("RF03.R2 (DD-30): um pedido novo invalida o link anterior; só o mais recente conclui", async () => {
     const user = await h.createUser({ password: "senhaForte1" });
     const first = await requestToken(user.email);
     h.clock.advance(61 * SECOND);
     const second = await requestToken(user.email);
     expect(second).not.toBe(first);
 
-    expect((await reset({ token: first, password: "senhaNova1" })).statusCode).toBe(200);
+    const old = await reset({ token: first, password: "senhaNova1" });
+    expect(old.statusCode).toBe(400);
+    expect(old.json()).toMatchObject({ code: "INVALID_TOKEN" });
     expect((await reset({ token: second, password: "senhaNova2" })).statusCode).toBe(200);
     expect((await h.signInPassword(user.email, "senhaNova2")).statusCode).toBe(200);
+  });
+
+  it("RF03.R2 (DD-30): o pedido de outro usuário não invalida o meu link", async () => {
+    const mine = await h.createUser({ password: "senhaForte1" });
+    const theirs = await h.createUser({ password: "senhaForte1" });
+    const myToken = await requestToken(mine.email);
+    await requestToken(theirs.email);
+    expect((await reset({ token: myToken, password: "senhaNova1" })).statusCode).toBe(200);
   });
 
   it("RF03.R2: o link vale 30 minutos (29 min ainda vale; 30 min e 1 s não)", async () => {

@@ -112,11 +112,26 @@ describe("login por código (RF02.R4)", () => {
       expect(attempt.json()).toMatchObject({ code: "INVALID_OTP" });
     }
     const fourth = await h.signInCode(user.email, right);
-    expect(fourth.statusCode).toBe(403);
+    // DD-30: o esgotamento das tentativas responde igual a um código errado.
+    expect(fourth.statusCode).toBe(400);
     expect(fourth.json()).toEqual({
-      code: "TOO_MANY_ATTEMPTS",
+      code: "INVALID_OTP",
       message: expect.stringMatching(/peça um novo código/i),
     });
+  });
+
+  it("e-mail sem conta e e-mail com conta recebem os mesmos erros de código, tentativa a tentativa (RF02.R1, DD-30)", async () => {
+    const user = await h.createUser();
+    await h.requestCode(user.email);
+    const wrong = h.lastCode() === "000000" ? "111111" : "000000";
+    const ghost = "ninguem.nao.existe@exemplo.dev";
+    await h.requestCode(ghost);
+    for (let i = 0; i < 5; i++) {
+      const known = await h.signInCode(user.email, wrong);
+      const unknown = await h.signInCode(ghost, wrong);
+      expect(unknown.statusCode).toBe(known.statusCode);
+      expect(unknown.json()).toEqual(known.json());
+    }
   });
 
   it("código usado uma vez não entra de novo; duas verificações simultâneas, só uma passa", async () => {
@@ -142,7 +157,7 @@ describe("login por código (RF02.R4)", () => {
     h.clock.advance(5 * MINUTE + SECOND);
     const response = await h.signInCode(user.email, h.lastCode());
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toMatchObject({ code: "OTP_EXPIRED" });
+    expect(response.json()).toMatchObject({ code: "INVALID_OTP" });
   });
 
   it("pedir novo código invalida o anterior", async () => {

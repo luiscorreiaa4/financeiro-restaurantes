@@ -38,6 +38,23 @@ export function normalizePath(pathname: string): string {
   return collapsed.length > 1 ? collapsed.replace(/\/+$/, "") : collapsed;
 }
 
+/**
+ * Login por código: código vencido e tentativas esgotadas só acontecem para e-mail com conta;
+ * viram o mesmo `INVALID_OTP` (400) do código errado para não revelar quem é cliente
+ * (RF02.R1, DD-30).
+ */
+export function unifyOtpFailure(
+  path: string,
+  status: number,
+  code: unknown,
+): { status: number; code: unknown } {
+  const isOtpSignIn = path === "/api/auth/sign-in/email-otp";
+  if (isOtpSignIn && (code === "OTP_EXPIRED" || code === "TOO_MANY_ATTEMPTS")) {
+    return { status: 400, code: "INVALID_OTP" };
+  }
+  return { status, code };
+}
+
 function parseJson(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -104,7 +121,9 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
         if (response.status >= 500) {
           request.log.error({ status: response.status }, "falha no Better Auth");
         }
-        return reply.type("application/json").send(authError(response.status, body?.code));
+        const failure = unifyOtpFailure(normalizePath(url.pathname), response.status, body?.code);
+        reply.code(failure.status);
+        return reply.type("application/json").send(authError(failure.status, failure.code));
       }
       return reply.send(text);
     },

@@ -13,11 +13,14 @@ const session: AuthSession = {
   updatedAt: NOW,
 };
 
-function setup(options: { hash?: string | null; deleteError?: unknown } = {}) {
+function setup(
+  options: { hash?: string | null; deleteError?: unknown; auditError?: unknown } = {},
+) {
   const calls: string[] = [];
   const requested: { email: string; ip?: string; userAgent?: string }[] = [];
   const audits: { event: string; ip?: string }[] = [];
   const notices: unknown[] = [];
+  const auditFailures: string[] = [];
   let hash: string | null = options.hash === undefined ? "hash-atual" : options.hash;
 
   const deps: ProfileServiceDeps = {
@@ -41,6 +44,7 @@ function setup(options: { hash?: string | null; deleteError?: unknown } = {}) {
         calls.push("updateUserName");
       },
       recordAudit: async (event) => {
+        if (options.auditError) throw options.auditError;
         audits.push({ event: event.event, ...(event.ip ? { ip: event.ip } : {}) });
       },
     },
@@ -58,8 +62,9 @@ function setup(options: { hash?: string | null; deleteError?: unknown } = {}) {
     },
     background: { run: (task) => void task() },
     clock: { now: () => NOW, today: () => "2026-11-09" as never },
+    onAuditFailure: (event) => auditFailures.push(event),
   };
-  return { service: createProfileService(deps), calls, requested, audits, notices };
+  return { service: createProfileService(deps), calls, requested, audits, notices, auditFailures };
 }
 
 describe("serviço de perfil", () => {
@@ -132,5 +137,27 @@ describe("serviço de perfil", () => {
     await expect(service.updateName(session, "a".repeat(121))).rejects.toMatchObject({
       code: "INVALID_NAME",
     });
+  });
+});
+
+describe("serviço de perfil: auditoria que falha depois da troca (DD-30)", () => {
+  it("updateName: a troca vale, não lança e a falha é reportada", async () => {
+    const t = setup({ auditError: new Error("banco") });
+    await expect(t.service.updateName(session, "Ana")).resolves.toBeUndefined();
+    expect(t.calls).toContain("updateUserName");
+    expect(t.auditFailures).toEqual(["name_changed"]);
+  });
+
+  it("changePassword: a senha vale, não lança e o aviso de troca ainda sai", async () => {
+    const t = setup({ auditError: new Error("banco"), hash: "hash(senhaAtual1)" });
+    await expect(
+      t.service.changePassword(session, {
+        currentPassword: "senhaAtual1",
+        newPassword: "senhaNova1",
+      }),
+    ).resolves.toBeUndefined();
+    expect(t.calls).toContain("setPasswordHash");
+    expect(t.auditFailures).toEqual(["password_changed"]);
+    expect(t.notices).toHaveLength(1);
   });
 });

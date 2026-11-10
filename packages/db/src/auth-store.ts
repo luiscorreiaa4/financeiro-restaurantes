@@ -1,5 +1,13 @@
-import { and, count, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { type AUTH_EVENTS, accounts, authAudit, memberships, sessions, users } from "../schema";
+import { and, count, desc, eq, gt, gte, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
+import {
+  type AUTH_EVENTS,
+  accounts,
+  authAudit,
+  memberships,
+  sessions,
+  users,
+  verifications,
+} from "../schema";
 import type { Database, Transaction } from "./client";
 import { uuidv7 } from "./uuid";
 
@@ -108,6 +116,12 @@ export interface AuthStore {
   /** Apaga as sessões do usuário menos `keepSessionId` (`null` apaga todas); devolve quantas. */
   deleteSessionsExcept(userId: string, keepSessionId: string | null): Promise<number>;
   updateUserName(userId: string, name: string): Promise<void>;
+  /**
+   * Apaga os links de recuperação de senha ainda guardados para o usuário (o Better Auth grava
+   * `reset-password:<token>` com o id do usuário no valor); devolve quantos. Um link novo vale
+   * sozinho (RF03.R2, DD-30).
+   */
+  deleteResetTokens(userId: string): Promise<number>;
 }
 
 /**
@@ -320,6 +334,16 @@ export function createAuthStore(
             : and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)),
         )
         .returning({ id: sessions.id });
+      return rows.length;
+    },
+
+    async deleteResetTokens(userId) {
+      const rows = await db
+        .delete(verifications)
+        .where(
+          and(like(verifications.identifier, "reset-password:%"), eq(verifications.value, userId)),
+        )
+        .returning({ id: verifications.id });
       return rows.length;
     },
 

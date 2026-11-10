@@ -487,6 +487,8 @@ export function createAuthGateway(
           decide: (byEmail, byIp) => decideOtpSend(byEmail, byIp, now).allowed,
         });
         if (!reserved) return;
+        // Só o link mais recente vale (RF03.R2, DD-30): os anteriores deste usuário morrem aqui.
+        await store.deleteResetTokens(user.id);
         await auth.api.requestPasswordReset({ body: { email: input.email } });
       });
     },

@@ -141,6 +141,30 @@ describe("auth-store: sessões", () => {
     expect(await sessionIds(other)).toEqual([otherSession]);
   });
 
+  it("deleteResetTokens apaga só os links de recuperação do usuário (DD-30)", async () => {
+    const user = await newUser();
+    const other = await newUser();
+    const insert = (identifier: string, value: string) =>
+      db.admin.query(
+        "insert into verifications (id, identifier, value, expires_at) values ($1, $2, $3, $4)",
+        [uuidv7(), identifier, value, new Date(NOW.getTime() + HOUR)],
+      );
+    await insert("reset-password:tokA1", user);
+    await insert("reset-password:tokA2", user);
+    await insert("reset-password:tokB1", other);
+    await insert(`sign-in-otp-${user}@ex.com`, user);
+
+    expect(await store.deleteResetTokens(user)).toBe(2);
+    const left = await db.admin.query(
+      "select identifier from verifications where value in ($1, $2) order by identifier",
+      [user, other],
+    );
+    expect(left.rows.map((r: { identifier: string }) => r.identifier)).toEqual([
+      "reset-password:tokB1",
+      `sign-in-otp-${user}@ex.com`,
+    ]);
+  });
+
   it("deleteSessionsExcept com null apaga todas as sessões do usuário", async () => {
     const user = await newUser();
     const other = await newUser();

@@ -7,9 +7,9 @@ const MESSAGES: Record<string, string> = {
     "E-mail ou senha incorretos. Se você ainda não tem senha, entre com o código enviado ao e-mail.",
   PASSWORD_LOCKED:
     "O acesso por senha foi bloqueado por 15 minutos depois de várias tentativas. Entre com o código enviado ao e-mail.",
-  INVALID_OTP: "Código inválido. Confira os 6 dígitos e tente de novo.",
-  OTP_EXPIRED: "O código venceu. Peça um novo código.",
-  TOO_MANY_ATTEMPTS: "Muitas tentativas com este código. Peça um novo código.",
+  // Um só erro para código errado, vencido ou com tentativas esgotadas, igual para e-mail com e
+  // sem conta (RF02.R1, DD-30): o motivo exato revelaria se o e-mail tem conta.
+  INVALID_OTP: "Código incorreto ou vencido. Confira os 6 dígitos ou peça um novo código.",
   INVALID_TOKEN: "Link inválido ou expirado. Peça um novo.",
   PASSWORD_TOO_SHORT: "A senha precisa ter pelo menos 8 caracteres.",
   PASSWORD_TOO_LONG: "A senha pode ter no máximo 64 caracteres.",

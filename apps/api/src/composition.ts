@@ -123,6 +123,13 @@ function composeAuth(env: Env): {
   const signupStore = createSignupStore(authDb, clock);
   // Só o texto fixo das mensagens do Better Auth chega ao log (regra 9).
   const logger = createLogger(env.LOG_LEVEL);
+  // Auditoria que falha depois da troca já feita (DD-30): só o evento e o tipo do erro, sem
+  // mensagem (o Drizzle põe os parâmetros do SQL nela).
+  const onAuditFailure = (event: string, error: unknown) =>
+    logger.error(
+      { event, errorName: error instanceof Error ? error.name : "unknown" },
+      "auditoria falhou depois da troca",
+    );
   // Erro no envio do código: só o tipo do erro, sem mensagem (pode ter e-mail).
   // Fila cheia: só a contagem de pendentes, nada da tarefa.
   const background = createBackgroundTasks({
@@ -190,12 +197,12 @@ function composeAuth(env: Env): {
       },
     },
     recovery: {
-      recover: createRecoverPassword({ store, gateway, email, background, clock }),
+      recover: createRecoverPassword({ store, gateway, email, background, clock, onAuditFailure }),
       requestLink: createRequestRecoveryLink({ gateway }),
     },
     profile: {
       checkSession,
-      service: createProfileService({ store, gateway, email, background, clock }),
+      service: createProfileService({ store, gateway, email, background, clock, onAuditFailure }),
     },
     async close() {
       await background.drain();

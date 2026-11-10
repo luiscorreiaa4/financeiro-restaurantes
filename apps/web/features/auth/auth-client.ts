@@ -50,7 +50,7 @@ export function createAuthClient(fetchImpl?: typeof fetch): AuthClient {
 const errorBodySchema = z.object({ code: z.string(), message: z.string() });
 
 const FALLBACKS: Record<string, string> = {
-  INVALID_OTP: "Código inválido. Confira e tente de novo.",
+  INVALID_OTP: "Código incorreto ou vencido. Confira os 6 dígitos ou peça um novo.",
   OTP_EXPIRED: "O código expirou. Peça um novo.",
   TOO_MANY_ATTEMPTS: "Muitas tentativas com este código. Peça um novo.",
   INVALID_EMAIL_OR_PASSWORD: "E-mail ou senha incorretos.",
