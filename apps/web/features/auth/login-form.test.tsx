@@ -86,14 +86,13 @@ describe("formulário de acesso", () => {
     await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
     await user.click(screen.getByRole("button", { name: "Enviar código" }));
     await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Código inválido. Confira e tente de novo.");
     expect(alert).not.toHaveTextContent("dono@demo.dev");
   });
 
-  it("código correto chama o cliente com 'manter conectado' e avisa que entrou", async () => {
+  it("envia sozinho ao completar o sexto dígito, com o 'manter conectado' já marcado", async () => {
     const user = userEvent.setup();
     const client = fakeClient();
     const onSignedIn = vi.fn();
@@ -101,16 +100,110 @@ describe("formulário de acesso", () => {
 
     await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
     await user.click(screen.getByRole("button", { name: "Enviar código" }));
-    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+    await screen.findByLabelText("Código de 6 dígitos");
     await user.click(screen.getByLabelText("Manter conectado"));
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await user.type(screen.getByLabelText("Código de 6 dígitos"), "123456");
 
+    expect(client.signInWithCode).toHaveBeenCalledTimes(1);
     expect(client.signInWithCode).toHaveBeenCalledWith({
       email: "dono@demo.dev",
       otp: "123456",
       rememberMe: true,
     });
     expect(onSignedIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("não envia duas vezes se o formulário for enviado durante o envio automático", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient({ signInWithCode: vi.fn(() => new Promise<void>(() => {})) });
+    render(<LoginForm client={client} onSignedIn={() => {}} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+    // Enter no campo envia o formulário mesmo com o botão desabilitado.
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeDisabled();
+    expect(client.signInWithCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("depois de código inválido, completar um novo código envia de novo", async () => {
+    const user = userEvent.setup();
+    const signInWithCode = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(400, "INVALID_OTP", "Código inválido."))
+      .mockResolvedValueOnce(undefined);
+    const onSignedIn = vi.fn();
+    render(<LoginForm client={fakeClient({ signInWithCode })} onSignedIn={onSignedIn} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+    await screen.findByRole("alert");
+    await user.clear(screen.getByLabelText("Código de 6 dígitos"));
+    await user.type(screen.getByLabelText("Código de 6 dígitos"), "123456");
+
+    expect(signInWithCode).toHaveBeenCalledTimes(2);
+    expect(signInWithCode).toHaveBeenLastCalledWith(expect.objectContaining({ otp: "123456" }));
+    expect(onSignedIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("depois de código inválido, clicar em 'Entrar' sem mudar o campo envia o mesmo código de novo", async () => {
+    const user = userEvent.setup();
+    const signInWithCode = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(400, "INVALID_OTP", "Código inválido."))
+      .mockResolvedValueOnce(undefined);
+    const onSignedIn = vi.fn();
+    render(<LoginForm client={fakeClient({ signInWithCode })} onSignedIn={onSignedIn} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(signInWithCode).toHaveBeenCalledTimes(2);
+    expect(signInWithCode).toHaveBeenLastCalledWith(expect.objectContaining({ otp: "000000" }));
+    expect(onSignedIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("durante o envio o código não pode ser editado; depois do erro o campo volta com o foco", async () => {
+    const user = userEvent.setup();
+    let reject: (cause: unknown) => void = () => {};
+    const signInWithCode = vi.fn(
+      () =>
+        new Promise<void>((_, fail) => {
+          reject = fail;
+        }),
+    );
+    render(<LoginForm client={fakeClient({ signInWithCode })} onSignedIn={() => {}} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Colar código" })).toBeDisabled();
+
+    await act(async () => {
+      reject(apiError(400, "INVALID_OTP", "Código inválido."));
+    });
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeEnabled();
+    expect(screen.getByLabelText("Código de 6 dígitos")).toHaveFocus();
+  });
+
+  it("tem o botão 'Colar código' no passo do código", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm client={fakeClient()} onSignedIn={() => {}} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+
+    expect(await screen.findByRole("button", { name: "Colar código" })).toBeInTheDocument();
   });
 
   it("'Entrar com senha' troca os campos e 'Entrar com código' volta", async () => {
@@ -182,7 +275,8 @@ describe("formulário de acesso", () => {
     await user.click(field);
     await user.paste("123 456 789");
 
-    expect(field).toHaveValue("123456");
+    const digits = screen.getAllByLabelText(/^(Código de 6 dígitos|Dígito \d de 6)$/);
+    expect(digits.map((box) => (box as HTMLInputElement).value).join("")).toBe("123456");
   });
 
   it("trocar o e-mail depois de enviar o código volta ao passo de envio", async () => {
@@ -210,7 +304,6 @@ describe("formulário de acesso", () => {
       await user.type(screen.getByLabelText("E-mail"), "dono@demo.dev");
       await user.click(screen.getByRole("button", { name: "Enviar código" }));
       await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
-      await user.click(screen.getByRole("button", { name: "Entrar" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Peça um novo código.");
       expect(screen.queryByLabelText("Código de 6 dígitos")).not.toBeInTheDocument();
@@ -232,7 +325,6 @@ describe("formulário de acesso", () => {
     const field = await screen.findByLabelText("Código de 6 dígitos");
     expect(field).not.toHaveAttribute("aria-invalid", "true");
     await user.type(field, "000000");
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
 
     const alert = await screen.findByRole("alert");
     expect(screen.getByLabelText("Código de 6 dígitos")).toHaveAttribute("aria-invalid", "true");

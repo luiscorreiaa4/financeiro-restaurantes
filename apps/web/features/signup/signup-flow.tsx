@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { OtpCodeField } from "@/components/otp-code-field";
 import { Button } from "@/components/ui/button";
 import {
   COMPANY_PATHS,
@@ -69,6 +70,8 @@ export function SignupFlow({ api, onDone }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [receipt, setReceipt] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
+  // Trava síncrona: o sexto dígito e o botão podem disparar juntos, e o código tem poucas tentativas.
+  const confirmingRef = useRef(false);
   // Passo 2: formulário. Fica guardado mesmo se for preciso confirmar o e-mail de novo.
   const [owner, setOwner] = useState<Owner>(EMPTY_OWNER);
   const [company, setCompany] = useState<CompanyValues>(EMPTY_COMPANY);
@@ -85,9 +88,10 @@ export function SignupFlow({ api, onDone }: Props) {
     return () => clearInterval(id);
   }, [counting]);
 
+  // O campo fica travado durante o envio; ao liberar (código recusado), o foco volta para ele.
   useEffect(() => {
-    if (codeSent && !blocked) codeRef.current?.focus();
-  }, [codeSent, blocked]);
+    if (codeSent && !blocked && !sending) codeRef.current?.focus();
+  }, [codeSent, blocked, sending]);
 
   function resetCode() {
     setCodeSent(false);
@@ -120,17 +124,19 @@ export function SignupFlow({ api, onDone }: Props) {
     }
   }
 
-  async function confirmCode() {
-    if (sending || blocked) return;
-    if (code.length !== 6) {
+  /** Recebe o código por argumento quando vem do sexto dígito: o estado ainda não atualizou. */
+  async function confirmCode(value: string = code) {
+    if (sending || blocked || confirmingRef.current) return;
+    if (value.length !== 6) {
       setCodeError(INCOMPLETE_CODE);
       return;
     }
+    confirmingRef.current = true;
     setSending(true);
     setCodeError(null);
     try {
-      // Uma chamada por clique, nunca repetida sozinha: o código aceito não vale de novo.
-      const result = await client.verifyCode(email.trim(), code);
+      // Uma chamada por código completo ou clique, nunca repetida: o código aceito não vale de novo.
+      const result = await client.verifyCode(email.trim(), value);
       setReceipt(result.receipt);
       setAlert(null);
     } catch (cause) {
@@ -145,6 +151,7 @@ export function SignupFlow({ api, onDone }: Props) {
         }
       }
     } finally {
+      confirmingRef.current = false;
       setSending(false);
     }
   }
@@ -237,17 +244,15 @@ export function SignupFlow({ api, onDone }: Props) {
         </p>
 
         {codeSent ? (
-          <TextField
+          <OtpCodeField
             id="signup-code"
             ref={codeRef}
-            label="Código de 6 dígitos"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            disabled={blocked}
             value={code}
-            onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
-            aria-invalid={codeInvalid}
-            aria-describedby={codeInvalid ? "signup-code-alert" : undefined}
+            onChange={setCode}
+            onComplete={confirmCode}
+            disabled={blocked || sending}
+            invalid={codeInvalid}
+            describedBy={codeInvalid ? "signup-code-alert" : undefined}
           />
         ) : null}
 

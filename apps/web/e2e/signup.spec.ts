@@ -10,8 +10,10 @@ async function confirmEmail(page: Page, code = CODE) {
   await page.goto("/cadastro");
   await page.getByLabel("E-mail").fill("novo@demo.dev");
   await page.getByRole("button", { name: "Enviar código" }).click();
+  await expect(page.getByRole("button", { name: "Colar código" })).toBeVisible();
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  // O sexto dígito confirma sozinho, sem clicar em "Confirmar código".
   await page.getByLabel("Código de 6 dígitos").fill(code);
-  await page.getByRole("button", { name: "Confirmar código" }).click();
 }
 
 async function fillCompany(page: Page, cnpj: string) {

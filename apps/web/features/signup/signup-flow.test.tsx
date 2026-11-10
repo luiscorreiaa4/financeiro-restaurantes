@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SignupApi } from "./signup-api";
@@ -10,8 +10,8 @@ type User = ReturnType<typeof userEvent.setup>;
 async function reachForm(user: User, email = "dono@novo.dev") {
   await user.type(screen.getByLabelText("E-mail"), email);
   await user.click(screen.getByRole("button", { name: "Enviar código" }));
+  // O sexto dígito confirma sozinho.
   await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
-  await user.click(screen.getByRole("button", { name: "Confirmar código" }));
   await screen.findByLabelText("Nome fantasia");
 }
 
@@ -76,21 +76,107 @@ describe("cadastro do dono", () => {
     await user.click(screen.getByRole("button", { name: "Enviar código" }));
     const code = await screen.findByLabelText("Código de 6 dígitos");
     await user.type(code, "000000");
-    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/código incorreto/i);
     expect(code).toHaveAttribute("aria-invalid", "true");
 
     for (const attempt of ["111111", "222222"]) {
       await user.clear(screen.getByLabelText("Código de 6 dígitos"));
       await user.type(screen.getByLabelText("Código de 6 dígitos"), attempt);
-      await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     }
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/muitas tentativas/i);
     expect(screen.getByRole("button", { name: "Confirmar código" })).toBeDisabled();
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Colar código" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Reenviar código em \d+ s/ })).toBeDisabled();
     expect(verifyCode).toHaveBeenCalledTimes(3);
     expect(screen.queryByLabelText("Nome fantasia")).not.toBeInTheDocument();
+  });
+
+  it("confirms by itself when the sixth digit is typed", async () => {
+    const user = userEvent.setup();
+    const api = fakeSignupApi();
+    renderFlow(api);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+
+    await screen.findByLabelText("Nome fantasia");
+    expect(api.verifyCode).toHaveBeenCalledTimes(1);
+    expect(api.verifyCode).toHaveBeenCalledWith("dono@novo.dev", "123456");
+  });
+
+  it("does not confirm twice when the form is submitted during the automatic confirmation", async () => {
+    const user = userEvent.setup();
+    const verifyCode = vi.fn(() => new Promise<never>(() => {}));
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+    await user.keyboard("{Enter}");
+
+    expect(verifyCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("after a wrong code, clicking the button without changing the field sends the same code again", async () => {
+    const user = userEvent.setup();
+    const verifyCode = vi
+      .fn()
+      .mockRejectedValueOnce(apiError(400, "INVALID_CODE", "Código inválido ou vencido."))
+      .mockResolvedValueOnce({ receipt: "comprovante-1" });
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
+
+    await screen.findByLabelText("Nome fantasia");
+    expect(verifyCode).toHaveBeenCalledTimes(2);
+    expect(verifyCode).toHaveBeenLastCalledWith("dono@novo.dev", "000000");
+  });
+
+  it("the code cannot be edited while it is being confirmed; after the error the field gets the focus back", async () => {
+    const user = userEvent.setup();
+    let reject: (cause: unknown) => void = () => {};
+    const verifyCode = vi.fn(
+      () =>
+        new Promise<never>((_, fail) => {
+          reject = fail;
+        }),
+    );
+    renderFlow(fakeSignupApi({ verifyCode }));
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "000000");
+
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeDisabled();
+
+    await act(async () => {
+      reject(apiError(400, "INVALID_CODE", "Código inválido ou vencido."));
+    });
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText("Código de 6 dígitos")).toBeEnabled();
+    expect(screen.getByLabelText("Código de 6 dígitos")).toHaveFocus();
+  });
+
+  it("an incomplete code still shows the message when the button is clicked", async () => {
+    const user = userEvent.setup();
+    const api = fakeSignupApi();
+    renderFlow(api);
+
+    await user.type(screen.getByLabelText("E-mail"), "dono@novo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123");
+    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Digite os 6 dígitos do código.");
+    expect(api.verifyCode).not.toHaveBeenCalled();
   });
 
   it("step 2 only appears after a valid code; unit name is prefilled with the trade name (R7)", async () => {
@@ -104,7 +190,6 @@ describe("cadastro do dono", () => {
     expect(screen.queryByLabelText("Nome fantasia")).not.toBeInTheDocument();
 
     await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
-    await user.click(screen.getByRole("button", { name: "Confirmar código" }));
     await screen.findByLabelText("Nome fantasia");
 
     expect(api.verifyCode).toHaveBeenCalledWith("dono@novo.dev", "123456");

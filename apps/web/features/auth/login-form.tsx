@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { OtpCodeField } from "@/components/otp-code-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +58,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const otpRef = useRef<HTMLInputElement>(null);
+  // Trava síncrona: o sexto dígito e o botão podem disparar no mesmo instante, e são só 3 tentativas.
+  const busyRef = useRef(false);
 
   const counting = secondsLeft > 0;
   useEffect(() => {
@@ -65,9 +68,10 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
     return () => clearInterval(id);
   }, [counting]);
 
+  // O campo fica travado durante o envio; ao liberar (código recusado), o foco volta para ele.
   useEffect(() => {
-    if (codeSent) otpRef.current?.focus();
-  }, [codeSent]);
+    if (codeSent && !pending) otpRef.current?.focus();
+  }, [codeSent, pending]);
 
   // Vindo da recuperação (RF03): abre no modo senha com o e-mail preenchido. O e-mail viaja por
   // sessionStorage (não pela URL) e a chave é removida na primeira leitura.
@@ -101,6 +105,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
   }
 
   async function run(action: () => Promise<void>): Promise<boolean> {
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setPending(true);
     setError(null);
     try {
@@ -117,8 +123,14 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       }
       return false;
     } finally {
+      busyRef.current = false;
       setPending(false);
     }
+  }
+
+  /** Recebe o código por argumento: ao completar o sexto dígito o estado ainda não atualizou. */
+  async function signInWithCode(code: string) {
+    if (await run(() => auth.signInWithCode({ email, otp: code, rememberMe }))) signedIn();
   }
 
   async function sendCode() {
@@ -137,8 +149,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       if (await run(() => auth.signInWithPassword({ email, password, rememberMe }))) signedIn();
     } else if (!codeSent) {
       await sendCode();
-    } else if (await run(() => auth.signInWithCode({ email, otp, rememberMe }))) {
-      signedIn();
+    } else {
+      await signInWithCode(otp);
     }
   }
 
@@ -185,21 +197,16 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       </p>
 
       {showOtp ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="login-otp">Código de 6 dígitos</Label>
-          <Input
-            id="login-otp"
-            ref={otpRef}
-            name="otp"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            required
-            aria-invalid={invalid}
-            aria-describedby={describedBy}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          />
-        </div>
+        <OtpCodeField
+          id="login-otp"
+          ref={otpRef}
+          value={otp}
+          onChange={setOtp}
+          onComplete={signInWithCode}
+          disabled={pending}
+          invalid={invalid}
+          describedBy={describedBy}
+        />
       ) : null}
 
       <div className="flex items-center gap-2">

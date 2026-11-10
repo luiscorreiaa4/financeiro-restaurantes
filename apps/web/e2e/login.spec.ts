@@ -18,8 +18,23 @@ test("pede o código, digita e entra; 'Sair' volta ao /login", async ({ page }) 
   await expect(
     page.getByText("Se o e-mail estiver cadastrado, você receberá o código."),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Colar código" })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  // Seis caixas separadas, na mesma linha e do mesmo tamanho (alinhadas, inclusive no celular).
+  const rects = await page
+    .getByRole("textbox", { name: /^(Código de 6 dígitos|Dígito \d de 6)$/ })
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+  expect(rects).toHaveLength(6);
+  for (const rect of rects) {
+    expect(Math.abs(rect.top - rects[0].top)).toBeLessThan(1);
+    expect(Math.abs(rect.width - rects[0].width)).toBeLessThan(1);
+    expect(rect.width).toBeGreaterThanOrEqual(36);
+  }
+  // O sexto dígito envia sozinho, sem clicar em "Entrar".
   await page.getByLabel("Código de 6 dígitos").fill(CODE);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
   await expect(page).toHaveURL(/\/lancamentos$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -36,8 +51,12 @@ test("código errado mostra o erro em português e não entra", async ({ page })
   await page.getByLabel("E-mail").fill("dono@demo.dev");
   await page.getByRole("button", { name: "Enviar código" }).click();
   await page.getByLabel("Código de 6 dígitos").fill("000000");
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
+  await expect(page.locator("form").getByRole("alert")).toContainText("Código inválido");
+  // O botão continua valendo: clicar tenta de novo com o mesmo código.
+  const retry = page.waitForResponse((r) => r.url().includes("/sign-in/email-otp"));
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await retry;
   await expect(page.locator("form").getByRole("alert")).toContainText("Código inválido");
   await expect(page).toHaveURL(/\/login$/);
 });
