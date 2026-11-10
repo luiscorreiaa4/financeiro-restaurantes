@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authErrorMessage } from "@/features/auth/auth-client";
 import { RESEND_SECONDS } from "@/features/auth/login-form";
-import { createProfileClient, type Profile, type ProfileClient } from "./profile-client";
-
-const PROFILE_KEY = ["profile"] as const;
+import {
+  createProfileClient,
+  PROFILE_KEY,
+  type Profile,
+  type ProfileClient,
+} from "./profile-client";
 
 const LAST_USED_FORMAT = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
