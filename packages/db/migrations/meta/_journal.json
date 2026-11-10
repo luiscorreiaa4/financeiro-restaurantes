@@ -106,6 +106,13 @@
       "when": 1794242306504,
       "tag": "0014_signup",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794255430026,
+      "tag": "0015_f1c_auth_events",
+      "breakpoints": true
     }
   ]
 }
