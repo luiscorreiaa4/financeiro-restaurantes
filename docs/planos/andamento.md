@@ -88,11 +88,11 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 **F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026 e F2 em 10/11/2026**; F3 a F13 a fazer, a **F3 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
-- [ ] D-F7 (biblioteca de planilha) e as outras decisões D-F em aberto.
+- [ ] D-F7 (biblioteca de planilha): **Decidido em 11/11/2026 (DD-32):** fica para o começo da F5; é a única D-F aberta.
 - **Pendências deixadas pela F0:**
   - [x] 🟡 Rodar no GitHub os jobs novos `e2e` e `integration`: **feito em 09/11/2026 (Luís), tudo verde.** É a primeira vez que a suíte de integração roda no CI; localmente passou (db 179, api 88). Se falhar, diagnosticar a causa real, sem enfraquecer teste. Dono: Luís (depende do push).
   - [ ] Decidir a **identidade visual** (marca, paleta, fonte). A F0 ficou neutra por decisão do Luís (D-F8); a troca é local, em `apps/web/app/globals.css`. Antes do piloto (F7 e F8).
-  - [ ] Decidir o destino do `apps/web/AGENTS.md` (gerado pelo Next, não versionado): versionar, ignorar no `.gitignore` ou apagar.
+  - [x] Destino do `apps/web/AGENTS.md`: **Decidido em 11/11/2026 (DD-32):** já está no `.gitignore` e o `next dev` o regera; fica ignorado, sem apagar.
   - [ ] Confirmar com o Luís que a base dos componentes do shadcn (`@base-ui/react`, preset `base-nova`) serve à F3 (tabela, formulário, drawer). Alternativa: refazer o `init` com `--base radix`.
   - [ ] Seguem ⚠️ no `painel.md`: prova de conceito do Better Auth com Fastify e `rewrites` (F1), `storageState` do Playwright (F1), manifest do PWA (F7), CSP e Web Vitals (F8), base do TanStack Table (F3).
   - [x] `apps/web/CLAUDE.md` criado (regras de cache, dinheiro, datas, testes e E2E do painel).
@@ -109,17 +109,17 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [ ] Roteiro à mão do cadastro (Luís): `pnpm dev`, `http://localhost:3000/cadastro`, ler o código na pasta `DEV_MAIL_DIR`, concluir e entrar no painel.
   - [ ] `NEXT_PUBLIC_WHATSAPP_NUMBER` precisa estar em `apps/web/.env.local` (o web não lê o `.env` da raiz; sem ele o `/bem-vindo` mostra "não foi configurado"). Exigir a variável no deploy (F8/E10); hoje o build só recusa valor inválido. O `.env.example` já documenta.
   - [ ] **P07 (Matheus):** a lista padrão de formas e canais do RF08.Obs2 e RF09.Obs2 não traz "Não informada" nem "Não informado", que o RF08.Obs4, o RF12.R8 e o RF09.Obs3 usam. O cadastro cria as duas (`SIGNUP_DEFAULTS`); confirmar (nota na v1.4 de `requisitos.md`).
-  - [ ] Texto final dos Termos e da Política de Privacidade (os de hoje são rascunho com aviso na página) e `LEGAL_VERSIONS` (placeholder "2026-11-09") em `packages/core/src/signup/signup-defaults.ts`; é dos sócios e do jurídico.
+  - [ ] Texto final dos Termos e da Política de Privacidade (os de hoje são rascunho com aviso na página) e `LEGAL_VERSIONS` (placeholder "2026-11-09") em `packages/core/src/signup/signup-defaults.ts`; é dos sócios e do jurídico. **Decidido em 11/11/2026 (DD-32):** pendência de pré-piloto.
   - [ ] `trustProxy` no Fastify, para o cadastro (`/api/signup/*`, `/api/companies`) e para o login (`/api/auth/*`): atrás do rewrite do Next toda requisição chega com o IP do servidor do Next, e o limite "por IP" vira um limite global. Junto da F8.
   - [ ] Limpeza periódica de linhas vencidas de `signup_verifications` (hoje só crescem); job do pg-boss ou `DELETE` agendado (F8).
   - [ ] Sondagem de celular e CNPJ em uso: o comprovante só é gasto quando a conta é criada, então um comprovante válido permite sondar `PHONE_TAKEN` e `CNPJ_TAKEN` (409) sem limite durante 30 min; `POST /api/companies` também não tem limite para quem está logado. Plano, antes de ir ao ar: contar as criações recusadas por comprovante (queimar depois de N = 3) e pôr limite por IP nas duas rotas.
-  - [ ] Sem conferência de `Origin` em `POST /api/signup` e `POST /api/companies` (mitigado pelo cookie `SameSite=Lax` e por só aceitarem JSON). Na F8, gancho `onRequest` que compara `Origin` com `APP_URL`.
+  - [ ] Sem conferência de `Origin` em `POST /api/signup` e `POST /api/companies` (mitigado pelo cookie `SameSite=Lax` e por só aceitarem JSON). Na F8, gancho `onRequest` que compara `Origin` com `APP_URL`. **Decidido em 11/11/2026 (DD-32):** o hook global sai da F8 e entra no bloco pós-F2, antes da F3 (junto de F2-1 e F1c-8).
   - [ ] `tax_settings.valid_from` usa a data em `America/Sao_Paulo` mesmo para unidades em Manaus ou Rio Branco (diferença de no máximo um dia na data de início).
   - [ ] GRANT e política de INSERT em `membership_units` para `app_auth` não são usados pelo código (o dono tem `all_units`); avaliar retirar numa migration futura (menor privilégio).
   - [ ] Consulta pública de CNPJ (RF01.R2, Obs1 "opcionalmente"): sugestão sem etapa; hoje o CNPJ só passa pelo dígito verificador.
   - [x] **Feito na F2 (10/11/2026):** `GET /api/me` devolve só `userId`, `name` e `email` e ignora `memberships.preferred_at`; na F2 (empresa ativa do painel) usar a empresa mais recente pelo `preferred_at`, como o canal (`resolveSender`).
   - [ ] `timezoneForUf` (cadastro) mapeia alguns estados para fusos próprios (AL, BA etc.) e o resto para `America/Sao_Paulo`; conferir o mapa com o RF04.R4.
-  - [ ] Usuário só com vínculos desativados não cria empresa (`/api/companies` dá 401, igual ao `/api/me`); decisão de produto se precisar permitir.
+  - [ ] Usuário só com vínculos desativados não cria empresa (`/api/companies` dá 401, igual ao `/api/me`). **Decidido em 11/11/2026 (DD-32):** passa a poder criar empresa; o mecanismo de acesso é definido na spec do bloco pós-F2.
   - [x] Teste instável `apps/api/test/signup-code.int.test.ts` ("auditoria e logs..."): com o relógio congelado os dois eventos tinham o mesmo `created_at` e o desempate pelo id (UUID v7 sem contador) era sorteado; o teste agora avança 1 s entre o envio e a verificação (revisão final da F1b).
   - [ ] A API falsa do E2E (`apps/web/e2e/fake-api.mjs`) não espelha todos os erros do cadastro (só `INVALID_CODE`, `RECEIPT_INVALID`, `cnpj_invalid` e 401 de `/api/companies`); os demais ficam nos testes unitários e de integração.
   - [ ] Constantes duplicadas a juntar no `core`: `hashSignupEmail` e `hashEmail` (`signup-hashing.ts` e `create-auth.ts`); `MAX_CODE_ATTEMPTS` (`signup-store.ts`) e `allowedAttempts: 3` (Better Auth); `SIGNUP_CODE_TTL_MS` e `expiresIn: 300`; `DAY_MS` e `SIGNUP_TIME_ZONE` copiados em `create-account.ts` e `create-company.ts`.
@@ -135,10 +135,10 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [x] **Feito na F2 (10/11/2026):** `/api/profile` passou a ser lido no servidor (antes, TanStack Query no navegador).
   - [ ] Envio real do aviso de troca de senha e `trustProxy`/IP real: F8.
   - [x] **Feito em 10/11/2026 (DD-30):** todos os erros de código no login por código (`/api/auth/sign-in/email-otp`) viram `INVALID_OTP`, iguais para e-mail com e sem conta, com texto "código incorreto ou vencido; peça um novo" na tela. Antes, `TOO_MANY_ATTEMPTS` e `OTP_EXPIRED` diferiam e permitiam descobrir se o e-mail tem conta (RF02.R1). Não impede queimar o código da vítima com tentativas erradas; a recuperação por link (DD-27) não tem o problema.
-  - [ ] Rotas `/api/profile/*` sem checagem própria de content-type e `Origin` (CSRF só protegido por `SameSite=Lax`).
-  - [ ] Nome do perfil aceita caracteres invisíveis (ex.: U+200B).
+  - [ ] Rotas `/api/profile/*` sem checagem própria de content-type e `Origin` (CSRF só protegido por `SameSite=Lax`). **Decidido em 11/11/2026 (DD-32):** coberto pelo hook global de `Origin`.
+  - [ ] Nome do perfil aceita caracteres invisíveis (ex.: U+200B). **Decidido em 11/11/2026 (DD-32):** normalizar em NFC, remover invisíveis e controles, `trim`, recusar vazio.
   - [ ] Nome no menu do usuário só atualiza ao recarregar a página depois de salvar o nome.
-  - [ ] Lint do monorepo acusa CRLF em arquivos antigos no checkout do Windows (índice em LF): ambiente, não código.
+  - [ ] Lint do monorepo acusa CRLF em arquivos antigos no checkout do Windows (índice em LF): ambiente, não código. **Decidido em 11/11/2026 (DD-32):** `.gitattributes` com `eol=lf` e renormalização em commit isolado.
   - [ ] E2E local em paralelo: o teste "Sair" de `login.spec.ts` falha de vez em quando por corrida de hidratação (passa com `--workers=1`, como no CI).
   - [ ] Cota de envio compartilhada: o link de recuperação usa a mesma cota do código de login (5 por hora por e-mail, RF02.R4); quem pede link ou código repetidamente para a vítima esgota a do login por código dela. Risco conhecido, junto com os limites reais da F8.
   - [ ] `background.run` descarta tarefas quando a fila enche (`maxPending`): uma inundação de pedidos pode suprimir links e códigos legítimos em silêncio (F8).
@@ -152,12 +152,12 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - Web: `Me`, cabeçalho `X-Context`, `tenantKey`, `SessionKeeper`, `ContextSwitcher`, menu por permissão e faixas da situação da conta (RF37). 401 leva ao login; 409 recarrega. Perfil lido no servidor.
   - Decisões deste bloco: `companies` do `/api/me` ganhou `startUnitId` para trocar de empresa; `/api/units` exige `panel:access`; `hasActiveMembership` passou a seguir a regra do painel; ao abrir a primeira vez a casca grava o `fr_ctx` e recarrega; consulta que dá 4xx não é repetida.
 - **Pendências deixadas pela F2 (10/11/2026):**
-  - [ ] **F2-1 (F3):** conferir `Origin` contra a URL do app nas rotas de escrita da API (hoje só SameSite=Lax e JSON protegem `POST /api/context`); aplicar também às rotas da F3 em diante.
-  - [ ] **F2-2 (decisão dos sócios; F3/F6):** dono cuja empresa ficou sem unidade ativa não consegue mais entrar (`hasActiveMembership` segue a regra do painel, DD-31): aceitar ou dar mensagem própria na tela de login.
+  - [ ] **F2-1 (pós-F2):** conferir `Origin` contra a URL do app nas rotas de escrita da API (hoje só SameSite=Lax e JSON protegem `POST /api/context`); aplicar também às rotas da F3 em diante. **Decidido em 11/11/2026 (DD-32):** hook global, antes da F3.
+  - [ ] **F2-2 (pós-F2; F6):** dono cuja empresa ficou sem unidade ativa não consegue mais entrar (`hasActiveMembership` segue a regra do painel, DD-31). **Decidido em 11/11/2026 (DD-32):** o dono entra em modo restrito (aviso, "Criar outra empresa", suporte); outros papéis recebem a mensagem de pedir ao dono; reativar unidade pela tela é a F6.
   - [ ] **F2-3 (F3):** filtro de categoria sensível na resposta (RF06.R3, CA02) e matriz papel × ação por rota: acrescentar linha a cada rota nova.
   - [ ] **F2-4 (F6):** encerrar sessões ao rebaixar papel ou desativar vínculo (RF05 Alteração, CA09 "sessão encerrada").
   - [ ] **F2-5 (F13):** lista de empresas do contador com busca e convite com aviso de folha (RF36).
-  - [ ] **F2-6 (qualquer etapa):** `pnpm lint` da raiz falha por fim de linha (CRLF) em arquivos antigos, e o E2E local com `next dev` oscila sob carga (no CI, com `next build`, passa).
+  - [ ] **F2-6 (qualquer etapa):** `pnpm lint` da raiz falha por fim de linha (CRLF) em arquivos antigos, e o E2E local com `next dev` oscila sob carga (no CI, com `next build`, passa). **Decidido em 11/11/2026 (DD-32):** CRLF resolvido pelo `.gitattributes`; a oscilação do E2E entra com F1c-12 no bloco pós-F2.
 - [ ] Reunião de 05/11/2026: F2 e F6 passam a cobrir o contador (convite com aviso de folha) e o canal padrão da unidade; F4 ganha ticket médio, ponto de equilíbrio e imposto estimado; F12 e F13 são etapas novas. Planejar com os sócios antes de abrir a F0 se quiserem encaixar as telas novas.
 - [ ] Antes de iniciar a E11, sugerido reler `arquitetura.md` (divergências atualizadas) e abrir as migrations de `paid_on`, `orders`, canal padrão e `tax_*`.
 
