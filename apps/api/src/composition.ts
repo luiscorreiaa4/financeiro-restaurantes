@@ -33,6 +33,7 @@ import {
   uuidv7,
 } from "@app/db";
 import type { AppDeps } from "./app";
+import { appOriginOf } from "./http/origin-guard";
 import { createBackgroundTasks } from "./infra/auth/background-tasks";
 import { createAuth, createAuthGateway } from "./infra/auth/create-auth";
 import { createSystemClock } from "./infra/clock";
@@ -45,7 +46,11 @@ import { createLocalMediaStore } from "./infra/media/local-media-store";
 import { createQrReader } from "./infra/media/qr-reader";
 import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
-import { createCheckSession, createSessionBlocked } from "./modules/auth/check-session";
+import {
+  createCheckEntry,
+  createCheckSession,
+  createSessionBlocked,
+} from "./modules/auth/check-session";
 import { createEntryHandlers } from "./modules/entries/entry-handlers";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
@@ -154,13 +159,14 @@ function composeAuth(env: Env): {
     clock,
     secret: env.AUTH_SECRET,
     baseUrl: env.APP_URL,
-    trustedOrigins: [env.APP_URL],
+    trustedOrigins: [appOriginOf(env.APP_URL)],
     secureCookies: env.NODE_ENV !== "development",
     background,
     log: (level, message) => logger[level]({ component: "better-auth" }, message),
   });
   const gateway = createAuthGateway(auth, { store, clock, background });
   const checkSession = createCheckSession({ gateway, access: store, clock });
+  const checkEntry = createCheckEntry({ gateway, access: store, clock });
   const signupRepo = createSignupRepo(authDb);
   return {
     deps: {
@@ -196,7 +202,7 @@ function composeAuth(env: Env): {
           ),
       }),
       companies: {
-        checkSession,
+        checkEntry,
         createCompany: createCreateCompany({
           repo: signupRepo,
           users: store,
@@ -215,6 +221,7 @@ function composeAuth(env: Env): {
     },
     panel: {
       checkSession,
+      checkEntry,
       access: panelAccess,
       appDb,
       secure: env.NODE_ENV !== "development",

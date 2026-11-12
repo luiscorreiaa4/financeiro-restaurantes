@@ -8,6 +8,7 @@ import {
   decoratePanelRequest,
   type PanelDeps,
   type PanelRequestContext,
+  requireMeEntry,
   requirePanelContext,
   requirePermission,
   requireTenantRoute,
@@ -44,13 +45,16 @@ export const panelRoutes: FastifyPluginAsync<{ deps: PanelDeps }> = async (app, 
   const unitsReader = createTenantUnitsReader();
   const preHandler = requirePanelContext(deps);
 
-  app.get("/api/me", { preHandler }, async (request) => {
+  const meEntry = requireMeEntry(deps);
+
+  app.get("/api/me", { preHandler: meEntry }, async (request) => {
     const session = request.session;
     if (session === null) throw new Error("requirePanelContext não preencheu a sessão");
     const panel = panelOf(request.panel);
     const current = panel.companies.find((c) => c.tenantId === panel.tenantId);
     const actor = panel.actor;
     return {
+      access: "full" as const,
       userId: session.userId,
       name: session.name,
       email: session.email,

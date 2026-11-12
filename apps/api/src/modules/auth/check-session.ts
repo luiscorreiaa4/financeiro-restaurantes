@@ -1,4 +1,11 @@
-import { type Clock, sessionExpiresAt, shouldTouchSession } from "@app/core";
+import {
+  type Clock,
+  canHoldSession,
+  type PanelEntry,
+  type RestrictedReason,
+  sessionExpiresAt,
+  shouldTouchSession,
+} from "@app/core";
 
 /** Sessão lida do cookie, já validada pelo Better Auth (assinatura e vencimento). */
 export interface AuthSession {
@@ -53,6 +60,7 @@ export class ResetTokenError extends Error {
 
 export interface SessionAccess {
   hasActiveMembership(userId: string): Promise<boolean>;
+  panelEntry(userId: string): Promise<PanelEntry>;
   touchSession(sessionId: string, state: { updatedAt: Date; expiresAt: Date }): Promise<void>;
 }
 
@@ -60,9 +68,42 @@ export type SessionCheck = { ok: true; session: AuthSession; setCookies: string[
 
 export type CheckSession = (headers: Headers) => Promise<SessionCheck>;
 
+export type EntryCheck =
+  | { ok: true; session: AuthSession; setCookies: string[]; access: "full" }
+  | {
+      ok: true;
+      session: AuthSession;
+      setCookies: string[];
+      access: "restricted";
+      reason: RestrictedReason;
+    }
+  | { ok: false };
+
+export type CheckEntry = (headers: Headers) => Promise<EntryCheck>;
+
+/** Renovação do uso (RF02.R5): "manter conectado" pelo Better Auth; o resto empurra 12 h. */
+async function renewSession(
+  deps: { gateway: AuthGateway; access: SessionAccess; clock: Clock },
+  session: AuthSession,
+  headers: Headers,
+): Promise<string[]> {
+  const now = deps.clock.now();
+  if (!shouldTouchSession({ lastTouchedAt: session.updatedAt, now })) return [];
+  if (session.keepConnected) {
+    // O Better Auth renova 30 dias e reenvia o cookie com o novo Max-Age.
+    return deps.gateway.refreshSession(headers);
+  }
+  await deps.access.touchSession(session.sessionId, {
+    updatedAt: now,
+    expiresAt: sessionExpiresAt({ keepConnected: false, now }),
+  });
+  return [];
+}
+
 /**
  * Autoridade da sessão a cada requisição (RF02.CA07, CA08): cookie válido, vínculo ativo e,
- * sem "manter conectado", vencimento empurrado 12 h a cada uso (RF02.R5).
+ * sem "manter conectado", vencimento empurrado 12 h a cada uso (RF02.R5). Só acesso completo
+ * passa: a sessão restrita (DD-33) não alcança nenhuma rota que use esta checagem.
  */
 export function createCheckSession(deps: {
   gateway: AuthGateway;
@@ -73,29 +114,37 @@ export function createCheckSession(deps: {
     const session = await deps.gateway.readSession(headers);
     if (session === null) return { ok: false };
     if (!(await deps.access.hasActiveMembership(session.userId))) return { ok: false };
-
-    const now = deps.clock.now();
-    let setCookies: string[] = [];
-    if (shouldTouchSession({ lastTouchedAt: session.updatedAt, now })) {
-      if (session.keepConnected) {
-        // O Better Auth renova 30 dias e reenvia o cookie com o novo Max-Age.
-        setCookies = await deps.gateway.refreshSession(headers);
-      } else {
-        await deps.access.touchSession(session.sessionId, {
-          updatedAt: now,
-          expiresAt: sessionExpiresAt({ keepConnected: false, now }),
-        });
-      }
-    }
+    const setCookies = await renewSession(deps, session, headers);
     return { ok: true, session, setCookies };
+  };
+}
+
+/**
+ * Entrada do painel que também aceita o modo restrito (DD-33). Usada só por `GET /api/me` e
+ * `POST /api/companies`; o resultado `restricted` nunca dá acesso a dado de empresa.
+ */
+export function createCheckEntry(deps: {
+  gateway: AuthGateway;
+  access: SessionAccess;
+  clock: Clock;
+}): CheckEntry {
+  return async (headers) => {
+    const session = await deps.gateway.readSession(headers);
+    if (session === null) return { ok: false };
+    const entry = await deps.access.panelEntry(session.userId);
+    if (entry.kind === "refused") return { ok: false };
+    const setCookies = await renewSession(deps, session, headers);
+    if (entry.kind === "full") return { ok: true, session, setCookies, access: "full" };
+    return { ok: true, session, setCookies, access: "restricted", reason: entry.reason };
   };
 }
 
 export type SessionBlocked = (headers: Headers) => Promise<boolean>;
 
 /**
- * Para as rotas do Better Auth (`/api/auth/*`): há sessão válida, mas o usuário perdeu o vínculo
- * ativo (RF02.CA07). Sem sessão devolve `false`: o próprio Better Auth responde.
+ * Para as rotas do Better Auth (`/api/auth/*`): há sessão válida, mas o usuário não pode mais
+ * mantê-la (`refused`, RF02.CA07). A sessão restrita passa, para conseguir sair. Sem sessão
+ * devolve `false`: o próprio Better Auth responde.
  */
 export function createSessionBlocked(deps: {
   gateway: AuthGateway;
@@ -103,6 +152,6 @@ export function createSessionBlocked(deps: {
 }): SessionBlocked {
   return async (headers) => {
     const session = await deps.gateway.readSession(headers);
-    return session !== null && !(await deps.access.hasActiveMembership(session.userId));
+    return session !== null && !canHoldSession(await deps.access.panelEntry(session.userId));
   };
 }

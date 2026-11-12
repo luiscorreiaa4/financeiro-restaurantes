@@ -14,6 +14,9 @@ function setup(
     user?: boolean;
     userEmail?: string | null;
     membership?: boolean;
+    entry?:
+      | { kind: "restricted"; reason: "no_membership" | "owner_no_unit" }
+      | { kind: "refused"; reason: "ask_owner" | "no_access" };
     hash?: string | null;
     samePassword?: boolean;
     resetError?: unknown;
@@ -36,9 +39,12 @@ function setup(
           email: options.userEmail === undefined ? "dona1@ex.com" : options.userEmail,
         };
       },
-      hasActiveMembership: async () => {
+      panelEntry: async () => {
         calls.push("membership");
-        return options.membership !== false;
+        if (options.entry !== undefined) return options.entry;
+        return options.membership !== false
+          ? { kind: "full" as const }
+          : { kind: "refused" as const, reason: "no_access" as const };
       },
       getPasswordHash: async () => (options.hash === undefined ? "hash" : options.hash),
       deleteSessionsExcept: async (_u: string, keep: string | null) => {
@@ -206,5 +212,22 @@ describe("recuperar senha: auditoria que falha depois da troca (DD-30)", () => {
     expect(t.auditFailures).toEqual(["password_reset"]);
     await t.tasks[0]?.();
     expect(t.notices).toEqual([{ to: "dona1@ex.com", kind: "password-changed", at: NOW }]);
+  });
+});
+
+describe("recuperar senha: acesso restrito e orientação ao dono (DD-33)", () => {
+  it("usuário restrito (sem vínculo ativo) tem a redefinição aceita", async () => {
+    const t = setup({ entry: { kind: "restricted", reason: "no_membership" } });
+    await t.recover(input);
+    expect(t.calls).toContain("reset");
+  });
+
+  it("refused/ask_owner é recusado como no_access: INVALID_TOKEN e nada é gravado", async () => {
+    for (const reason of ["ask_owner", "no_access"] as const) {
+      const t = setup({ entry: { kind: "refused", reason } });
+      expect(await codeOf(t.recover(input))).toBe("INVALID_TOKEN");
+      expect(t.calls).not.toContain("reset");
+      expect(t.calls).not.toContain("deleteSessions:null");
+    }
   });
 });

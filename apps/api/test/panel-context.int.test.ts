@@ -205,7 +205,10 @@ describe("/api/me com contexto", () => {
     await h.db.admin.query("update memberships set status = 'deactivated' where user_id = $1", [
       user.userId,
     ]);
-    expect((await me(user.session)).statusCode).toBe(401);
+    // Sem vínculo ativo o usuário vira restrito (DD-33): /api/me aceita, as rotas de tenant não.
+    const restricted = await me(user.session);
+    expect(restricted.statusCode).toBe(200);
+    expect(restricted.json().access).toBe("restricted");
     expect((await call("GET", "/api/units", user.session)).statusCode).toBe(401);
   });
 
@@ -579,10 +582,11 @@ describe("registro de log em falha (500)", () => {
     // Porta fechada: toda consulta falha, e a mensagem do driver traz endereço e SQL.
     const pool = createPool("postgres://u:p@127.0.0.1:1/nada");
     const app = buildApp(
-      { LOG_LEVEL: "debug" },
+      { LOG_LEVEL: "debug", APP_URL: "http://localhost:3000" },
       {
         panel: {
           checkSession,
+          checkEntry: async () => ({ ...(await checkSession()), access: "full" as const }),
           access: {
             listPanelMemberships: async () => {
               if (kind === "vinculos") throw new Error(`select ... ${EMAIL} ${NAME}`);
@@ -634,5 +638,91 @@ describe("registro de log em falha (500)", () => {
     expect(logs).not.toContain(EMAIL);
     expect(logs).not.toContain(value);
     await close();
+  });
+});
+
+describe("modo restrito (DD-33, RNF02)", () => {
+  const post = (url: string, cookie: string, body: unknown = {}) =>
+    h.post(url, body, cookie, nextIp());
+  const get = (url: string, cookie: string) =>
+    h.app.inject({ method: "GET", url, headers: { cookie }, remoteAddress: nextIp() });
+  const patchName = (cookie: string) =>
+    h.app.inject({
+      method: "PATCH",
+      url: "/api/profile/name",
+      remoteAddress: nextIp(),
+      headers: { cookie, origin: h.origin, "content-type": "application/json" },
+      payload: JSON.stringify({ name: "Outro" }),
+    });
+
+  async function restrictedPersonas() {
+    const ownerNoUnit = await h.createUser({ withUnit: false, password: PASSWORD });
+    const onlyDeactivated = await h.createUser({ membership: "deactivated", password: PASSWORD });
+    return [
+      { reason: "owner_no_unit", user: ownerNoUnit, session: await login(ownerNoUnit.email) },
+      {
+        reason: "no_membership",
+        user: onlyDeactivated,
+        session: await login(onlyDeactivated.email),
+      },
+    ] as const;
+  }
+
+  it("/api/me restrito devolve só access, reason, userId, name e email, sem companies, context nem fr_ctx", async () => {
+    for (const { reason, user, session } of await restrictedPersonas()) {
+      const response = await me(session);
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        access: "restricted",
+        reason,
+        userId: user.userId,
+        name: "Pessoa",
+        email: user.email,
+      });
+      expect(setCookies(response).some((c) => c.includes("fr_ctx"))).toBe(false);
+    }
+  });
+
+  it("/api/me completo ganha access full", async () => {
+    const user = await ownerOfOne();
+    const body = (await me(user.session)).json();
+    expect(body.access).toBe("full");
+    expect(body.companies).toHaveLength(1);
+  });
+
+  it("sessão restrita em /api/units, /api/context e /api/profile/*: 401", async () => {
+    for (const { session } of await restrictedPersonas()) {
+      expect((await get("/api/units", session)).statusCode).toBe(401);
+      expect((await get("/api/profile", session)).statusCode).toBe(401);
+      const context = { tenantId: uuidv7(), unitId: "all" };
+      expect((await post("/api/context", session, context)).statusCode).toBe(401);
+      expect((await patchName(session)).statusCode).toBe(401);
+      const password = { newPassword: "outraSenha1" };
+      expect((await post("/api/profile/password", session, password)).statusCode).toBe(401);
+      expect((await post("/api/profile/password/link", session)).statusCode).toBe(401);
+      expect((await post("/api/profile/sessions/revoke-others", session)).statusCode).toBe(401);
+    }
+  });
+
+  it("sessão restrita consegue sair (sign-out)", async () => {
+    for (const { session } of await restrictedPersonas()) {
+      expect((await post("/api/auth/sign-out", session)).statusCode).toBe(200);
+      expect((await me(session)).statusCode).toBe(401);
+    }
+  });
+
+  it("sessão de usuário que virou recusado (gerente sem unidade) recebe 401 em tudo", async () => {
+    const user = await h.createUser({ password: PASSWORD });
+    const session = await login(user.email);
+    expect((await me(session)).statusCode).toBe(200);
+    await h.db.admin.query("update memberships set role = 'manager' where user_id = $1", [
+      user.userId,
+    ]);
+    await h.db.admin.query(
+      "delete from units where tenant_id = (select tenant_id from memberships where user_id = $1)",
+      [user.userId],
+    );
+    expect((await me(session)).statusCode).toBe(401);
+    expect((await get("/api/units", session)).statusCode).toBe(401);
   });
 });

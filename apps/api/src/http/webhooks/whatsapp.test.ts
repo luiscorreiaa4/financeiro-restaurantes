@@ -20,7 +20,7 @@ function setup(
 ) {
   const payloads: unknown[] = [];
   const app = buildApp(
-    { LOG_LEVEL: "silent" },
+    { LOG_LEVEL: "silent", APP_URL: "http://localhost:3000" },
     {
       whatsapp: {
         appSecret: "appSecret" in overrides ? overrides.appSecret : SECRET,
@@ -178,7 +178,7 @@ describe("logs", () => {
   it("falha na gravação vira 500 sem registrar o conteúdo da mensagem no log", async () => {
     const lines: string[] = [];
     const app = buildApp(
-      { LOG_LEVEL: "info" },
+      { LOG_LEVEL: "info", APP_URL: "http://localhost:3000" },
       {
         whatsapp: {
           appSecret: SECRET,
@@ -202,7 +202,7 @@ describe("logs", () => {
   it("não registram a query string do handshake (hub.verify_token é segredo)", async () => {
     const lines: string[] = [];
     const app = buildApp(
-      { LOG_LEVEL: "info" },
+      { LOG_LEVEL: "info", APP_URL: "http://localhost:3000" },
       {
         whatsapp: { appSecret: SECRET, verifyToken: TOKEN, ingest: async () => emptyResult },
         logStream: { write: (line) => lines.push(line) },

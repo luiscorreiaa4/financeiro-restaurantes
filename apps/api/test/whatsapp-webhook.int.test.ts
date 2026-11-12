@@ -27,7 +27,7 @@ function fixtureBytes(name: string): Buffer {
 function webhookApp(jobQueue: { enqueue: PgBossQueue["enqueue"] }) {
   const repo = createInboundIngestRepo(createDatabase(ingestPool));
   return buildApp(
-    { LOG_LEVEL: "silent" },
+    { LOG_LEVEL: "silent", APP_URL: "http://localhost:3000" },
     {
       whatsapp: {
         appSecret: SECRET,

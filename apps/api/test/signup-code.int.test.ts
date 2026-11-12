@@ -65,7 +65,7 @@ beforeAll(async () => {
     { store, clock, background: tasks },
   );
   app = buildApp(
-    { LOG_LEVEL: "debug" },
+    { LOG_LEVEL: "debug", APP_URL: ORIGIN },
     {
       auth: {
         gateway,

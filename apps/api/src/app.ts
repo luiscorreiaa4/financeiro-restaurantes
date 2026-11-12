@@ -1,6 +1,7 @@
 import type { Env } from "@app/config/env";
 import Fastify from "fastify";
 import { type AuthRoutesDeps, authRoutes } from "./http/auth/auth-routes";
+import { appOriginOf, originGuard } from "./http/origin-guard";
 import type { PanelDeps } from "./http/panel/panel-context";
 import { panelRoutes } from "./http/panel/panel-routes";
 import { type ProfileRoutesDeps, profileRoutes } from "./http/profile/profile-routes";
@@ -27,7 +28,7 @@ export interface AppDeps {
   readonly logStream?: { write(line: string): void };
 }
 
-export function buildApp(env: Pick<Env, "LOG_LEVEL">, deps: AppDeps = {}) {
+export function buildApp(env: Pick<Env, "LOG_LEVEL" | "APP_URL">, deps: AppDeps = {}) {
   const app = Fastify({
     logger: {
       level: env.LOG_LEVEL,
@@ -42,6 +43,9 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL">, deps: AppDeps = {}) {
       },
     },
   });
+
+  // DD-32 item 3: toda escrita exige Origin do painel; só o webhook (assinatura) fica de fora.
+  app.addHook("onRequest", originGuard({ appOrigin: appOriginOf(env.APP_URL) }));
 
   app.get("/health", async () => ({ status: "ok" }));
 

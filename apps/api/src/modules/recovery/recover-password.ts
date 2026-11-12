@@ -1,5 +1,6 @@
 import {
   type Clock,
+  canHoldSession,
   type EmailSender,
   normalizeEmail,
   type PasswordError,
@@ -57,7 +58,7 @@ export interface RecoverPasswordDeps {
   readonly store: Pick<
     AuthStore,
     | "findUserById"
-    | "hasActiveMembership"
+    | "panelEntry"
     | "getPasswordHash"
     | "deleteSessionsExcept"
     | "updatePasswordState"
@@ -94,7 +95,7 @@ export function createRecoverPassword(deps: RecoverPasswordDeps): RecoverPasswor
     if (peeked === null) throw new RecoveryError("INVALID_TOKEN");
 
     const user = await store.findUserById(peeked.userId);
-    if (user === null || user.email === null || !(await store.hasActiveMembership(user.id))) {
+    if (user === null || user.email === null || !canHoldSession(await store.panelEntry(user.id))) {
       throw new RecoveryError("INVALID_TOKEN");
     }
     const email = normalizeEmail(user.email);

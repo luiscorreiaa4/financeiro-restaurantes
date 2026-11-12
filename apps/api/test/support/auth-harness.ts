@@ -16,7 +16,11 @@ import { createBackgroundTasks } from "../../src/infra/auth/background-tasks";
 import { createAuth, createAuthGateway } from "../../src/infra/auth/create-auth";
 import { createSystemClock } from "../../src/infra/clock";
 import { createMemoryEmailSender } from "../../src/infra/email/memory-email-sender";
-import { createCheckSession, createSessionBlocked } from "../../src/modules/auth/check-session";
+import {
+  createCheckEntry,
+  createCheckSession,
+  createSessionBlocked,
+} from "../../src/modules/auth/check-session";
 import { createProfileService } from "../../src/modules/profile/profile-service";
 import {
   createRecoverPassword,
@@ -64,6 +68,8 @@ export interface AuthHarness {
   createUser(options?: {
     password?: string;
     membership?: "active" | "deactivated";
+    role?: "owner" | "manager" | "accountant";
+    withUnit?: boolean;
     email?: string;
   }): Promise<{ userId: string; email: string }>;
   post(url: string, body: unknown, cookie?: string, ip?: string): Promise<LightMyRequestResponse>;
@@ -106,8 +112,9 @@ export async function startAuthHarness(): Promise<AuthHarness> {
   const gateway = createAuthGateway(auth, { store, clock, background: tasks });
   const logLines: string[] = [];
   const checkSession = createCheckSession({ gateway, access: store, clock });
+  const checkEntry = createCheckEntry({ gateway, access: store, clock });
   const app = buildApp(
-    { LOG_LEVEL: "debug" },
+    { LOG_LEVEL: "debug", APP_URL: ORIGIN },
     {
       auth: {
         gateway,
@@ -125,6 +132,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       },
       panel: {
         checkSession,
+        checkEntry,
         access: createPanelAccessStore(createDatabase(authPool)),
         appDb: createDatabase(appPool),
         secure: true,
@@ -202,7 +210,13 @@ export async function startAuthHarness(): Promise<AuthHarness> {
 
   /** Usuário com e-mail verificado e vínculo (dono) num tenant novo, criado pelo admin. */
   const createUser = async (
-    options: { password?: string; membership?: "active" | "deactivated"; email?: string } = {},
+    options: {
+      password?: string;
+      membership?: "active" | "deactivated";
+      role?: "owner" | "manager" | "accountant";
+      withUnit?: boolean;
+      email?: string;
+    } = {},
   ) => {
     userCounter += 1;
     const address = options.email ?? `pessoa${userCounter}.${uuidv7().slice(-6)}@ex.com`;
@@ -210,10 +224,12 @@ export async function startAuthHarness(): Promise<AuthHarness> {
     const tenantId = uuidv7();
     await db.admin.query("insert into tenants (id, name) values ($1, 'Restaurante')", [tenantId]);
     // O painel exige ao menos uma unidade ativa (DD-31): sem ela o vínculo não abre o login.
-    await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
-      uuidv7(),
-      tenantId,
-    ]);
+    if (options.withUnit !== false) {
+      await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
+        uuidv7(),
+        tenantId,
+      ]);
+    }
     await db.admin.query(
       "insert into users (id, name, email, email_verified) values ($1, 'Pessoa', $2, true)",
       [userId, address],
@@ -221,8 +237,15 @@ export async function startAuthHarness(): Promise<AuthHarness> {
     const status = options.membership ?? "active";
     await db.admin.query(
       `insert into memberships (id, tenant_id, user_id, role, all_units, status, deactivated_at)
-     values ($1, $2, $3, 'owner', true, $4, $5)`,
-      [uuidv7(), tenantId, userId, status, status === "deactivated" ? new Date() : null],
+     values ($1, $2, $3, $6, true, $4, $5)`,
+      [
+        uuidv7(),
+        tenantId,
+        userId,
+        status,
+        status === "deactivated" ? new Date() : null,
+        options.role ?? "owner",
+      ],
     );
     if (options.password !== undefined) {
       await db.admin.query(

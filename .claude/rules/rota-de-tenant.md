@@ -15,4 +15,4 @@ Toda rota que lê ou grava dado de uma empresa:
 3. Filtra por unidade com `request.panel.actor.units`; `unitId: "all"` só existe para quem tem todas as unidades.
 4. Responde erro só com `{ code }`, sem dado, e nunca loga cookie, `X-Context`, e-mail nem nome.
 5. Ganha teste de integração com duas empresas (a outra não aparece) e uma linha na matriz papel × ação (RF06.CA06).
-6. Rota de escrita nova: confira `Origin` (pendência F2-1) assim que a verificação existir.
+6. O `Origin` das escritas (POST, PUT, PATCH, DELETE) é conferido pelo hook global `originGuard` (`apps/api/src/http/origin-guard.ts`, RNF01.R10): rota de escrita nova já nasce coberta, não repita a checagem. Webhook ou escrita feita por servidor, sem navegador, exige entrada explícita em `ORIGIN_EXEMPT_PATHS`, com o teste da lista exata (`origin-guard.test.ts`) atualizado.

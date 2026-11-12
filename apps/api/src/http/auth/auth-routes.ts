@@ -88,7 +88,8 @@ export const authRoutes: FastifyPluginAsync<{ deps: AuthRoutesDeps }> = async (a
   });
 
   app.route({
-    method: ["GET", "POST"],
+    // Só POST: GET não passa pelo `originGuard` e `sign-out` apagaria o `fr_ctx` de outro site.
+    method: "POST",
     url: "/api/auth/*",
     async handler(request, reply) {
       const headers = toWebHeaders(request);

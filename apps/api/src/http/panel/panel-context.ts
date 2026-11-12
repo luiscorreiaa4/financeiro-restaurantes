@@ -17,7 +17,7 @@ import type {
   FastifyRequest,
   preHandlerAsyncHookHandler,
 } from "fastify";
-import type { CheckSession } from "../../modules/auth/check-session";
+import type { AuthSession, CheckEntry, CheckSession } from "../../modules/auth/check-session";
 import { authError } from "../auth/auth-messages";
 import { toWebHeaders } from "../auth/require-session";
 
@@ -36,6 +36,8 @@ declare module "fastify" {
 /** O que as rotas do painel recebem da composição: sessão, vínculos e o banco do papel `app`. */
 export interface PanelDeps {
   readonly checkSession: CheckSession;
+  /** Aceita também o modo restrito (DD-33); só `GET /api/me` o usa. */
+  readonly checkEntry: CheckEntry;
   readonly access: PanelAccessStore;
   /** Banco do papel `app` (RLS): dado de tenant só dentro de `withTenant` (regra 2). */
   readonly appDb: Database;
@@ -106,26 +108,57 @@ export function requirePanelContext(deps: {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const result = await deps.checkSession(toWebHeaders(request));
     if (!result.ok) return reply.code(401).send(authError(401));
-    if (result.setCookies.length > 0) reply.header("set-cookie", result.setCookies);
-    let memberships: PanelMembership[];
-    try {
-      memberships = await deps.access.listPanelMemberships(result.session.userId);
-    } catch (error) {
-      // Só o tipo do erro: a mensagem do driver traz SQL e parâmetros (regra 9).
-      request.log.error(
-        { errorName: error instanceof Error ? error.name : typeof error },
-        "falha ao ler os vínculos do painel",
-      );
-      return reply.code(500).send({ code: "internal" });
+    return loadPanelContext(request, reply, deps, result);
+  };
+}
+
+/**
+ * Só para `GET /api/me`: aceita também a sessão restrita (DD-33), que recebe apenas quem é
+ * (`access: "restricted"`), sem vínculo, contexto nem `fr_ctx`. O acesso completo segue o
+ * caminho de `requirePanelContext`, sem checar a sessão duas vezes.
+ */
+export function requireMeEntry(deps: {
+  checkEntry: CheckEntry;
+  access: PanelAccessStore;
+  secure: boolean;
+}): preHandlerAsyncHookHandler {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const entry = await deps.checkEntry(toWebHeaders(request));
+    if (!entry.ok) return reply.code(401).send(authError(401));
+    if (entry.access === "restricted") {
+      if (entry.setCookies.length > 0) reply.header("set-cookie", entry.setCookies);
+      const { userId, name, email } = entry.session;
+      return reply.send({ access: "restricted", reason: entry.reason, userId, name, email });
     }
-    const resolution = resolvePanelContext(memberships, readContextCookie(request, deps.secure));
-    if (!resolution.ok) return reply.code(401).send(authError(401));
-    request.session = result.session;
-    request.panel = {
-      ...resolution.context,
-      source: resolution.source,
-      companies: resolution.companies,
-    };
+    return loadPanelContext(request, reply, deps, entry);
+  };
+}
+
+async function loadPanelContext(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  deps: { access: PanelAccessStore; secure: boolean },
+  result: { session: AuthSession; setCookies: string[] },
+) {
+  if (result.setCookies.length > 0) reply.header("set-cookie", result.setCookies);
+  let memberships: PanelMembership[];
+  try {
+    memberships = await deps.access.listPanelMemberships(result.session.userId);
+  } catch (error) {
+    // Só o tipo do erro: a mensagem do driver traz SQL e parâmetros (regra 9).
+    request.log.error(
+      { errorName: error instanceof Error ? error.name : typeof error },
+      "falha ao ler os vínculos do painel",
+    );
+    return reply.code(500).send({ code: "internal" });
+  }
+  const resolution = resolvePanelContext(memberships, readContextCookie(request, deps.secure));
+  if (!resolution.ok) return reply.code(401).send(authError(401));
+  request.session = result.session;
+  request.panel = {
+    ...resolution.context,
+    source: resolution.source,
+    companies: resolution.companies,
   };
 }
 

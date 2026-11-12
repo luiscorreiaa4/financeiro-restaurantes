@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app";
 import type { AuthGateway, CheckSession, SessionBlocked } from "../../modules/auth/check-session";
 
+const ORIGIN = "http://localhost:3000";
+
 function appWith(secure: boolean) {
   const gateway = {
     handle: async (request: Request) => {
@@ -13,7 +15,7 @@ function appWith(secure: boolean) {
     },
   } as unknown as AuthGateway;
   return buildApp(
-    { LOG_LEVEL: "silent" },
+    { LOG_LEVEL: "silent", APP_URL: ORIGIN },
     {
       auth: {
         gateway,
@@ -34,7 +36,12 @@ describe("expirar o cookie de contexto no login e no sair", () => {
   it("secure: expira só __Secure-fr_ctx, com Secure", async () => {
     const app = appWith(true);
     for (const url of paths) {
-      const response = await app.inject({ method: "POST", url, payload: {} });
+      const response = await app.inject({
+        method: "POST",
+        url,
+        payload: {},
+        headers: { origin: ORIGIN },
+      });
       const cookies = cookiesOf(response.headers["set-cookie"]);
       const ctx = cookies.filter((c) => c.includes("fr_ctx="));
       expect(ctx, url).toEqual([
@@ -47,7 +54,12 @@ describe("expirar o cookie de contexto no login e no sair", () => {
   it("fora de secure: expira só fr_ctx, sem Secure", async () => {
     const app = appWith(false);
     for (const url of paths) {
-      const response = await app.inject({ method: "POST", url, payload: {} });
+      const response = await app.inject({
+        method: "POST",
+        url,
+        payload: {},
+        headers: { origin: ORIGIN },
+      });
       const ctx = cookiesOf(response.headers["set-cookie"]).filter((c) => c.includes("fr_ctx="));
       expect(ctx, url).toEqual(["fr_ctx=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax"]);
     }
@@ -60,6 +72,7 @@ describe("expirar o cookie de contexto no login e no sair", () => {
         method: "POST",
         url: "/api/auth/sign-out?falha=1",
         payload: {},
+        headers: { origin: ORIGIN },
       });
       expect(response.statusCode).toBe(401);
       const ctx = cookiesOf(response.headers["set-cookie"]).filter((c) => c.includes("fr_ctx="));
@@ -68,12 +81,20 @@ describe("expirar o cookie de contexto no login e no sair", () => {
     }
   });
 
+  it("GET em /api/auth/* não existe e nunca mexe no cookie de contexto", async () => {
+    const app = appWith(true);
+    const response = await app.inject({ method: "GET", url: "/api/auth/sign-out" });
+    expect(response.statusCode).toBe(404);
+    expect(cookiesOf(response.headers["set-cookie"]).some((c) => c.includes("fr_ctx"))).toBe(false);
+  });
+
   it("resposta de erro de login não mexe no cookie de contexto", async () => {
     const app = appWith(true);
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/sign-in/email?falha=1",
       payload: {},
+      headers: { origin: ORIGIN },
     });
     expect(response.statusCode).toBe(401);
     expect(cookiesOf(response.headers["set-cookie"]).some((c) => c.includes("fr_ctx"))).toBe(false);

@@ -1,7 +1,7 @@
 import { normalizeEmail } from "@app/core";
 import type { FastifyError, FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
-import type { CheckSession } from "../../modules/auth/check-session";
+import type { CheckEntry } from "../../modules/auth/check-session";
 import type { CreateAccount } from "../../modules/signup/create-account";
 import type { CreateCompany } from "../../modules/signup/create-company";
 import type { RequestSignupCode } from "../../modules/signup/request-signup-code";
@@ -19,7 +19,7 @@ export interface SignupRoutesDeps {
   readonly secure: boolean;
   /** "Criar outra empresa" (`POST /api/companies`), só com sessão. */
   readonly companies?: {
-    readonly checkSession: CheckSession;
+    readonly checkEntry: CheckEntry;
     readonly createCompany: CreateCompany;
   };
 }
@@ -126,8 +126,9 @@ export const signupRoutes: FastifyPluginAsync<{ deps: SignupRoutesDeps }> = asyn
   const companies = deps.companies;
   if (companies === undefined) return;
   app.post("/api/companies", async (request, reply) => {
-    // Mesma autoridade das rotas do painel: cookie válido e vínculo ativo (RF02.CA07, CA08).
-    const check = await companies.checkSession(toWebHeaders(request));
+    // Aceita acesso completo e restrito (DD-33): o dono sem unidade cria a empresa por aqui.
+    // Só usa o id e o e-mail da sessão; nunca lê dado de empresa existente.
+    const check = await companies.checkEntry(toWebHeaders(request));
     if (!check.ok) return reply.code(401).send(authError(401));
     if (check.setCookies.length > 0) reply.header("set-cookie", check.setCookies);
     const body = companyBody.safeParse(request.body);
