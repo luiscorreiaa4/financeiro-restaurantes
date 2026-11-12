@@ -4,10 +4,14 @@ import { ACCOUNT_STATUSES } from "../signup/signup-defaults";
 import {
   accountAllows,
   allowedActions,
+  canHoldSession,
+  classifyPanelEntry,
   formatContextValue,
+  type PanelEntry,
   type PanelMembership,
   panelActor,
   parseContextValue,
+  receivesLoginCode,
   resolvePanelContext,
   startUnitOf,
   validateContextChoice,
@@ -416,5 +420,89 @@ describe("startUnitOf", () => {
   it("sem padrão acessível, começa na de menor id", () => {
     expect(startUnitOf(vinculo({ allUnits: false, unitIds: [C, B], defaultUnitId: A }))).toBe(B);
     expect(startUnitOf(vinculo({ allUnits: false, unitIds: [C, B], defaultUnitId: null }))).toBe(B);
+  });
+});
+
+describe("classifyPanelEntry", () => {
+  const semUnidade = { allUnits: false, unitIds: [] as string[] };
+  it("linha 1: vínculo que serve ao painel entra completo", () => {
+    expect(classifyPanelEntry([vinculo()], true)).toEqual({ kind: "full" });
+  });
+  it("dono com empresa A sem unidade e empresa B normal entra completo", () => {
+    const a = vinculo({ membershipId: "a", tenantId: T1, ...semUnidade });
+    const b = vinculo({ membershipId: "b", tenantId: T2 });
+    expect(classifyPanelEntry([a, b], true)).toEqual({ kind: "full" });
+    const r = resolvePanelContext([a, b], null);
+    expect(r.ok && r.companies.map((c) => c.tenantId)).toEqual([T2]);
+  });
+  it("linha 2: dono sem unidade entra restrito", () => {
+    expect(classifyPanelEntry([vinculo(semUnidade)], true)).toEqual({
+      kind: "restricted",
+      reason: "owner_no_unit",
+    });
+  });
+  it("dono em empresa cancelada sem unidade entra restrito", () => {
+    expect(
+      classifyPanelEntry([vinculo({ ...semUnidade, accountStatus: "canceled" })], true),
+    ).toEqual({
+      kind: "restricted",
+      reason: "owner_no_unit",
+    });
+  });
+  it("dono em empresa encerrada sem unidade e sem outro vínculo é recusado", () => {
+    expect(classifyPanelEntry([vinculo({ ...semUnidade, accountStatus: "closed" })], true)).toEqual(
+      {
+        kind: "refused",
+        reason: "no_access",
+      },
+    );
+  });
+  it("linha 3: lista vazia sem vínculo ativo entra restrito", () => {
+    expect(classifyPanelEntry([], false)).toEqual({ kind: "restricted", reason: "no_membership" });
+  });
+  it("lista vazia com vínculo ativo de lançador é recusada", () => {
+    expect(classifyPanelEntry([], true)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+  it("linha 4: gerente e contador sem unidade devem falar com o dono", () => {
+    for (const role of ["manager", "accountant"] as const) {
+      expect(classifyPanelEntry([vinculo({ role, ...semUnidade })], true)).toEqual({
+        kind: "refused",
+        reason: "ask_owner",
+      });
+    }
+  });
+  it("linha 5: contador em empresa cancelada sem unidade é recusado", () => {
+    const m = vinculo({ role: "accountant", accountStatus: "canceled", ...semUnidade });
+    expect(classifyPanelEntry([m], true)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+  it("linha 5: lançador sem painel é recusado", () => {
+    const m = vinculo({ role: "staff", panelAccess: false, ...semUnidade });
+    expect(classifyPanelEntry([m], true)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+  it("dono sem unidade em A e gerente sem unidade em B entra restrito (ordem)", () => {
+    const a = vinculo({ membershipId: "a", ...semUnidade });
+    const b = vinculo({ membershipId: "b", tenantId: T2, role: "manager", ...semUnidade });
+    expect(classifyPanelEntry([b, a], true)).toEqual({
+      kind: "restricted",
+      reason: "owner_no_unit",
+    });
+  });
+  it("situação desconhecida conta como não ativa e não quebra", () => {
+    const m = vinculo({ accountStatus: "zzz" as never, ...semUnidade });
+    expect(classifyPanelEntry([m], true)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+
+  const cinco: PanelEntry[] = [
+    { kind: "full" },
+    { kind: "restricted", reason: "owner_no_unit" },
+    { kind: "restricted", reason: "no_membership" },
+    { kind: "refused", reason: "ask_owner" },
+    { kind: "refused", reason: "no_access" },
+  ];
+  it("canHoldSession vale só para completo e restrito", () => {
+    expect(cinco.map(canHoldSession)).toEqual([true, true, true, false, false]);
+  });
+  it("receivesLoginCode vale para sessão possível e ask_owner", () => {
+    expect(cinco.map(receivesLoginCode)).toEqual([true, true, true, true, false]);
   });
 });

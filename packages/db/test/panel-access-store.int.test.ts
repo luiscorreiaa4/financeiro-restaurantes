@@ -2,7 +2,11 @@ import { type PanelMembership, resolvePanelContext } from "@app/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthStore } from "../src/auth-store";
 import { createDatabase, createPool, withTenant } from "../src/client";
-import { createPanelAccessStore, createTenantUnitsReader } from "../src/panel-access-store";
+import {
+  createPanelAccessStore,
+  createTenantUnitsReader,
+  hasAnyActiveMembership,
+} from "../src/panel-access-store";
 import { uuidv7 } from "../src/uuid";
 import { startTestDatabase, type TestDatabase } from "./database";
 import { createTenant, type TenantFixture } from "./fixtures";
@@ -325,14 +329,110 @@ describe("hasActiveMembership (DD-31)", () => {
         status: p.status ?? "active",
         unitIds: p.allUnits || p.withUnits === false ? [] : [u],
       });
-      const expected = resolvePanelContext(await panelStore.listPanelMemberships(user), null).ok;
+      const expected = (await authStore.panelEntry(user)).kind === "full";
       expect(await authStore.hasActiveMembership(user), JSON.stringify(p)).toBe(expected);
+      // A entrada completa também concorda com a regra pura do painel.
+      expect(resolvePanelContext(await panelStore.listPanelMemberships(user), null).ok).toBe(
+        expected,
+      );
       if (expected) allowed++;
       else denied++;
     }
     // O cenário precisa exercitar os dois lados.
     expect(allowed).toBeGreaterThan(0);
     expect(denied).toBeGreaterThan(0);
+  });
+});
+
+describe("panelEntry (DD-33, A4)", () => {
+  it("dono sem unidade ativa: restrito owner_no_unit", async () => {
+    const user = await newUser();
+    const t = await newTenant();
+    await newMembership(t, user, { role: "owner", allUnits: true });
+    expect(await authStore.panelEntry(user)).toEqual({
+      kind: "restricted",
+      reason: "owner_no_unit",
+    });
+    expect(await authStore.hasActiveMembership(user)).toBe(false);
+  });
+
+  it("dono com a empresa A sem unidade e a B normal: full", async () => {
+    const user = await newUser();
+    const ta = await newTenant();
+    const tb = await newTenant();
+    await newUnit(tb, "Loja");
+    await newMembership(ta, user, { role: "owner", allUnits: true });
+    await newMembership(tb, user, { role: "owner", allUnits: true });
+    expect(await authStore.panelEntry(user)).toEqual({ kind: "full" });
+  });
+
+  it("só vínculo desativado: restrito no_membership", async () => {
+    const user = await newUser();
+    const t = await newTenant();
+    await newUnit(t, "Loja");
+    await newMembership(t, user, { role: "owner", allUnits: true, deactivated: true });
+    expect(await authStore.panelEntry(user)).toEqual({
+      kind: "restricted",
+      reason: "no_membership",
+    });
+  });
+
+  it("só vínculo invited: restrito no_membership", async () => {
+    const user = await newUser();
+    const t = await newTenant();
+    await newUnit(t, "Loja");
+    await newMembership(t, user, { role: "owner", allUnits: true, status: "invited" });
+    expect(await authStore.panelEntry(user)).toEqual({
+      kind: "restricted",
+      reason: "no_membership",
+    });
+  });
+
+  it("usuário sem nenhum vínculo: restrito no_membership", async () => {
+    expect(await authStore.panelEntry(await newUser())).toEqual({
+      kind: "restricted",
+      reason: "no_membership",
+    });
+  });
+
+  it("gerente sem unidade ativa: recusado ask_owner", async () => {
+    const user = await newUser();
+    const t = await newTenant();
+    const inactive = await newUnit(t, "Fechada", "inactive");
+    await newMembership(t, user, { role: "manager", unitIds: [inactive] });
+    expect(await authStore.panelEntry(user)).toEqual({ kind: "refused", reason: "ask_owner" });
+  });
+
+  it("lançador ativo sem painel: recusado no_access", async () => {
+    const user = await newUser();
+    const t = await newTenant();
+    const u = await newUnit(t, "Loja");
+    await newMembership(t, user, { role: "staff", panelAccess: false, unitIds: [u] });
+    expect(await authStore.panelEntry(user)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+
+  it("dono de empresa closed: recusado no_access", async () => {
+    const user = await newUser();
+    const t = await newTenant("closed");
+    await newUnit(t, "Loja");
+    await newMembership(t, user, { role: "owner", allUnits: true });
+    expect(await authStore.panelEntry(user)).toEqual({ kind: "refused", reason: "no_access" });
+  });
+
+  it("hasAnyActiveMembership lê só vínculos ativos e não desativados", async () => {
+    const t = await newTenant();
+    const none = await newUser();
+    const active = await newUser();
+    const off = await newUser();
+    const inv = await newUser();
+    await newMembership(t, active, { role: "staff" });
+    await newMembership(t, off, { role: "staff", deactivated: true });
+    await newMembership(t, inv, { role: "staff", status: "invited" });
+    const d = createDatabase(authPool);
+    expect(await hasAnyActiveMembership(d, none)).toBe(false);
+    expect(await hasAnyActiveMembership(d, active)).toBe(true);
+    expect(await hasAnyActiveMembership(d, off)).toBe(false);
+    expect(await hasAnyActiveMembership(d, inv)).toBe(false);
   });
 });
 

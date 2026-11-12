@@ -6,7 +6,7 @@ import {
   can,
   type Role,
 } from "../permissions/permissions";
-import type { AccountStatus } from "../signup/signup-defaults";
+import { ACCOUNT_STATUSES, type AccountStatus } from "../signup/signup-defaults";
 
 /** Vínculo do usuário com uma empresa, já com as unidades acessíveis e ativas (Tarefa 3). */
 export interface PanelMembership {
@@ -170,6 +170,51 @@ export function resolvePanelContext(
     source: "fallback",
     companies,
   };
+}
+
+export type RestrictedReason = "owner_no_unit" | "no_membership";
+export type PanelEntry =
+  | { kind: "full" }
+  | { kind: "restricted"; reason: RestrictedReason }
+  | { kind: "refused"; reason: "ask_owner" | "no_access" };
+
+function hasKnownStatus(m: PanelMembership): boolean {
+  return (ACCOUNT_STATUSES as readonly string[]).includes(m.accountStatus);
+}
+
+/**
+ * Entrada no painel (DD-32, DD-33, A4). Única fonte da regra. `memberships`: os de
+ * `listPanelMemberships`. `hasAnyActiveMembership`: qualquer papel. Situação desconhecida
+ * conta como não ativa.
+ */
+export function classifyPanelEntry(
+  memberships: readonly PanelMembership[],
+  hasAnyActiveMembership: boolean,
+): PanelEntry {
+  const known = memberships.filter(hasKnownStatus);
+  if (resolvePanelContext(known, null).ok) return { kind: "full" };
+  if (
+    known.some((m) => m.role === "owner" && m.accountStatus !== "closed" && m.unitIds.length === 0)
+  ) {
+    return { kind: "restricted", reason: "owner_no_unit" };
+  }
+  if (!hasAnyActiveMembership) return { kind: "restricted", reason: "no_membership" };
+  if (
+    known.some(
+      (m) => accountAllows(m.accountStatus, m.role).read && can(panelActor(m), "panel:access"),
+    )
+  ) {
+    return { kind: "refused", reason: "ask_owner" };
+  }
+  return { kind: "refused", reason: "no_access" };
+}
+
+export function canHoldSession(e: PanelEntry): boolean {
+  return e.kind === "full" || e.kind === "restricted";
+}
+
+export function receivesLoginCode(e: PanelEntry): boolean {
+  return canHoldSession(e) || (e.kind === "refused" && e.reason === "ask_owner");
 }
 
 /** Valida uma escolha explícita (troca de empresa/unidade). `null` se inválida. */

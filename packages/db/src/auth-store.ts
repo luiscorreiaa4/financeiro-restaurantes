@@ -1,8 +1,8 @@
-import { resolvePanelContext } from "@app/core";
+import { classifyPanelEntry, type PanelEntry, resolvePanelContext } from "@app/core";
 import { and, count, desc, eq, gt, gte, like, ne, sql } from "drizzle-orm";
 import { type AUTH_EVENTS, accounts, authAudit, sessions, users, verifications } from "../schema";
 import type { Database, Transaction } from "./client";
-import { loadPanelMemberships } from "./panel-access-store";
+import { hasAnyActiveMembership, loadPanelMemberships } from "./panel-access-store";
 import { uuidv7 } from "./uuid";
 
 export type AuthEvent = (typeof AUTH_EVENTS)[number];
@@ -35,6 +35,8 @@ export interface AuthUserState {
 export interface AuthStore {
   /** Existe vínculo que serve ao painel: ativo, com painel, empresa legível e unidade ativa (RF02.R1, DD-31). */
   hasActiveMembership(userId: string): Promise<boolean>;
+  /** Entrada no painel: `full`, `restricted` ou `refused` (DD-33, A4). */
+  panelEntry(userId: string): Promise<PanelEntry>;
   /** `email` já normalizado (minúsculas, sem espaços nas pontas). */
   findUserByEmail(email: string): Promise<AuthUserState | null>;
   /** Usuário pelo id (link de recuperação, RF03); `email` como está no cadastro (minúsculas; null em quem não tem e-mail). */
@@ -123,10 +125,19 @@ export function createAuthStore(
   db: Database,
   clock: { now(): Date } = { now: () => new Date() },
 ): AuthStore {
+  async function panelEntry(userId: string): Promise<PanelEntry> {
+    const list = await loadPanelMemberships(db, userId);
+    // Se algum vínculo serve ao painel, é `full` e a segunda consulta não é necessária.
+    const any = resolvePanelContext(list, null).ok || (await hasAnyActiveMembership(db, userId));
+    return classifyPanelEntry(list, any);
+  }
+
   return {
+    panelEntry,
+
     async hasActiveMembership(userId) {
-      // Mesma regra do painel (DD-31): o login só abre para quem `resolvePanelContext` aceita.
-      return resolvePanelContext(await loadPanelMemberships(db, userId), null).ok;
+      // Mesma regra do painel (DD-31): só `full` abre sessão completa.
+      return (await panelEntry(userId)).kind === "full";
     },
 
     async findUserByEmail(email) {

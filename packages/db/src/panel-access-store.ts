@@ -98,6 +98,25 @@ export async function loadPanelMemberships(
   });
 }
 
+/**
+ * Existe algum vínculo ativo do usuário, de qualquer papel (`status = 'active'` e sem
+ * `deactivated_at`). Lê só `memberships`, pelo `app_auth` (DD-33, A4 ordem 3).
+ */
+export async function hasAnyActiveMembership(db: Database, userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: memberships.id })
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.userId, userId),
+        eq(memberships.status, "active"),
+        isNull(memberships.deactivatedAt),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export function createPanelAccessStore(db: Database): PanelAccessStore {
   return {
     listPanelMemberships: (userId) => loadPanelMemberships(db, userId),
