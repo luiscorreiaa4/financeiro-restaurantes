@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 10/11/2026 (F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 11/11/2026 (F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -25,6 +25,7 @@ Legenda de confiança, usada em todo o documento:
 | F1b Autocadastro do dono | **Feita (09/11/2026)** | E-mail primeiro (código de 6 dígitos e comprovante de uso único), formulário único, gravação atômica pelo `app_auth` só com INSERT (migration 0014, `signup_verifications`), sessão aberta pela API, `/bem-vindo` com link e QR do WhatsApp, "Criar outra empresa" (`/nova-empresa`) para quem já tem login, termos e privacidade provisórios. DD-25. Fica para depois: código de indicação (F10), consulta pública de CNPJ (sem etapa) e texto final dos termos. Desenho em `docs/superpowers/specs/2026-11-09-f1b-autocadastro-design.md` |
 | F1c Recuperação de senha, perfil e lista de sessões | **Feita (09/11/2026)** | Recuperação de senha por link temporário (DD-27), "Meu perfil" com nome, senha e sessões (encerrar as outras), rotas próprias `/api/recovery/reset` e `/api/profile/*`, lista de rotas permitidas em `/api/auth/*`. DD-26, requisitos 1.5. Desenho: `docs/superpowers/specs/2026-11-09-f1c-recuperacao-perfil-sessoes-design.md`; plano: `docs/superpowers/plans/2026-11-09-f1c-recuperacao-perfil-sessoes.md` Pendências abertas (auditoria após a troca e login por código) em [`andamento.md`](andamento.md). |
 | F2 Conta, unidade e permissões | **Feita (10/11/2026)** | Cookie `fr_ctx` revalidado pela API a cada requisição (DD-31), seletor de empresa e unidade, menu e rotas por `can()`, faixas de RF37, `SessionKeeper` (renova a sessão pelo navegador), 401 leva ao login e 409 recarrega; migration 0017; perfil lido no servidor. Desenho: `docs/superpowers/specs/2026-11-10-f2-conta-unidade-permissoes-design.md`; plano: `docs/superpowers/plans/2026-11-10-f2-conta-unidade-permissoes.md` |
+| pós-F2 (não é etapa Fn) | **Feito (11/11/2026)** | Entrada no painel com três resultados, hook global de `Origin`, telas de acesso com sessão aberta, `pnpm lint` verde (DD-33). Ver `docs/superpowers/plans/2026-11-11-pos-f2.md`. |
 | F3 Lançamentos | A fazer | |
 | F4 Dashboard | A fazer | |
 | F5 Exportação Excel/CSV | A fazer | Escolher a biblioteca de planilha (D-F7) |
