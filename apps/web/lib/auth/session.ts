@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { type Me, meSchema } from "@/lib/api/me-contract";
+import { type FullMe, type Me, meSchema, type RestrictedMe } from "@/lib/api/me-contract";
 import { parseWebEnv } from "@/lib/env";
 
 type SessionDeps = {
@@ -35,8 +35,22 @@ export async function getSession(
 
 export async function requireSessionOrRedirect(deps: SessionDeps): Promise<Me> {
   const session = await getSession(deps);
-  if (!session) deps.redirect("/login");
-  return session as Me;
+  if (!session) return deps.redirect("/login");
+  return session;
+}
+
+/** Páginas do grupo `(app)`: só acesso completo. Restrito vai a `/acesso-restrito`. */
+export async function requireFullSessionOrRedirect(deps: SessionDeps): Promise<FullMe> {
+  const session = await requireSessionOrRedirect(deps);
+  if (session.access === "restricted") return deps.redirect("/acesso-restrito");
+  return session;
+}
+
+/** Área restrita: só acesso restrito. Completo vai a `/`. */
+export async function requireRestrictedSessionOrRedirect(deps: SessionDeps): Promise<RestrictedMe> {
+  const session = await requireSessionOrRedirect(deps);
+  if (session.access === "full") return deps.redirect("/");
+  return session;
 }
 
 export function apiUrl(): string {
@@ -53,8 +67,18 @@ export const currentSession = cache(async (): Promise<Me | null> => {
 });
 
 // `cache()` do React vale por requisição: layout e páginas dividem uma só leitura de /api/me.
-export const requireCurrentSession = cache(async (): Promise<Me> => {
+/** null → /login; restrito → /acesso-restrito. */
+export const requireCurrentSession = cache(async (): Promise<FullMe> => {
   const session = await currentSession();
   if (!session) redirect("/login");
+  if (session.access === "restricted") redirect("/acesso-restrito");
+  return session;
+});
+
+/** null → /login; completo → /. */
+export const requireRestrictedSession = cache(async (): Promise<RestrictedMe> => {
+  const session = await currentSession();
+  if (!session) redirect("/login");
+  if (session.access === "full") redirect("/");
   return session;
 });

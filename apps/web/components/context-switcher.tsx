@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { browserApi } from "@/lib/api/browser-client";
 import type { ApiClient } from "@/lib/api/client";
-import { contextHeaderOf, type Me } from "@/lib/api/me-contract";
+import { contextHeaderOf, type FullMe } from "@/lib/api/me-contract";
 import { tenantKey } from "@/lib/query/keys";
 
 /** Acima disso o seletor de empresa ganha um campo de busca por nome. */
@@ -35,7 +35,7 @@ export function ContextSwitcher({
   api,
   assign,
 }: {
-  me: Me;
+  me: FullMe;
   api?: ApiClient;
   assign?: (url: string) => void;
 }) {

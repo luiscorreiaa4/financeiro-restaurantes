@@ -67,6 +67,42 @@ describe("nova senha pelo link (RF03, DD-27)", () => {
     expect(client.resetPassword).toHaveBeenCalledWith({ token: "abc123", password: "nova12345" });
   });
 
+  it("com sessão aberta, ao concluir encerra a sessão do aparelho antes de ir ao login (RF02.R9)", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    const client = fakeClient({
+      resetPassword: vi.fn(async () => {
+        order.push("reset");
+      }),
+      signOut: vi.fn(async () => {
+        order.push("signOut");
+      }),
+    });
+    const onDone = vi.fn(() => order.push("done"));
+    render(<ResetPasswordForm client={client} onDone={onDone} />);
+
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Alterar senha" }));
+
+    expect(order).toEqual(["reset", "signOut", "done"]);
+  });
+
+  it("se o sign-out falhar, ainda vai ao login", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient({
+      signOut: vi.fn(async () => {
+        throw apiError(500, "internal", "erro");
+      }),
+    });
+    const onDone = vi.fn();
+    render(<ResetPasswordForm client={client} onDone={onDone} />);
+
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Alterar senha" }));
+
+    expect(onDone).toHaveBeenCalled();
+  });
+
   it("conclui: chama resetPassword com o token e a senha, avisa no login e vai para ele", async () => {
     const user = userEvent.setup();
     const client = fakeClient();

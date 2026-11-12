@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Me } from "@/lib/api/me-contract";
+import type { FullMe } from "@/lib/api/me-contract";
 
 /**
  * Mostra a página só a quem tem a ação (`allowedActions` do /api/me). É conforto: a autorização
@@ -10,7 +10,7 @@ export function RequireAction({
   action,
   children,
 }: {
-  me: Me;
+  me: FullMe;
   action: string;
   children: ReactNode;
 }) {

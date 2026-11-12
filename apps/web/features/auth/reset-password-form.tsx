@@ -48,7 +48,13 @@ export function ResetPasswordForm({ client, onDone }: Props) {
     setReady(true);
   }, []);
 
-  function finish() {
+  async function finish() {
+    // RF02.R9: com sessão aberta no aparelho, a redefinição a encerra. Erro do sign-out não impede o login.
+    try {
+      await auth.signOut();
+    } catch {
+      // segue para o login mesmo assim.
+    }
     try {
       window.sessionStorage.setItem(PREFILL_KEY, JSON.stringify({ notice: DONE_NOTICE }));
     } catch {
@@ -76,7 +82,7 @@ export function ResetPasswordForm({ client, onDone }: Props) {
     } finally {
       setPending(false);
     }
-    finish();
+    await finish();
   }
 
   if (!ready) {

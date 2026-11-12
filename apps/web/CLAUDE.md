@@ -26,3 +26,19 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - Selecione por papel e texto acessível, não por classe CSS. Toda tela nova precisa de teste no celular (sem rolagem horizontal).
 - Se o `typecheck` acusar `Cannot find module '../../app/...'` em `.next/types`, apague `apps/web/.next` (saída de build ignorada pelo git).
 - Biome precisa de `css.parser.tailwindDirectives` (já ligado) para ler o `globals.css`.
+
+## Rotas por estado de sessão
+
+A API (`/api/me`) classifica a sessão; o `proxy.ts` só olha se há cookie. O E2E `e2e/routes.spec.ts` prova cada célula.
+
+| Rota | Sem sessão | Sessão completa | Sessão restrita | Cookie inválido ou vencido |
+|---|---|---|---|---|
+| Grupo `(app)` | `/login?next=` | abre | `/acesso-restrito` | `/login` |
+| `/acesso-restrito*` | `/login?next=` | `/` | abre | `/login` |
+| `/login`, `/cadastro`, `/recuperar-senha` | abre | `safeNext(next)`, padrão `/` | `/acesso-restrito` (via `/`) | abre, sem laço |
+| `/redefinir-senha` | abre | abre; ao concluir, sai e vai a `/login` | idem | abre |
+| `/termos`, `/privacidade` | abre | abre | abre | abre |
+
+- Página nova em `app/(app)/` entra em `APP_ROUTES` (`e2e/routes.ts`). `lib/routes-list.test.ts` compara a lista com o disco e falha se faltar.
+- Escrita feita pelo servidor do Next, ou webhook novo, exige entrada explícita em `ORIGIN_EXEMPT_PATHS` da API (`apps/api/src/http/origin-guard.ts`; ver `.claude/rules/rota-de-tenant.md`, regra 6). Sem isso a API recusa por `origin_forbidden`.
+

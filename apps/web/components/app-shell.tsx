@@ -10,12 +10,20 @@ import { SessionKeeper } from "@/components/session-keeper";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
-import type { Me } from "@/lib/api/me-contract";
+import type { FullMe } from "@/lib/api/me-contract";
 import { visibleNavItems } from "@/lib/navigation";
 
 const ACCESS_REMOVED_PARAM = "aviso=acesso-removido";
 
-function NavLinks({ label, me, onNavigate }: { label: string; me: Me; onNavigate?: () => void }) {
+function NavLinks({
+  label,
+  me,
+  onNavigate,
+}: {
+  label: string;
+  me: FullMe;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   return (
     <nav aria-label={label} className="flex flex-col gap-1">
@@ -58,7 +66,7 @@ function useAccessRemovedNotice(): boolean {
  * Casca do painel. A página só aparece quando o contexto veio do cookie: com outra origem, o
  * `SessionKeeper` grava o cookie e recarrega, e nenhuma consulta de tenant sai antes disso.
  */
-export function AppShell({ children, me }: { children: ReactNode; me: Me }) {
+export function AppShell({ children, me }: { children: ReactNode; me: FullMe }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const accessRemoved = useAccessRemovedNotice();
   const ready = me.contextSource === "cookie";
@@ -97,7 +105,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: Me }) {
           <UserMenu name={me.name} className="flex items-center gap-2" />
         </header>
 
-        <AccountBanner status={me.context.accountStatus} role={me.context.role} />
+        <AccountBanner status={me.context.accountStatus} userRole={me.context.role} />
         {accessRemoved && (
           <p role="status" className="border-b bg-muted px-4 py-2 text-sm">
             Você não tem mais acesso à empresa ou unidade anterior.

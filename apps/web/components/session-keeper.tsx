@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { z } from "zod";
 import { browserApi } from "@/lib/api/browser-client";
 import type { ApiClient } from "@/lib/api/client";
-import { type Me, meSchema } from "@/lib/api/me-contract";
+import { type FullMe, meSchema } from "@/lib/api/me-contract";
 
 type Nav = { reload(): void; assign(url: string): void; pathname: string };
 
@@ -25,7 +25,7 @@ function windowNav(): Nav {
  * - ao voltar pelo bfcache (`pageshow` persisted), recarrega para não mostrar a empresa anterior.
  * Não renderiza nada.
  */
-export function SessionKeeper({ me, api, nav }: { me: Me; api?: ApiClient; nav?: Nav }) {
+export function SessionKeeper({ me, api, nav }: { me: FullMe; api?: ApiClient; nav?: Nav }) {
   const started = useRef(false);
 
   useEffect(() => {

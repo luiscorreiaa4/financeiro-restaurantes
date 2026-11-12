@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ApiClient } from "@/lib/api/client";
-import type { Me } from "@/lib/api/me-contract";
+import type { FullMe } from "@/lib/api/me-contract";
 import { meFixture } from "@/lib/api/me-fixture";
 import { ContextSwitcher } from "./context-switcher";
 
@@ -22,7 +22,7 @@ function fakeApi(units: { id: string; name: string }[]) {
   return { api, post };
 }
 
-function renderSwitcher(me: Me, units: { id: string; name: string }[]) {
+function renderSwitcher(me: FullMe, units: { id: string; name: string }[]) {
   const { api, post } = fakeApi(units);
   const assign = vi.fn();
   render(

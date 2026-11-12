@@ -12,6 +12,9 @@ import { type AuthClient, authErrorCode, authErrorMessage, createAuthClient } fr
 export const RESEND_SECONDS = 60;
 
 const ERROR_ID = "login-error";
+/** Orientação de `NO_ACTIVE_UNIT` (RF02.CA10): texto fixo do painel, não o da API. */
+const NO_ACTIVE_UNIT_MESSAGE =
+  "Sua empresa está sem unidade ativa. Peça ao dono da empresa para reativar uma unidade.";
 const GENERIC_SENT = "Se o e-mail estiver cadastrado, você receberá o código.";
 
 type Mode = "code" | "password";
@@ -113,8 +116,8 @@ export function LoginForm({ client, onSignedIn, next = "/" }: Props) {
       await action();
       return true;
     } catch (cause) {
-      setError(authErrorMessage(cause));
       const code = authErrorCode(cause);
+      setError(code === "NO_ACTIVE_UNIT" ? NO_ACTIVE_UNIT_MESSAGE : authErrorMessage(cause));
       if (code === "OTP_EXPIRED" || code === "TOO_MANY_ATTEMPTS") {
         // Este código não serve mais: pede um novo.
         setCodeSent(false);

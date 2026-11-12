@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,12 +85,15 @@ function ProfileContent({ profile, api }: { profile: Profile; api: ProfileClient
 
 function NameSection({ profile, api }: { profile: Profile; api: ProfileClient }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [name, setName] = useState(profile.name);
   const [done, setDone] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: (value: string) => api.updateName(value),
     onSuccess: async () => {
       setDone("Nome salvo.");
+      // O nome do menu vem do layout do servidor: refresh o relê sem recarregar a página.
+      router.refresh();
       await queryClient.invalidateQueries({ queryKey: PROFILE_KEY });
     },
   });

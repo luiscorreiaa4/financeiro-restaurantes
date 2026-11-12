@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Me } from "@/lib/api/me-contract";
+import type { FullMe } from "@/lib/api/me-contract";
 import { meFixture } from "@/lib/api/me-fixture";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { AppShell } from "./app-shell";
@@ -25,7 +25,7 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
-function renderShell(me: Me, children: ReactNode = <p>conteúdo da página</p>) {
+function renderShell(me: FullMe, children: ReactNode = <p>conteúdo da página</p>) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <AppShell me={me}>{children}</AppShell>

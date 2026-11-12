@@ -1,6 +1,6 @@
-import type { Me } from "@/lib/api/me-contract";
+import type { FullMe } from "@/lib/api/me-contract";
 
-type Context = Me["context"];
+type Context = FullMe["context"];
 
 /**
  * Faixa da situação da conta (RF37.R3, R6). Só informa: a API é quem bloqueia a escrita.
@@ -8,10 +8,10 @@ type Context = Me["context"];
  */
 export function AccountBanner({
   status,
-  role,
+  userRole,
 }: {
   status: Context["accountStatus"];
-  role: Context["role"];
+  userRole: Context["role"];
 }) {
   if (status === "read_only") {
     return (
@@ -20,7 +20,7 @@ export function AccountBanner({
       </p>
     );
   }
-  if (status === "canceled" && role === "owner") {
+  if (status === "canceled" && userRole === "owner") {
     return (
       <p role="status" className="border-b bg-muted px-4 py-2 text-sm">
         Conta cancelada. Você ainda pode consultar e exportar os dados por 90 dias.

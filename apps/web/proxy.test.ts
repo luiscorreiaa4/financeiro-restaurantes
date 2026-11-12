@@ -18,6 +18,13 @@ describe("proxy de acesso", () => {
     expect(location.pathname + location.search).toBe("/login?next=%2Flancamentos");
   });
 
+  it("/acesso-restrito sem cookie vai para /login (a lista pública é explícita)", () => {
+    const response = proxy(request("/acesso-restrito"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname + location.search).toBe("/login?next=%2Facesso-restrito");
+  });
+
   it("com cookie (nome de desenvolvimento ou de produção): segue", () => {
     for (const cookie of [
       "better-auth.session_token=abc",

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { RedirectIfSignedIn } from "@/components/redirect-if-signed-in";
 import { LoginForm } from "@/features/auth/login-form";
 import { safeNext } from "@/lib/auth/safe-next";
 
@@ -6,7 +7,11 @@ export const metadata = { title: "Entrar | Finanças para restaurantes" };
 
 async function LoginContent({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  return <LoginForm next={safeNext(next)} />;
+  return (
+    <RedirectIfSignedIn next={next}>
+      <LoginForm next={safeNext(next)} />
+    </RedirectIfSignedIn>
+  );
 }
 
 export default function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
