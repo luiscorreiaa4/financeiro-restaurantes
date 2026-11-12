@@ -119,6 +119,8 @@ Notas:
 
 - Empresa e unidade ativas do painel vêm do cookie `fr_ctx` (DD-31), revalidado a cada requisição contra `memberships` e `tenants.status`.
 - `X-Context` diferente do contexto do cookie responde 409.
+- **Modo restrito (DD-33):** é um estado da sessão **sem `PanelContext`**, não um "contexto sem unidade" (isso ajusta o item 1 da DD-32). `servesPanel`, `PanelContext` e `fr_ctx` não mudam; como toda rota de tenant exige `PanelContext`, a sessão restrita é recusada por construção (RNF02.R8). Uma função pura do core classifica o usuário em `full`, `restricted` ou `refused`; só `GET /api/me`, `POST /api/companies` e `sign-out` aceitam a sessão restrita.
+- Escritas da API: hook global que confere `Origin` (RNF01.R10, DD-33), com o webhook do WhatsApp como única exceção.
 - `app_auth` lê `tenants(id, name, status)`, `units(id, tenant_id, status)` e `membership_units` (migration 0017); o painel lê dados de tenant pelo papel `app` com `withTenant`.
 
 ## Divergências entre o modelo de dados atual e os requisitos
