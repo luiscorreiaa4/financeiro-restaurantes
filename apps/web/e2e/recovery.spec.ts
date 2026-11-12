@@ -1,4 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // Token que a API falsa (e2e/fake-api.mjs) aceita. Na vida real ele vem no link do e-mail.
 const VALID_LINK = "/redefinir-senha#token=link-valido-123";

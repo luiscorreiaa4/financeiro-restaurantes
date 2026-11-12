@@ -1,4 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // Valores fixos da API falsa (e2e/fake-api.mjs).
 const CODE = "123456";
@@ -41,8 +47,15 @@ test("pede o código, digita e entra; 'Sair' volta ao /login", async ({ page }) 
   await expect(page).toHaveURL(/\/lancamentos$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-  await page.getByRole("button", { name: "Sair" }).filter({ visible: true }).click();
-  await expect(page).toHaveURL(/\/login$/);
+  // Na primeira visita a casca grava o contexto e recarrega: só clique em "Sair" depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
+  // Um clique antes da hidratação não faz nada: repete o clique até a saída acontecer.
+  await expect(async () => {
+    if (!/\/login$/.test(page.url())) {
+      await page.getByRole("button", { name: "Sair" }).filter({ visible: true }).click();
+    }
+    await expect(page).toHaveURL(/\/login$/, { timeout: 2_000 });
+  }).toPass();
 
   await page.goto("/lancamentos");
   await expect(page).toHaveURL(/\/login\?next=/);

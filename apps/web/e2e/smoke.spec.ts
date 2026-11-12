@@ -1,4 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // As páginas do painel exigem sessão: a API falsa aceita este cookie fixo.
 test.beforeEach(async ({ context, baseURL }) => {
@@ -27,7 +33,13 @@ test("a casca navega pelo menu e marca a página atual", async ({ page, isMobile
   await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   if (isMobile) {
-    await page.getByRole("button", { name: "Abrir menu" }).click();
+    // Um clique antes da hidratação não abre nada: repete até o menu aparecer, sem fechar o aberto.
+    const dialog = page.getByRole("dialog");
+    await expect(async () => {
+      if (!(await dialog.isVisible()))
+        await page.getByRole("button", { name: "Abrir menu" }).click();
+      await expect(dialog).toBeVisible({ timeout: 2_000 });
+    }).toPass();
     await page.getByRole("dialog").getByRole("link", { name: "Dashboard" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
   } else {

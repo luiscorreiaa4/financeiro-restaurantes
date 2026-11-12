@@ -1,4 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // Personas da API falsa (e2e/fake-api.mjs), escolhidas pelo valor do cookie de sessão.
 const T1 = "0190a000-0000-7000-8000-000000000001";
@@ -54,11 +60,12 @@ test("dono com 2 empresas troca e a tela mostra só a nova; voltar não mostra a
   // Sem cookie de contexto a casca grava o fallback e recarrega.
   await expect(visible(page, "Empresa")).toHaveValue(T1);
 
-  await visible(page, "Empresa").selectOption(T2);
-
+  // Antes da hidratação a troca não dispara o handler: repete a seleção até a tela navegar.
+  await expect(async () => {
+    if (!/\/$/.test(page.url())) await visible(page, "Empresa").selectOption(T2);
+    await expect(page).toHaveURL(/\/$/, { timeout: 3_000 });
+  }).toPass({ timeout: 25_000 });
   await expect(visible(page, "Empresa")).toHaveValue(T2);
-  // O primeiro acesso a "/" compila no servidor de desenvolvimento e pode demorar.
-  await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
   await page.goBack();
   await expect(page).toHaveURL(/\/lancamentos$/);
   await expect(visible(page, "Empresa")).toHaveValue(T2);
@@ -145,7 +152,7 @@ test("conta em somente leitura mostra a faixa", async ({ page }) => {
 });
 
 test("401 numa chamada do painel leva a /login?next=", async ({ page }) => {
-  await signIn(page, "expira");
+  await signIn(page, `expira-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   await page.goto("/lancamentos");
 
   await expect(page).toHaveURL(/\/login\?next=%2Flancamentos$/);

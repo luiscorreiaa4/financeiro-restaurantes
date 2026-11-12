@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // A API falsa (e2e/fake-api.mjs) guarda o perfil por valor de cookie: cada teste usa o seu.
 async function signIn(page: Page) {
@@ -55,6 +61,18 @@ test("troca o nome e vê o nome novo", async ({ page }) => {
 
   await page.reload();
   await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("Maria Souza");
+});
+
+test("o nome novo aparece no menu sem recarregar a página", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/perfil");
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("Dono Demo");
+
+  await page.getByLabel("Nome", { exact: true }).fill("Ana Lima");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Nome salvo.")).toBeVisible();
+
+  await expect(page.locator("span:visible", { hasText: /^Ana Lima$/ })).toBeVisible();
 });
 
 test("troca a senha pela senha atual", async ({ page }) => {

@@ -8,6 +8,8 @@ const SESSION_COOKIE = "better-auth.session_token";
 const SESSION_VALUE = "sessao-falsa";
 const FIXED_OTP = "123456";
 const FIXED_PASSWORD = "demo12345";
+// E-mail de gerente sem unidade ativa: o login recusa com NO_ACTIVE_UNIT depois da credencial certa.
+const NO_UNIT_EMAIL = "gerente-sem-unidade@exemplo.com";
 // Token do link de recuperação (RF03, DD-27): o único que a API falsa aceita; qualquer outro é inválido.
 const VALID_RESET_TOKEN = "link-valido-123";
 
@@ -29,8 +31,17 @@ function sessionValue(req) {
   return null;
 }
 
+// Sessão "expira": a API passa a negar tudo depois do primeiro 401 de /api/units (como a real, em que
+// o 401 vale para /api/me também; sem isso /login mandaria de volta para a página). Estado por cookie.
+const expiredSessions = new Set();
+
+function isExpiring(value) {
+  return value === `${SESSION_VALUE}-expira` || value?.startsWith(`${SESSION_VALUE}-expira-`);
+}
+
 function hasSession(req) {
-  return sessionValue(req) !== null;
+  const value = sessionValue(req);
+  return value !== null && !expiredSessions.has(value);
 }
 
 // Senhas aceitas no login por senha: a fixa e as definidas pela recuperação.
@@ -168,19 +179,74 @@ function resolveContext(req) {
   const companies = personaCompanies(req);
   const requested = parseCtx(cookieValue(req, CONTEXT_COOKIE));
   if (requested && choiceValid(companies, requested)) {
-    return { company: companies.find((c) => c.tenantId === requested.tenantId), unitId: requested.unitId, source: "cookie", companies };
+    return {
+      company: companies.find((c) => c.tenantId === requested.tenantId),
+      unitId: requested.unitId,
+      source: "cookie",
+      companies,
+    };
   }
   const kept = requested ? companies.find((c) => c.tenantId === requested.tenantId) : undefined;
   const company = kept ?? companies[0];
-  return { company, unitId: company.startUnitId, source: requested ? "invalid_cookie" : "fallback", companies };
+  return {
+    company,
+    unitId: company.startUnitId,
+    source: requested ? "invalid_cookie" : "fallback",
+    companies,
+  };
+}
+
+// Sessão restrita (pós-F2, A5): personas `restrito-dono` e `restrito-sem-vinculo`. Ao criar empresa
+// (`POST /api/companies`) a sessão passa a `full`, como na API real (a empresa nasce com unidade ativa).
+const RESTRICTED_REASONS = {
+  "restrito-dono": "owner_no_unit",
+  "restrito-sem-vinculo": "no_membership",
+};
+const promoted = new Set();
+// Persona `vira-restrito`: começa `full` e vira restrita (`owner_no_unit`) depois do primeiro 401 de
+// /api/units, simulando a classificação que muda no meio da sessão. Estado por valor completo do
+// cookie: spec que usa essa persona usa sufixo único.
+const turnedRestricted = new Set();
+
+function isTurning(value) {
+  return value?.startsWith(`${SESSION_VALUE}-vira-restrito-`) ?? false;
+}
+
+function restrictedReason(req) {
+  const value = sessionValue(req) ?? "";
+  if (promoted.has(value)) return null;
+  if (turnedRestricted.has(value)) return "owner_no_unit";
+  const name = value.startsWith(`${SESSION_VALUE}-`) ? value.slice(SESSION_VALUE.length + 1) : "";
+  // Nome exato ou com sufixo de isolamento (`restrito-dono-<id>`); o estado fica por valor completo.
+  for (const [persona, reason] of Object.entries(RESTRICTED_REASONS)) {
+    if (name === persona || name.startsWith(`${persona}-`)) return reason;
+  }
+  return null;
+}
+
+// Rotas de tenant e de perfil recusam a sessão restrita com 401 (RNF02).
+function hasFullSession(req) {
+  return hasSession(req) && restrictedReason(req) === null;
 }
 
 function meBody(req) {
+  const profile = profileOf(req);
+  const reason = restrictedReason(req);
+  if (reason) {
+    return {
+      access: "restricted",
+      reason,
+      userId: "u-1",
+      name: profile.name,
+      email: profile.email,
+    };
+  }
   const { company, unitId, source, companies } = resolveContext(req);
   return {
+    access: "full",
     userId: "u-1",
-    name: "Dono Demo",
-    email: "dono@demo.dev",
+    name: profile.name,
+    email: profile.email,
     companies: companies.map((c) => ({
       tenantId: c.tenantId,
       name: c.name,
@@ -239,7 +305,7 @@ createServer(async (req, res) => {
 
   // Contexto do painel (F2): o cookie fr_ctx só é gravado aqui, e só se o par for válido.
   if (method === "POST" && url === "/api/context") {
-    if (!hasSession(req)) return send(res, 401, UNAUTHORIZED);
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
     const body = await readJson(req);
     const choice = { tenantId: body.tenantId, unitId: body.unitId };
     if (!choiceValid(personaCompanies(req), choice)) {
@@ -254,7 +320,9 @@ createServer(async (req, res) => {
   }
 
   if (method === "GET" && url === "/api/units") {
-    if (!hasSession(req) || sessionValue(req) === `${SESSION_VALUE}-expira`) {
+    if (isExpiring(sessionValue(req))) expiredSessions.add(sessionValue(req));
+    if (isTurning(sessionValue(req))) turnedRestricted.add(sessionValue(req));
+    if (!hasFullSession(req)) {
       return send(res, 401, UNAUTHORIZED);
     }
     const { company, unitId, source } = resolveContext(req);
@@ -271,6 +339,9 @@ createServer(async (req, res) => {
 
   if (method === "POST" && url === "/api/auth/sign-in/email-otp") {
     const body = await readJson(req);
+    if (body.otp === FIXED_OTP && body.email === NO_UNIT_EMAIL) {
+      return send(res, 403, { code: "NO_ACTIVE_UNIT" });
+    }
     return body.otp === FIXED_OTP
       ? send(res, 200, { token: "t", user: {} }, login)
       : send(res, 400, {
@@ -281,6 +352,10 @@ createServer(async (req, res) => {
 
   if (method === "POST" && url === "/api/auth/sign-in/email") {
     const body = await readJson(req);
+    // Gerente/contador sem unidade ativa: só depois da senha certa (RF02.R1, RF02.CA10).
+    if (acceptedPasswords.has(body.password) && body.email === NO_UNIT_EMAIL) {
+      return send(res, 403, { code: "NO_ACTIVE_UNIT" });
+    }
     return acceptedPasswords.has(body.password)
       ? send(res, 200, { token: "t", user: {} }, login)
       : send(res, 401, {
@@ -325,7 +400,7 @@ createServer(async (req, res) => {
 
   // Perfil (F1c, RF02.R8, CA09): espelha /api/profile/*, com estado por sessão.
   if (url?.startsWith("/api/profile")) {
-    if (!hasSession(req)) return send(res, 401, UNAUTHORIZED);
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
     const profile = profileOf(req);
 
     if (method === "GET" && url === "/api/profile") {
@@ -407,6 +482,7 @@ createServer(async (req, res) => {
         fields: { "company.cnpj": "cnpj_invalid" },
       });
     }
+    if (url === "/api/companies") promoted.add(sessionValue(req));
     return send(res, 201, { tenantId: "t-novo" }, url === "/api/signup" ? login : {});
   }
 
