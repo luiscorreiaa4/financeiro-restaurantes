@@ -164,4 +164,17 @@ describe("seletor de empresa e unidade", () => {
       expect.anything(),
     );
   });
+  it("os seletores não deixam o navegador restaurar o valor antigo ao voltar no histórico (RF02.CA05)", async () => {
+    const me = meFixture({
+      companies: [company(T1, "Bistrô"), company(T2, "Pizzaria")],
+      context: { ...meFixture().context, tenantId: T1 },
+    });
+    renderSwitcher(me, [
+      { id: U1, name: "Matriz" },
+      { id: U2, name: "Filial" },
+    ]);
+
+    expect(screen.getByLabelText("Empresa")).toHaveAttribute("autocomplete", "off");
+    expect(await screen.findByLabelText("Unidade")).toHaveAttribute("autocomplete", "off");
+  });
 });
