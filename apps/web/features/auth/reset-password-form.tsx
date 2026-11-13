@@ -11,12 +11,30 @@ import { PREFILL_KEY } from "./login-form";
 const ERROR_ID = "reset-error";
 const INVALID_LINK = "Link inválido ou expirado. Peça um novo.";
 const DONE_NOTICE = "Senha alterada. Entre com a nova senha.";
+/** Tempo que a tela espera o encerramento da sessão do aparelho antes de desistir dele. */
+const SIGN_OUT_TIMEOUT_MS = 8_000;
 
 type Props = {
   client?: AuthClient;
   /** Chamado ao concluir. O padrão é ir para o login (página inteira). */
   onDone?: () => void;
+  signOutTimeoutMs?: number;
 };
+
+/** Encerra a sessão do aparelho; `false` se falhou ou não respondeu a tempo. */
+async function signOutWithin(auth: AuthClient, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), ms);
+  });
+  try {
+    return await Promise.race([auth.signOut().then(() => true), timeout]);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Lê `#token=...` da URL. O fragmento nunca é enviado ao servidor nem vai no `Referer`. */
 function readToken(): string | null {
@@ -26,7 +44,11 @@ function readToken(): string | null {
 }
 
 /** Nova senha pelo link do e-mail (RF03, DD-27). Abrir a página não gasta o link: só concluir. */
-export function ResetPasswordForm({ client, onDone }: Props) {
+export function ResetPasswordForm({
+  client,
+  onDone,
+  signOutTimeoutMs = SIGN_OUT_TIMEOUT_MS,
+}: Props) {
   const [auth] = useState<AuthClient>(() => client ?? createAuthClient());
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -35,6 +57,7 @@ export function ResetPasswordForm({ client, onDone }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkInvalid, setLinkInvalid] = useState(false);
+  const [doneHere, setDoneHere] = useState(false);
 
   useEffect(() => {
     // No StrictMode (next dev) o efeito roda duas vezes e a segunda já não acha o fragmento, que
@@ -49,11 +72,12 @@ export function ResetPasswordForm({ client, onDone }: Props) {
   }, []);
 
   async function finish() {
-    // RF02.R9: com sessão aberta no aparelho, a redefinição a encerra. Erro do sign-out não impede o login.
-    try {
-      await auth.signOut();
-    } catch {
-      // segue para o login mesmo assim.
+    // RF02.R9: com sessão aberta no aparelho, a redefinição a encerra. Se o sign-out falhar ou não
+    // responder, a sessão pode seguir aberta e o /login devolveria a pessoa ao painel sem mostrar o
+    // aviso: nesse caso a confirmação aparece aqui mesmo.
+    if (!(await signOutWithin(auth, signOutTimeoutMs))) {
+      setDoneHere(true);
+      return;
     }
     try {
       window.sessionStorage.setItem(PREFILL_KEY, JSON.stringify({ notice: DONE_NOTICE }));
@@ -78,10 +102,10 @@ export function ResetPasswordForm({ client, onDone }: Props) {
     } catch (cause) {
       setError(authErrorMessage(cause));
       if (authErrorCode(cause) === "INVALID_TOKEN") setLinkInvalid(true);
-      return;
-    } finally {
       setPending(false);
+      return;
     }
+    // O botão segue desativado até sair desta tela: a senha já foi trocada e o link, gasto.
     await finish();
   }
 
@@ -90,6 +114,19 @@ export function ResetPasswordForm({ client, onDone }: Props) {
       <p aria-busy="true" className="text-sm text-muted-foreground">
         Carregando…
       </p>
+    );
+  }
+
+  if (doneHere) {
+    return (
+      <div className="flex w-full max-w-sm flex-col gap-4">
+        <p role="status" className="text-sm">
+          {DONE_NOTICE}
+        </p>
+        <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+          Ir para o login
+        </Link>
+      </div>
     );
   }
 
