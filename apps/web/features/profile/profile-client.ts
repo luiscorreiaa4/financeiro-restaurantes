@@ -17,6 +17,12 @@ export const profileSchema = z.object({
 
 export type Profile = z.infer<typeof profileSchema>;
 
+/**
+ * Chave do perfil. Não usa `tenantKey`: o perfil é do usuário, não da empresa.
+ * Mora neste módulo (sem "use client") para a página do servidor e o ProfileView usarem a mesma constante.
+ */
+export const PROFILE_KEY = ["profile"] as const;
+
 export type ProfileClient = {
   get(): Promise<Profile>;
   updateName(name: string): Promise<void>;

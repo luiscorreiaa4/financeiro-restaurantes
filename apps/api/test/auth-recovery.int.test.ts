@@ -86,7 +86,11 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
 
   it("RF03.CA03: e-mail desconhecido, sem vínculo e limitado recebem a mesma resposta e nada é enviado", async () => {
     const known = await h.createUser();
-    const gone = await h.createUser({ membership: "deactivated" });
+    const gone = await h.createUser();
+    await h.db.admin.query(
+      "update tenants set status = 'closed' where id in (select tenant_id from memberships where user_id = $1)",
+      [gone.userId],
+    );
     const first = await requestLink(known.email);
     await h.tasks.drain();
     expect(h.email.sentLinks).toHaveLength(1);
@@ -215,11 +219,11 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
     }
   });
 
-  it("usuário que perdeu o vínculo ativo depois de pedir: INVALID_TOKEN e a senha não muda", async () => {
+  it("usuário que perdeu o acesso (empresa encerrada) depois de pedir: INVALID_TOKEN e a senha não muda", async () => {
     const user = await h.createUser({ password: "senhaForte1" });
     const token = await requestToken(user.email);
     await h.db.admin.query(
-      "update memberships set status = 'deactivated', deactivated_at = now() where user_id = $1",
+      "update tenants set status = 'closed' where id in (select tenant_id from memberships where user_id = $1)",
       [user.userId],
     );
     const response = await reset({ token, password: "senhaNova1" });
@@ -383,7 +387,7 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
       throw new Error("falha com segredo@ex.com e senhaSecreta9 e tok-secreto");
     };
     const broken = buildApp(
-      { LOG_LEVEL: "debug" },
+      { LOG_LEVEL: "debug", APP_URL: "http://localhost:3000" },
       {
         recovery: { recover: boom, requestLink: boom },
         logStream: { write: (line) => lines.push(line) },
@@ -393,7 +397,12 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
       ["/api/recovery/reset", { token: "tok-secreto", password: "senhaSecreta9" }],
       ["/api/recovery/request", { email: "segredo@ex.com" }],
     ] as const) {
-      const response = await broken.inject({ method: "POST", url, payload });
+      const response = await broken.inject({
+        method: "POST",
+        url,
+        payload,
+        headers: { origin: h.origin },
+      });
       expect(response.statusCode).toBe(500);
       expect(response.body).not.toContain("segredo");
     }
@@ -402,5 +411,31 @@ describe("recuperação de senha pelo link (RF03, DD-27)", () => {
       expect(logs).not.toContain(secret);
     }
     await broken.close();
+  });
+});
+
+describe("recuperação para acesso restrito e ask_owner (DD-33)", () => {
+  it("dono sem unidade (restrito): pede o link, redefine com o token e entra com a senha nova", async () => {
+    const user = await h.createUser({ withUnit: false, password: "senhaForte1" });
+    const token = await requestToken(user.email);
+    const done = await reset({ token, password: "senhaNova1" });
+    expect(done.statusCode).toBe(200);
+    expect((await h.signInPassword(user.email, "senhaNova1")).statusCode).toBe(200);
+    expect((await h.signInPassword(user.email, "senhaForte1")).statusCode).toBe(401);
+  });
+
+  it("ask_owner: o pedido do link é silencioso, com a mesma resposta de e-mail desconhecido", async () => {
+    const user = await h.createUser({ role: "manager", withUnit: false, password: "senhaForte1" });
+    const refused = await requestLink(user.email);
+    const unknown = await requestLink("ninguem@ex.com");
+    await h.tasks.drain();
+    expect(refused.statusCode).toBe(unknown.statusCode);
+    expect(refused.body).toBe(unknown.body);
+    expect(refused.headers["set-cookie"]).toBe(unknown.headers["set-cookie"]);
+    expect(h.email.sentLinks).toHaveLength(0);
+    const { rows } = await h.db.admin.query(
+      "select 1 from verifications where identifier like 'reset-password:%'",
+    );
+    expect(rows).toHaveLength(0);
   });
 });

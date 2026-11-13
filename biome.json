@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/*.md", "!pnpm-lock.yaml"]
+    "includes": ["**", "!**/*.md", "!pnpm-lock.yaml", "!packages/db/migrations/meta"]
   },
   "formatter": {
     "enabled": true,

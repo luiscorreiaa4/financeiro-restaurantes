@@ -397,3 +397,41 @@ describe("recuperação de acesso no login (RF03, RF02.R2)", () => {
     expect(window.sessionStorage.getItem("login:prefill")).toBeNull();
   });
 });
+
+describe("empresa sem unidade ativa (RF02.CA10)", () => {
+  const ORIENTATION =
+    "Sua empresa está sem unidade ativa. Peça ao dono da empresa para reativar uma unidade.";
+
+  it("senha certa de quem não pode entrar mostra a orientação do NO_ACTIVE_UNIT", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient({
+      signInWithPassword: vi.fn(async () => {
+        throw apiError(403, "NO_ACTIVE_UNIT", "texto do servidor");
+      }),
+    });
+    render(<LoginForm client={client} onSignedIn={() => {}} />);
+
+    await user.click(screen.getByRole("button", { name: "Entrar com senha" }));
+    await user.type(screen.getByLabelText("E-mail"), "gerente@demo.dev");
+    await user.type(screen.getByLabelText("Senha"), "senha-certa-123");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(ORIENTATION);
+  });
+
+  it("código certo de quem não pode entrar mostra a mesma orientação", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient({
+      signInWithCode: vi.fn(async () => {
+        throw apiError(403, "NO_ACTIVE_UNIT", "");
+      }),
+    });
+    render(<LoginForm client={client} onSignedIn={() => {}} />);
+
+    await user.type(screen.getByLabelText("E-mail"), "gerente@demo.dev");
+    await user.click(screen.getByRole("button", { name: "Enviar código" }));
+    await user.type(await screen.findByLabelText("Código de 6 dígitos"), "123456");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(ORIENTATION);
+  });
+});

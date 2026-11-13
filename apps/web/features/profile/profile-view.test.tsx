@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import type { Profile, ProfileClient } from "./profile-client";
 import { ProfileView } from "./profile-view";
+
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
+beforeEach(() => refresh.mockClear());
 
 const TWO_SESSIONS: Profile = {
   name: "Maria",
@@ -73,6 +78,7 @@ describe("Meu perfil: nome", () => {
 
     expect(client.updateName).toHaveBeenCalledWith("Maria Souza");
     expect(await screen.findByText("Nome salvo.")).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(client.get).toHaveBeenCalledTimes(2);
   });
 

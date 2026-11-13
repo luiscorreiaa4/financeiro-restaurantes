@@ -122,4 +122,48 @@ describe("cliente da API: PATCH", () => {
     expect(called?.init?.credentials).toBe("include");
     expect(called?.init?.body).toBe('{"a":1}');
   });
+  it("envia X-Context quando contextHeader devolve valor", async () => {
+    let headers: Headers | undefined;
+    const api = createApiClient({
+      baseUrl: "http://api.local",
+      contextHeader: () => "t1.all",
+      fetch: async (_url, init) => {
+        headers = new Headers(init?.headers);
+        return jsonResponse({ ok: true });
+      },
+    });
+
+    await api.get("/api/health", healthSchema);
+
+    expect(headers?.get("x-context")).toBe("t1.all");
+  });
+
+  it("não envia X-Context quando contextHeader devolve null", async () => {
+    let headers: Headers | undefined;
+    const api = createApiClient({
+      baseUrl: "http://api.local",
+      contextHeader: () => null,
+      fetch: async (_url, init) => {
+        headers = new Headers(init?.headers);
+        return jsonResponse({ ok: true });
+      },
+    });
+
+    await api.post("/api/x", {}, healthSchema);
+
+    expect(headers?.has("x-context")).toBe(false);
+  });
+
+  it("onError recebe o ApiError do 401 e o erro continua sendo lançado", async () => {
+    const seen: ApiError[] = [];
+    const api = createApiClient({
+      baseUrl: "http://api.local",
+      onError: (e) => seen.push(e),
+      fetch: async () => jsonResponse({ code: "UNAUTHORIZED" }, 401),
+    });
+
+    await expect(api.get("/api/me", healthSchema)).rejects.toMatchObject({ status: 401 });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.status).toBe(401);
+  });
 });

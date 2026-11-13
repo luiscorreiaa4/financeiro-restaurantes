@@ -315,27 +315,26 @@ describe("papel app_auth no autocadastro", () => {
           [uuidv7(), tenant, membership, unit],
         ),
       ).toEqual({ rows: 1 });
-      // Com RETURNING o papel precisaria de SELECT, que ele não tem.
+      // Com RETURNING de coluna que ele não lê (o nome da unidade, fora do GRANT da 0017), falha.
       expect(
         await attempt(
           client,
-          "insert into units (id, tenant_id, name) values ($1, $2, 'V') returning id",
+          "insert into units (id, tenant_id, name) values ($1, $2, 'V') returning name",
           [uuidv7(), tenant],
         ),
       ).toEqual({ error: NO_PRIVILEGE });
     });
   });
 
-  it("app_auth cannot select from tenants, units, payment_methods, sales_channels", async () => {
+  it("app_auth cannot select from payment_methods, sales_channels, tax_settings nor all columns of tenants and units", async () => {
     await asAuth(async (client) => {
-      for (const table of [
-        "tenants",
-        "units",
-        "payment_methods",
-        "sales_channels",
-        "membership_units",
-        "tax_settings",
-      ]) {
+      // tenants e units só têm leitura por coluna desde a 0017 (contexto do painel, DD-31).
+      for (const table of ["tenants", "units"]) {
+        expect(await attempt(client, `select * from ${table} limit 1`), table).toEqual({
+          error: NO_PRIVILEGE,
+        });
+      }
+      for (const table of ["payment_methods", "sales_channels", "tax_settings"]) {
         expect(await attempt(client, `select 1 from ${table} limit 1`), table).toEqual({
           error: NO_PRIVILEGE,
         });

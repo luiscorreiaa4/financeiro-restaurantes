@@ -5,7 +5,7 @@ import { requireCurrentSession } from "@/lib/auth/session";
 // Leitura da sessão no servidor a cada requisição (nunca em cache): a API valida o cookie.
 async function SessionGate({ children }: { children: ReactNode }) {
   const session = await requireCurrentSession();
-  return <AppShell userName={session.name}>{children}</AppShell>;
+  return <AppShell me={session}>{children}</AppShell>;
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {

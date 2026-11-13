@@ -184,8 +184,14 @@ describe("papel app_auth", () => {
 
   it("app_auth não lê tabelas de cliente (menor privilégio)", async () => {
     await asAuth(async (client) => {
-      for (const table of ["entries", "tenants", "inbound_messages", "units", "audit_log"]) {
+      for (const table of ["entries", "inbound_messages", "audit_log"]) {
         expect(await attempt(client, `select 1 from ${table} limit 1`), table).toEqual({
+          error: NO_PRIVILEGE,
+        });
+      }
+      // tenants e units só têm leitura por coluna desde a 0017 (DD-31); a tabela inteira segue negada.
+      for (const table of ["tenants", "units"]) {
+        expect(await attempt(client, `select * from ${table} limit 1`), table).toEqual({
           error: NO_PRIVILEGE,
         });
       }

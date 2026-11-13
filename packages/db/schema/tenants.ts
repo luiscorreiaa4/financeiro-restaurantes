@@ -70,6 +70,8 @@ export const units = pgTable(
     tenantIsolation("units"),
     ingestCanRead("units"),
     authCanInsert("units"),
+    // Contexto do painel (DD-31): só id, tenant_id e status (GRANT de colunas na migration 0017).
+    pgPolicy("units_auth_select", { for: "select", to: authRole, using: sql`true` }),
   ],
 );
 
@@ -156,5 +158,7 @@ export const membershipUnits = pgTable(
     tenantIsolation("membership_units"),
     ingestCanRead("membership_units"),
     authCanInsert("membership_units"),
+    // Contexto do painel (DD-31): lista de unidades do vínculo, só leitura.
+    pgPolicy("membership_units_auth_select", { for: "select", to: authRole, using: sql`true` }),
   ],
 );

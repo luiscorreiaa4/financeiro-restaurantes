@@ -1,3 +1,4 @@
+import { allowedActions } from "@app/core";
 import { DEV_EMAILS, DEV_PASSWORD } from "@app/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -50,7 +51,39 @@ describe("login por código (RF02.R4)", () => {
 
     const profile = await h.me(h.sessionCookie(response));
     expect(profile.statusCode).toBe(200);
-    expect(profile.json()).toEqual({ userId: user.userId, name: "Pessoa", email: user.email });
+    const { rows } = await h.db.admin.query<{ tenant_id: string; unit_id: string }>(
+      "select m.tenant_id, (select id from units u where u.tenant_id = m.tenant_id) as unit_id from memberships m where m.user_id = $1",
+      [user.userId],
+    );
+    const tenantId = rows[0]?.tenant_id as string;
+    const unitId = rows[0]?.unit_id as string;
+    const owner = { role: "owner", permissions: [], units: "all", panelAccess: true } as const;
+    expect(profile.json()).toEqual({
+      access: "full",
+      userId: user.userId,
+      name: "Pessoa",
+      email: user.email,
+      companies: [
+        {
+          tenantId,
+          name: "Restaurante",
+          role: "owner",
+          accountStatus: "active",
+          startUnitId: "all",
+        },
+      ],
+      context: {
+        tenantId,
+        unitId: "all",
+        role: "owner",
+        permissions: [],
+        allUnits: true,
+        unitIds: [unitId],
+        accountStatus: "active",
+        allowedActions: allowedActions(owner),
+      },
+      contextSource: "fallback",
+    });
   });
 
   it("e-mail desconhecido: mesma resposta (status e corpo) que um conhecido e nenhum e-mail enviado", async () => {
@@ -78,16 +111,16 @@ describe("login por código (RF02.R4)", () => {
     expect((await h.me(h.sessionCookie(byPassword))).json().userId).toBe(user.userId);
   });
 
-  it("vínculo desativado: pedir código dá a mesma resposta, sem e-mail", async () => {
+  it("vínculo desativado: recebe o código como os demais e entra com a senha (modo restrito, DD-33)", async () => {
     const active = await h.createUser();
     const gone = await h.createUser({ membership: "deactivated", password: "senhaForte1" });
     const known = await h.requestCode(active.email);
     const response = await h.requestCode(gone.email);
     expect(response.statusCode).toBe(known.statusCode);
     expect(response.body).toBe(known.body);
-    expect(h.email.sent.map((s) => s.to)).toEqual([active.email]);
-    // A senha também não abre a porta para quem não tem vínculo ativo.
-    expect((await h.signInPassword(gone.email, "senhaForte1")).statusCode).toBe(401);
+    expect(h.email.sent.map((s) => s.to)).toEqual([active.email, gone.email]);
+    // A senha abre uma sessão restrita (a rota de tenant a recusa, T5).
+    expect((await h.signInPassword(gone.email, "senhaForte1")).statusCode).toBe(200);
   });
 
   it("sessão aberta antes da desativação recebe 401 na próxima chamada", async () => {
@@ -98,7 +131,10 @@ describe("login por código (RF02.R4)", () => {
       "update memberships set status = 'deactivated', deactivated_at = now() where user_id = $1",
       [user.userId],
     );
-    expect((await h.me(cookie)).statusCode).toBe(401);
+    // Só com o vínculo desativado a sessão vira restrita (DD-33, T5): /api/me aceita, sem dados.
+    const restricted = await h.me(cookie);
+    expect(restricted.statusCode).toBe(200);
+    expect(restricted.json().access).toBe("restricted");
   });
 
   it("código errado 3 vezes: a 4ª tentativa é recusada mesmo com o código certo", async () => {
@@ -201,15 +237,16 @@ describe("login por código (RF02.R4)", () => {
 });
 
 describe("login por senha (RF02.R3, R7)", () => {
-  it("seed de desenvolvimento: o Dono Demo entra com a senha conhecida e o ex-funcionário não recebe código", async () => {
+  it("seed de desenvolvimento: o Dono Demo entra com a senha conhecida e o ex-funcionário recebe o código (modo restrito)", async () => {
     await h.seedDev();
     const response = await h.signInPassword(DEV_EMAILS.owner, DEV_PASSWORD);
     expect(response.statusCode).toBe(200);
     expect((await h.me(h.sessionCookie(response))).json()).toMatchObject({
       email: DEV_EMAILS.owner,
     });
+    // Ex-funcionário: sem vínculo ativo, entra no modo restrito, então recebe o código (DD-33).
     await h.requestCode(DEV_EMAILS.deactivated);
-    expect(h.email.sent).toHaveLength(0);
+    expect(h.email.sent.map((s) => s.to)).toEqual([DEV_EMAILS.deactivated]);
   });
 
   it("senha: entra com a senha correta; 'Entrar com senha' de quem não tem senha recebe a mesma mensagem genérica de senha incorreta", async () => {
@@ -441,7 +478,10 @@ describe("correções da revisão (rodada 1)", () => {
     }
     const update = await h.post("/api/auth/update-user", { name: "Outro" }, cookie);
     expect(update.statusCode).toBe(404);
-    expect((await h.me(cookie)).statusCode).toBe(401);
+    // Sessão restrita (DD-33, T5): /api/me responde só quem é; as rotas de tenant dão 401.
+    const restricted = await h.me(cookie);
+    expect(restricted.statusCode).toBe(200);
+    expect(restricted.json().access).toBe("restricted");
     const { rows } = await h.db.admin.query("select name from users where id = $1", [user.userId]);
     expect(rows[0].name).toBe("Pessoa");
   });
@@ -486,4 +526,157 @@ describe("correções da revisão (rodada 1)", () => {
     await h.tasks.drain();
     expect(h.email.sent.map((s) => s.to)).toEqual([user.email]);
   });
+});
+
+describe("entrada no painel: três resultados (RF02.R1, CA10, DD-33)", () => {
+  const sessionCount = async () =>
+    Number(
+      (await h.db.admin.query<{ n: string }>("select count(*) as n from sessions")).rows[0]?.n,
+    );
+  const sessionCookies = (response: { headers: Record<string, unknown> }) =>
+    setCookies(response as never).filter((c) => c.startsWith(SESSION_COOKIE));
+
+  /** Gerente sem nenhuma unidade ativa na empresa: `refused/ask_owner`. */
+  const askOwner = (password?: string) =>
+    h.createUser({ role: "manager", withUnit: false, ...(password ? { password } : {}) });
+
+  /** Dono de empresa encerrada: `refused/no_access`. */
+  const noAccess = async (password?: string) => {
+    const user = await h.createUser(password ? { password } : {});
+    await h.db.admin.query(
+      "update tenants set status = 'closed' where id in (select tenant_id from memberships where user_id = $1)",
+      [user.userId],
+    );
+    return user;
+  };
+
+  it("senha certa de ask_owner: 403 NO_ACTIVE_UNIT, sem sessão, sem cookie, contador zerado e auditoria login_failed", async () => {
+    const user = await askOwner("senhaForte1");
+    for (let i = 0; i < 2; i++) {
+      expect((await h.signInPassword(user.email, "errada123")).statusCode).toBe(401);
+    }
+    const before = await sessionCount();
+    const response = await h.signInPassword(user.email, "senhaForte1");
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      code: "NO_ACTIVE_UNIT",
+      message: expect.stringMatching(/sem unidade ativa/i),
+    });
+    expect(sessionCookies(response)).toEqual([]);
+    expect(await sessionCount()).toBe(before);
+    const state = await h.db.admin.query<{ failed: number; locked: Date | null }>(
+      "select failed_password_attempts as failed, password_locked_until as locked from users where id = $1",
+      [user.userId],
+    );
+    expect(state.rows[0]).toEqual({ failed: 0, locked: null });
+    const audit = await h.db.admin.query<{ event: string; email_hash: string | null }>(
+      "select event, email_hash from auth_audit where user_id = $1 order by created_at desc, id desc limit 1",
+      [user.userId],
+    );
+    expect(audit.rows[0]?.event).toBe("login_failed");
+    expect(audit.rows[0]?.email_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("sessão aberta fora das rotas de login (sem caminho de login) também é recusada para ask_owner e no_access", async () => {
+    const blocked = [await askOwner("senhaForte1"), await noAccess("senhaForte1")];
+    const before = await sessionCount();
+    for (const user of blocked) {
+      await expect(h.gateway.openSession({ userId: user.userId })).rejects.toThrow();
+    }
+    expect(await sessionCount()).toBe(before);
+  });
+
+  it("senha errada de ask_owner: mesma resposta que e-mail desconhecido, sem vazar NO_ACTIVE_UNIT", async () => {
+    const user = await askOwner("senhaForte1");
+    const wrong = await h.signInPassword(user.email, "outraSenha9");
+    const unknown = await h.signInPassword("ninguem@ex.com", "outraSenha9");
+    expect(wrong.statusCode).toBe(401);
+    expect(wrong.statusCode).toBe(unknown.statusCode);
+    expect(wrong.body).toBe(unknown.body);
+    expect(wrong.headers["set-cookie"]).toBe(unknown.headers["set-cookie"]);
+    expect(wrong.body).not.toContain("NO_ACTIVE_UNIT");
+  });
+
+  it("no_access e e-mail desconhecido: status e corpo idênticos, com a senha certa e com a errada", async () => {
+    const user = await noAccess("senhaForte1");
+    for (const password of ["senhaForte1", "outraSenha9"]) {
+      const refused = await h.signInPassword(user.email, password);
+      const unknown = await h.signInPassword("ninguem@ex.com", password);
+      expect(refused.statusCode).toBe(401);
+      expect(refused.statusCode).toBe(unknown.statusCode);
+      expect(refused.body).toBe(unknown.body);
+      expect(refused.headers["set-cookie"]).toBe(unknown.headers["set-cookie"]);
+      expect(sessionCookies(refused)).toEqual([]);
+    }
+    expect(await sessionCount()).toBe(0);
+  });
+
+  it("código de ask_owner: recebe o código; certo dá 403 NO_ACTIVE_UNIT sem sessão nem cookie; errado dá INVALID_OTP", async () => {
+    const user = await askOwner();
+    expect((await h.requestCode(user.email)).statusCode).toBe(200);
+    expect(h.email.sent.map((s) => s.to)).toEqual([user.email]);
+
+    const wrong = await h.signInCode(user.email, "000000");
+    const unknown = await h.signInCode("ninguem@ex.com", "000000");
+    expect(wrong.statusCode).toBe(400);
+    expect(wrong.statusCode).toBe(unknown.statusCode);
+    expect(wrong.body).toBe(unknown.body);
+    expect(wrong.headers["set-cookie"]).toBe(unknown.headers["set-cookie"]);
+    expect(wrong.json().code).toBe("INVALID_OTP");
+
+    const failedCount = async () =>
+      Number(
+        (
+          await h.db.admin.query<{ n: string }>(
+            "select count(*) as n from auth_audit where user_id = $1 and event = 'login_failed'",
+            [user.userId],
+          )
+        ).rows[0]?.n,
+      );
+    const failedBefore = await failedCount();
+    const right = await h.signInCode(user.email, h.lastCode());
+    expect(right.statusCode).toBe(403);
+    expect(right.json().code).toBe("NO_ACTIVE_UNIT");
+    expect(sessionCookies(right)).toEqual([]);
+    expect(await sessionCount()).toBe(0);
+    const audit = await h.db.admin.query<{ email_hash: string | null }>(
+      "select email_hash from auth_audit where user_id = $1 and event = 'login_failed' order by created_at desc, id desc limit 1",
+      [user.userId],
+    );
+    expect(audit.rows[0]?.email_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(await failedCount()).toBe(failedBefore + 1);
+    // O código certo foi consumido antes da recusa pela conferência: não vale uma segunda vez.
+    expect((await h.signInCode(user.email, h.lastCode())).json().code).toBe("INVALID_OTP");
+  });
+
+  it("no_access: não recebe código, e o código (mesmo de outra conta) dá o mesmo erro de e-mail desconhecido", async () => {
+    const user = await noAccess();
+    await h.requestCode(user.email);
+    expect(h.email.sent).toHaveLength(0);
+    const refused = await h.signInCode(user.email, "123456");
+    const unknown = await h.signInCode("ninguem@ex.com", "123456");
+    expect(refused.statusCode).toBe(unknown.statusCode);
+    expect(refused.body).toBe(unknown.body);
+    expect(refused.headers["set-cookie"]).toBe(unknown.headers["set-cookie"]);
+    expect(refused.json().code).toBe("INVALID_OTP");
+  });
+
+  it("dono sem unidade e usuário só com vínculo desativado entram por senha e por código (sessão criada)", async () => {
+    const ownerNoUnit = await h.createUser({ withUnit: false, password: "senhaForte1" });
+    const gone = await h.createUser({ membership: "deactivated", password: "senhaForte1" });
+    for (const user of [ownerNoUnit, gone]) {
+      const byPassword = await h.signInPassword(user.email, "senhaForte1");
+      expect(byPassword.statusCode).toBe(200);
+      expect(sessionCookies(byPassword)).toHaveLength(1);
+      const byCode = await h.signInCode(user.email, await codeFor(user.email));
+      expect(byCode.statusCode).toBe(200);
+      expect(sessionCookies(byCode)).toHaveLength(1);
+    }
+    expect(await sessionCount()).toBe(4);
+  });
+
+  async function codeFor(address: string): Promise<string> {
+    expect((await h.requestCode(address)).statusCode).toBe(200);
+    return h.lastCode();
+  }
 });

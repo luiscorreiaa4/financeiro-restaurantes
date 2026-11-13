@@ -9,7 +9,7 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 3. **Data de negócio é texto `YYYY-MM-DD`.** Formate com `formatBusinessDate`. Nunca `new Date("YYYY-MM-DD")` (lê como UTC e pode mostrar o dia anterior).
 4. **A autorização real é da API.** Esconder botão é conforto. O `proxy.ts` (F1) só redireciona quem não tem cookie.
 5. **Toda chamada à API passa por `lib/api`** (`createApiClient`), com schema Zod na resposta. Erro vira `ApiError` (`status` 0 = API fora do ar). Nunca use dado da API sem validar.
-6. **Chave de query do TanStack Query inclui o tenant e a unidade** quando a F2 existir. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
+6. **Toda chave de query de dado de tenant usa `tenantKey(ctx, ...)`** (`lib/query/keys.ts`), que inclui empresa e unidade. Chave escrita à mão para dado de tenant é proibida. Dado do usuário (perfil) não é do tenant e usa chave própria. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
 7. Texto de mensagem de usuário é entrada não confiável: renderize como texto, nunca como HTML.
 
 ## Estrutura e UI
@@ -26,3 +26,19 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - Selecione por papel e texto acessível, não por classe CSS. Toda tela nova precisa de teste no celular (sem rolagem horizontal).
 - Se o `typecheck` acusar `Cannot find module '../../app/...'` em `.next/types`, apague `apps/web/.next` (saída de build ignorada pelo git).
 - Biome precisa de `css.parser.tailwindDirectives` (já ligado) para ler o `globals.css`.
+
+## Rotas por estado de sessão
+
+A API (`/api/me`) classifica a sessão; o `proxy.ts` só olha se há cookie. O E2E `e2e/routes.spec.ts` prova cada célula.
+
+| Rota | Sem sessão | Sessão completa | Sessão restrita | Cookie inválido ou vencido |
+|---|---|---|---|---|
+| Grupo `(app)` | `/login?next=` | abre | `/acesso-restrito` | `/login` |
+| `/acesso-restrito*` | `/login?next=` | `/` | abre | `/login` |
+| `/login`, `/cadastro`, `/recuperar-senha` | abre | `safeNext(next)`, padrão `/` | `/acesso-restrito` (via `/`) | abre, sem laço |
+| `/redefinir-senha` | abre | abre; ao concluir, sai e vai a `/login` | idem | abre |
+| `/termos`, `/privacidade` | abre | abre | abre | abre |
+
+- Página nova em `app/(app)/` entra em `APP_ROUTES` (`e2e/routes.ts`). `lib/routes-list.test.ts` compara a lista com o disco e falha se faltar.
+- Escrita feita pelo servidor do Next, ou webhook novo, exige entrada explícita em `ORIGIN_EXEMPT_PATHS` da API (`apps/api/src/http/origin-guard.ts`; ver `.claude/rules/rota-de-tenant.md`, regra 6). Sem isso a API recusa por `origin_forbidden`.
+

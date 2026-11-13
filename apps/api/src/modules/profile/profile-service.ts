@@ -3,6 +3,7 @@ import {
   describeDevice,
   type EmailSender,
   normalizeEmail,
+  normalizePersonName,
   type PasswordError,
   validatePassword,
 } from "@app/core";
@@ -143,9 +144,11 @@ export function createProfileService(deps: ProfileServiceDeps): ProfileService {
     },
 
     async updateName(session, name) {
-      const trimmed = name.trim();
-      if (trimmed.length < 1 || trimmed.length > NAME_MAX) throw new ProfileError("INVALID_NAME");
-      await store.updateUserName(session.userId, trimmed);
+      // Limpa invisíveis antes do limite: o tamanho vale para o nome gravado (DD-32 item 4).
+      const normalized = normalizePersonName(name);
+      if (normalized === null || normalized.length > NAME_MAX)
+        throw new ProfileError("INVALID_NAME");
+      await store.updateUserName(session.userId, normalized);
       await recordAuditSafely(
         "name_changed",
         () => store.recordAudit({ event: "name_changed", userId: session.userId }),

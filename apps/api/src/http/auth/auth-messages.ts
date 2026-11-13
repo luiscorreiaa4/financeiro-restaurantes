@@ -10,6 +10,9 @@ const MESSAGES: Record<string, string> = {
   // Um só erro para código errado, vencido ou com tentativas esgotadas, igual para e-mail com e
   // sem conta (RF02.R1, DD-30): o motivo exato revelaria se o e-mail tem conta.
   INVALID_OTP: "Código incorreto ou vencido. Confira os 6 dígitos ou peça um novo código.",
+  // Só depois de código ou senha certos (RF02.R1, CA10).
+  NO_ACTIVE_UNIT:
+    "Sua empresa está sem unidade ativa. Peça ao dono da empresa para reativar uma unidade.",
   INVALID_TOKEN: "Link inválido ou expirado. Peça um novo.",
   PASSWORD_TOO_SHORT: "A senha precisa ter pelo menos 8 caracteres.",
   PASSWORD_TOO_LONG: "A senha pode ter no máximo 64 caracteres.",

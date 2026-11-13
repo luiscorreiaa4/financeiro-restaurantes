@@ -138,6 +138,18 @@ describe("serviço de perfil", () => {
       code: "INVALID_NAME",
     });
   });
+
+  it("updateName recusa nome só com caracteres invisíveis e mede o tamanho depois da limpeza", async () => {
+    const { service, calls } = setup();
+    for (const name of ["​​", "ㅤ", "️"]) {
+      await expect(service.updateName(session, name)).rejects.toMatchObject({
+        code: "INVALID_NAME",
+      });
+    }
+    expect(calls).toEqual([]);
+    await service.updateName(session, `${"a".repeat(120)}​`);
+    expect(calls).toEqual(["updateUserName"]);
+  });
 });
 
 describe("serviço de perfil: auditoria que falha depois da troca (DD-30)", () => {

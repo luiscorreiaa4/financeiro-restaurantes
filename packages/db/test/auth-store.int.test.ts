@@ -101,6 +101,22 @@ describe("auth-store: senha", () => {
     expect(await store.setPasswordHash(without, "x")).toBe(false);
     expect(await store.getPasswordHash(without)).toBeNull();
   });
+
+  it("conta só de outro provedor não tem senha e não aceita troca", async () => {
+    const user = await newUser();
+    await db.admin.query(
+      "insert into accounts (id, account_id, provider_id, user_id, password) values ($1, $2, 'google', $3, 'hash-externo')",
+      [uuidv7(), user, user],
+    );
+
+    expect(await store.getPasswordHash(user)).toBeNull();
+    expect(await store.setPasswordHash(user, "hash-novo")).toBe(false);
+    const { rows } = await db.admin.query<{ provider_id: string; password: string }>(
+      "select provider_id, password from accounts where user_id = $1",
+      [user],
+    );
+    expect(rows).toEqual([{ provider_id: "google", password: "hash-externo" }]);
+  });
 });
 
 describe("auth-store: sessões", () => {
@@ -126,6 +142,27 @@ describe("auth-store: sessões", () => {
       updatedAt: new Date(NOW.getTime() - HOUR),
     });
     expect(Object.keys(list[0] ?? {}).sort()).toEqual(["id", "updatedAt", "userAgent"]);
+  });
+
+  it("listSessions deixa de fora a sessão que vence exatamente em now", async () => {
+    const user = await newUser();
+    const valid = await newSession(user);
+    await newSession(user, { expiresAt: NOW });
+
+    const list = await store.listSessions(user, NOW);
+    expect(list.map((s) => s.id)).toEqual([valid]);
+  });
+
+  it("deleteSessionsExcept apaga todas as do usuário quando a sessão mantida é de outro", async () => {
+    const user = await newUser();
+    const other = await newUser();
+    await newSession(user);
+    await newSession(user);
+    const otherSession = await newSession(other);
+
+    expect(await store.deleteSessionsExcept(user, otherSession)).toBe(2);
+    expect(await sessionIds(user)).toEqual([]);
+    expect(await sessionIds(other)).toEqual([otherSession]);
   });
 
   it("deleteSessionsExcept mantém a sessão indicada e não toca em outro usuário", async () => {

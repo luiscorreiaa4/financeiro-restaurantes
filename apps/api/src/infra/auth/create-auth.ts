@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   type Clock,
+  canHoldSession,
   decideOtpSend,
   decidePasswordAttempt,
   type EmailSender,
@@ -10,6 +11,7 @@ import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   type PasswordError,
+  receivesLoginCode,
   sessionExpiresAt,
   validatePassword,
 } from "@app/core";
@@ -70,6 +72,7 @@ const isOtpType = (value: unknown): value is OtpType =>
   typeof value === "string" && (OTP_TYPES as readonly string[]).includes(value);
 const PASSWORD_SIGN_IN = "/sign-in/email";
 const OTP_SIGN_IN = "/sign-in/email-otp";
+const NO_ACTIVE_UNIT = "NO_ACTIVE_UNIT";
 /** Rotas que definem senha nova e o campo onde ela vem (RF01/RF02.R3). */
 const SET_PASSWORD_FIELDS: Record<string, string> = {
   "/change-password": "newPassword",
@@ -123,6 +126,9 @@ export function createAuth(deps: CreateAuthDeps) {
       code: "INVALID_EMAIL_OR_PASSWORD",
       message: "invalid email or password",
     });
+  /** Gerente ou contador sem unidade ativa, depois de provar a credencial (RF02.R1, CA10). */
+  const noActiveUnit = () =>
+    new APIError("FORBIDDEN", { code: NO_ACTIVE_UNIT, message: "no active unit" });
   const invalidOtp = () =>
     new APIError("BAD_REQUEST", { code: "INVALID_OTP", message: "invalid otp" });
 
@@ -138,7 +144,7 @@ export function createAuth(deps: CreateAuthDeps) {
     userAgent: string | undefined;
   }): Promise<void> {
     const user = await store.findUserByEmail(input.email);
-    if (user === null || !(await store.hasActiveMembership(user.id))) return;
+    if (user === null || !receivesLoginCode(await store.panelEntry(user.id))) return;
     const now = clock.now();
     const reserved = await store.reserveOtpSend({
       userId: user.id,
@@ -205,6 +211,15 @@ export function createAuth(deps: CreateAuthDeps) {
         create: {
           // "Manter conectado" vem no corpo do login (`rememberMe: true`); padrão é não (RF02.R5).
           async before(session, ctx) {
+            // Ponto único da recusa, para TODA criação de sessão (sem olhar o caminho: `ctx` pode
+            // vir vazio). Roda só depois de senha ou código certos. O erro sobe ao cliente sem
+            // criar linha em `sessions` nem cookie.
+            const entry = await store.panelEntry(session.userId);
+            if (!canHoldSession(entry)) {
+              throw entry.kind === "refused" && entry.reason === "ask_owner"
+                ? noActiveUnit()
+                : invalidPassword();
+            }
             const keepConnected = asBody(ctx?.body)?.rememberMe === true;
             return {
               data: {
@@ -274,7 +289,10 @@ export function createAuth(deps: CreateAuthDeps) {
             }
             attempt = "unknown";
           } else {
-            if (!(await store.hasActiveMembership(user.id))) {
+            // Só `refused/no_access` é recusado antes de conferir; `ask_owner` segue e é
+            // recusado depois da credencial, no gancho de criação da sessão.
+            const entry = await store.panelEntry(user.id);
+            if (entry.kind === "refused" && entry.reason === "no_access") {
               await store.recordAudit({
                 event: "login_failed",
                 userId: user.id,
@@ -304,7 +322,8 @@ export function createAuth(deps: CreateAuthDeps) {
 
         if (ctx.path === OTP_SIGN_IN && email !== null) {
           const user = await store.findUserByEmail(email);
-          if (user !== null && !(await store.hasActiveMembership(user.id))) {
+          const entry = user === null ? null : await store.panelEntry(user.id);
+          if (user !== null && entry?.kind === "refused" && entry.reason === "no_access") {
             await store.recordAudit({
               event: "login_failed",
               userId: user.id,
@@ -343,7 +362,12 @@ export function createAuth(deps: CreateAuthDeps) {
         if (ctx.path !== PASSWORD_SIGN_IN && ctx.path !== OTP_SIGN_IN) return;
         const email = emailOf(asBody(ctx.body));
         if (email === null) return;
-        const failed = isAPIError(ctx.context.returned);
+        const returned = ctx.context.returned;
+        const failed = isAPIError(returned);
+        // Credencial certa, mas sem unidade ativa: a senha estava certa, então o contador zera.
+        const refusedNoUnit =
+          isAPIError(returned) &&
+          (returned.body as { code?: unknown } | undefined)?.code === NO_ACTIVE_UNIT;
         const emailHash = hashEmail(email);
         const audit = { emailHash, ip: ipOf(ctx.headers), userAgent: uaOf(ctx.headers) };
         const signedInUserId = ctx.context.newSession?.user.id;
@@ -354,7 +378,10 @@ export function createAuth(deps: CreateAuthDeps) {
           if (attempt !== "counted" && attempt !== "locking") return;
           const user = await store.findUserByEmail(email);
           if (user === null) return;
-          if (!failed) {
+          if (refusedNoUnit) {
+            await store.updatePasswordState(user.id, { failedAttempts: 0, lockedUntil: null });
+            await store.recordAudit({ event: "login_failed", userId: user.id, ...audit });
+          } else if (!failed) {
             await store.updatePasswordState(user.id, { failedAttempts: 0, lockedUntil: null });
             await store.recordAudit({ event: "login", userId: user.id, ...audit });
           } else {
@@ -476,7 +503,7 @@ export function createAuthGateway(
       background.run(async () => {
         if (!z.email().safeParse(input.email).success) return;
         const user = await store.findUserByEmail(input.email);
-        if (user === null || !(await store.hasActiveMembership(user.id))) return;
+        if (user === null || !canHoldSession(await store.panelEntry(user.id))) return;
         const now = clock.now();
         // Mesmos limites do código de acesso (RF02.R4): 60 s, 5/h por e-mail e 20/h por IP.
         const reserved = await store.reserveOtpSend({

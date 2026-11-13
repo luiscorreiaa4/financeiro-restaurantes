@@ -189,7 +189,7 @@ describe("perfil: nome", () => {
   it("Review Focus 5: nome vazio, só espaços ou com 121 caracteres: INVALID_NAME", async () => {
     const user = await h.createUser({ password: "senhaForte1" });
     const cookie = await signIn(user.email, "senhaForte1");
-    for (const name of ["", "   ", "a".repeat(121)]) {
+    for (const name of ["", "   ", "a".repeat(121), "​", "ㅤㅤ"]) {
       const response = await call("PATCH", "/api/profile/name", cookie, { name });
       expect(response.statusCode, name.length.toString()).toBe(400);
       expect(response.json()).toMatchObject({ code: "INVALID_NAME" });
@@ -199,6 +199,15 @@ describe("perfil: nome", () => {
     ).toBe(200);
     expect((await call("PATCH", "/api/profile/name", cookie, {})).statusCode).toBe(400);
     expect(await audits(user.userId, "name_changed")).toHaveLength(1);
+  });
+
+  it("nome em NFD com invisível é gravado limpo e em NFC", async () => {
+    const user = await h.createUser({ password: "senhaForte1" });
+    const cookie = await signIn(user.email, "senhaForte1");
+    const response = await call("PATCH", "/api/profile/name", cookie, { name: "José​" });
+    expect(response.statusCode).toBe(200);
+    const { rows } = await h.db.admin.query("select name from users where id = $1", [user.userId]);
+    expect(rows[0].name).toBe("José");
   });
 });
 
@@ -447,7 +456,7 @@ describe("perfil: segurança dos registros", () => {
     };
     const lines: string[] = [];
     const broken = buildApp(
-      { LOG_LEVEL: "debug" },
+      { LOG_LEVEL: "debug", APP_URL: "http://localhost:3000" },
       {
         profile: {
           checkSession: async () => ({ ok: true, session, setCookies: [] }),
@@ -465,6 +474,7 @@ describe("perfil: segurança dos registros", () => {
     const response = await broken.inject({
       method: "POST",
       url: "/api/profile/password",
+      headers: { origin: h.origin },
       payload: { currentPassword: "senhaSecreta9", newPassword: "outraSenha8" },
     });
     expect(response.statusCode).toBe(500);

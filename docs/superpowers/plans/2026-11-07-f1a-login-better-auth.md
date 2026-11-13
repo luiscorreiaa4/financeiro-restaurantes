@@ -227,6 +227,7 @@ Expected: FAIL.
 - Consumes: `decidePasswordAttempt`, `decideOtpSend`, `validatePassword`, `normalizeEmail` (Task 4); `EmailSender` (Task 5); tabelas e pool `app_auth` (Tasks 2 e 3); nota da Task 1.
 - Produces:
   - `createAuthStore(db: Database): AuthStore` com `hasActiveMembership(userId: string): Promise<boolean>`, `findUserByEmail(email: string): Promise<{ id: string; passwordLockedUntil: Date | null; failedPasswordAttempts: number } | null>`, `recordAudit(event: { event: AuthEvent; userId?: string; emailHash?: string; ip?: string; userAgent?: string }): Promise<void>`, `recentOtpSends(emailHash: string, ip: string | undefined, since: Date): Promise<{ byEmail: { sentAt: Date }[]; byIp: { sentAt: Date }[] }>`, `updatePasswordState(userId: string, state: { failedAttempts: number; lockedUntil: Date | null }): Promise<void>`.
+  - > Nota de 11/11/2026: desde o bloco pós-F2, `hasActiveMembership` equivale a `(await panelEntry(id)).kind === "full"` e a regra de entrada mora em `classifyPanelEntry` (DD-33).
   - `createAuth(deps: { pool: pg.Pool; store: AuthStore; email: EmailSender; clock: Clock; secret: string; baseUrl: string; trustedOrigins: string[] })` devolve o objeto `auth` do Better Auth.
   - `authRoutes: FastifyPluginAsync<{ auth: Auth }>` registra `/api/auth/*` (GET e POST).
   - `requireSession(auth: Auth, store: AuthStore)`: preHandler que devolve **401** sem sessão válida **ou** quando `hasActiveMembership` é falso (RF02.CA07), e põe `request.session = { userId }`.

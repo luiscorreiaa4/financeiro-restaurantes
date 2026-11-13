@@ -11,3 +11,4 @@ export type * from "./ports";
 export * from "./registry";
 export * from "./signup";
 export * from "./tax";
+export * from "./text";

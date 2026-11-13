@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // A API falsa (e2e/fake-api.mjs) guarda o perfil por valor de cookie: cada teste usa o seu.
 async function signIn(page: Page) {
@@ -7,6 +13,12 @@ async function signIn(page: Page) {
     {
       name: "better-auth.session_token",
       value: `sessao-falsa-${randomUUID()}`,
+      url: "http://localhost:3100",
+    },
+    // Aparelho que já abriu o painel: sem isso a primeira visita grava o contexto e recarrega.
+    {
+      name: "fr_ctx",
+      value: "0190a000-0000-7000-8000-000000000001.all",
       url: "http://localhost:3100",
     },
   ]);
@@ -28,6 +40,8 @@ test("sem sessão, /perfil leva ao /login guardando a rota", async ({ page }) =>
 test("pelo menu do usuário abre 'Meu perfil', sem rolagem horizontal", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
+  // A casca grava o cookie de contexto e recarrega na primeira visita: só clique depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   await page.getByRole("link", { name: "Meu perfil" }).filter({ visible: true }).click();
 
@@ -47,6 +61,18 @@ test("troca o nome e vê o nome novo", async ({ page }) => {
 
   await page.reload();
   await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("Maria Souza");
+});
+
+test("o nome novo aparece no menu sem recarregar a página", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/perfil");
+  await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("Dono Demo");
+
+  await page.getByLabel("Nome", { exact: true }).fill("Ana Lima");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Nome salvo.")).toBeVisible();
+
+  await expect(page.locator("span:visible", { hasText: /^Ana Lima$/ })).toBeVisible();
 });
 
 test("troca a senha pela senha atual", async ({ page }) => {

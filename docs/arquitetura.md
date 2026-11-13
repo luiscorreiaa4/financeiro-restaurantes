@@ -85,7 +85,7 @@ Durante o desenvolvimento, o canal é testado por um **chat de terminal** (`pnpm
 tenants              id, name, plan, created_at
 units                id, tenant_id, name, timezone
 users                id, name, email, phone_e164 (opcional, DD-20), created_at; tabela de usuário do Better Auth (DD-19)
-memberships          id, tenant_id, user_id, unit_id (null = todas), role, permissions jsonb
+memberships          id, tenant_id, user_id, role, permissions jsonb, all_units, default_unit_id, preferred_at (unidades de acesso em `membership_units`)
 sessions             id, user_id, token, expires_at, ip_address, user_agent, keep_connected (Better Auth; sem tenant_id; só o papel app_auth, DD-24)
 accounts             id, user_id, account_id, provider_id, password (hash), tokens (Better Auth; só app_auth)
 verifications        id, identifier, value, expires_at (códigos de acesso por e-mail; só app_auth)
@@ -115,6 +115,14 @@ Notas:
 - Índices principais: `entries (tenant_id, unit_id, occurred_on)`, `entries (tenant_id, category_id, occurred_on)`.
 - Folha de pagamento: categorias do grupo Pessoal ficam marcadas como sensíveis; a API filtra por permissão (RF06.R3).
 
+## Contexto do painel
+
+- Empresa e unidade ativas do painel vêm do cookie `fr_ctx` (DD-31), revalidado a cada requisição contra `memberships` e `tenants.status`.
+- `X-Context` diferente do contexto do cookie responde 409.
+- **Modo restrito (DD-33):** é um estado da sessão **sem `PanelContext`**, não um "contexto sem unidade" (isso ajusta o item 1 da DD-32). `servesPanel`, `PanelContext` e `fr_ctx` não mudam; como toda rota de tenant exige `PanelContext`, a sessão restrita é recusada por construção (RNF02.R8). Uma função pura do core classifica o usuário em `full`, `restricted` ou `refused`; só `GET /api/me`, `POST /api/companies` e `sign-out` aceitam a sessão restrita.
+- Escritas da API: hook global que confere `Origin` (RNF01.R10, DD-33), com o webhook do WhatsApp como única exceção.
+- `app_auth` lê `tenants(id, name, status)`, `units(id, tenant_id, status)` e `membership_units` (migration 0017); o painel lê dados de tenant pelo papel `app` com `withTenant`.
+
 ## Divergências entre o modelo de dados atual e os requisitos
 
 Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026. As linhas abaixo são o retrato de 29/10/2026; o que a E11 fechou está no parágrafo de atualização logo depois. Cada linha diz o que falta, o RF que exige e a etapa que resolve. Etapas E11 a E13 e F9, F10 são novas (ver os planos). Valores marcados `[PROVISÓRIO – Pxx]` em `requisitos.md` ficam em configuração ou constante única.
@@ -127,7 +135,7 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 
 | Onde | O que falta | RF | Etapa |
 |---|---|---|---|
-| `ROLES = ["owner", "manager", "staff"]` | Quarto papel `accountant` (CONTADOR, **agora no MVP**, DD-03); registrar `staff` = LANCADOR. | RF06, RF36 | Mapeamento: já em `decisoes.md` (DN-04). Papel novo: E11 |
+| `ROLES = ["owner", "manager", "staff", "accountant"]` | Feito: os quatro papéis (`staff` = LANCADOR, `accountant` = CONTADOR, MVP desde DD-03) estão no `core` desde a E11; o painel os usa na F2 (`can()`, `allowedActions`, DD-31). | RF06, RF36 | E11 (feita), F2 (feita) |
 | `can()` e `categoryIsSensitive` (só `owner` age sobre folha) | Permissões adicionais VER_FOLHA, EXPORTAR_DADOS, RECEBER_RESUMO_SEMANAL, CONSULTAR_RELATORIOS_WHATSAPP; gerente com VER_FOLHA vê folha; **o contador vê folha sempre (DD-04), sem criar, editar ou excluir**; aviso e aceite do dono na auditoria. | RF05.R7, RF06.R3 | E11 |
 | Testes de permissão | A matriz da seção 2.3 de `requisitos.md` como teste (todas as ações × papéis). | RF06.CA06 | E11 |
 

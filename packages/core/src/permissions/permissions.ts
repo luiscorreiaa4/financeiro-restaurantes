@@ -28,25 +28,28 @@ const PERMISSIONS_BY_ROLE: Record<Role, readonly AdditionalPermission[]> = {
   accountant: [],
 };
 
-export type Action =
-  | "entry:create"
-  | "entry:view"
-  | "entry:edit"
-  | "entry:delete"
-  | "entry:restore"
-  | "report:view"
-  | "report:whatsapp"
-  | "summary:weekly"
-  | "panel:access"
-  | "export:data"
-  | "import:data"
-  | "recurring:manage"
-  | "user:manage"
-  | "user:view"
-  | "catalog:manage"
-  | "catalog:view"
-  | "fiscal:configure"
-  | "subscription:manage";
+/** Todas as ações do sistema, em ordem estável (usada por `allowedActions`). */
+export const ACTIONS = [
+  "entry:create",
+  "entry:view",
+  "entry:edit",
+  "entry:delete",
+  "entry:restore",
+  "report:view",
+  "report:whatsapp",
+  "summary:weekly",
+  "panel:access",
+  "export:data",
+  "import:data",
+  "recurring:manage",
+  "user:manage",
+  "user:view",
+  "catalog:manage",
+  "catalog:view",
+  "fiscal:configure",
+  "subscription:manage",
+] as const;
+export type Action = (typeof ACTIONS)[number];
 
 /** Quem age: papel, permissões adicionais, unidades de acesso e liberação do painel. */
 export interface Actor {

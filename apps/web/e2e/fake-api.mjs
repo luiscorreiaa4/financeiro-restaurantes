@@ -8,6 +8,8 @@ const SESSION_COOKIE = "better-auth.session_token";
 const SESSION_VALUE = "sessao-falsa";
 const FIXED_OTP = "123456";
 const FIXED_PASSWORD = "demo12345";
+// E-mail de gerente sem unidade ativa: o login recusa com NO_ACTIVE_UNIT depois da credencial certa.
+const NO_UNIT_EMAIL = "gerente-sem-unidade@exemplo.com";
 // Token do link de recuperação (RF03, DD-27): o único que a API falsa aceita; qualquer outro é inválido.
 const VALID_RESET_TOKEN = "link-valido-123";
 
@@ -29,8 +31,17 @@ function sessionValue(req) {
   return null;
 }
 
+// Sessão "expira": a API passa a negar tudo depois do primeiro 401 de /api/units (como a real, em que
+// o 401 vale para /api/me também; sem isso /login mandaria de volta para a página). Estado por cookie.
+const expiredSessions = new Set();
+
+function isExpiring(value) {
+  return value === `${SESSION_VALUE}-expira` || value?.startsWith(`${SESSION_VALUE}-expira-`);
+}
+
 function hasSession(req) {
-  return sessionValue(req) !== null;
+  const value = sessionValue(req);
+  return value !== null && !expiredSessions.has(value);
 }
 
 // Senhas aceitas no login por senha: a fixa e as definidas pela recuperação.
@@ -88,8 +99,179 @@ function readJson(req) {
   });
 }
 
+// Contexto do painel (F2, DD-31): personas escolhidas pelo valor do cookie de sessão
+// (`sessao-falsa-owner2`, `-manager`, `-staff`, `-accountant`, `-readonly`, `-expira`); qualquer
+// outro valor é o dono de uma empresa só. Os dados são fixos: a regra mora nos testes da API.
+const CONTEXT_COOKIE = "fr_ctx";
+const T1 = "0190a000-0000-7000-8000-000000000001";
+const T2 = "0190a000-0000-7000-8000-000000000002";
+const U1 = "0190a000-0000-7000-8000-0000000000a1";
+const U2 = "0190a000-0000-7000-8000-0000000000a2";
+const U3 = "0190a000-0000-7000-8000-0000000000a3";
+
+const ACTIONS_BY_ROLE = {
+  owner: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
+  manager: ["entry:view", "report:view", "catalog:view", "panel:access"],
+  staff: ["entry:view", "panel:access"],
+  accountant: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
+};
+
+function company(tenantId, name, role, units, extra = {}) {
+  const allUnits = extra.allUnits ?? true;
+  const accessible = extra.unitIds ?? units.map((u) => u.id);
+  return {
+    tenantId,
+    name,
+    role,
+    accountStatus: extra.accountStatus ?? "active",
+    allUnits,
+    unitIds: accessible,
+    units: units.filter((u) => accessible.includes(u.id)),
+    startUnitId: allUnits ? "all" : accessible[0],
+  };
+}
+
+const MATRIZ = { id: U1, name: "Matriz" };
+const FILIAL = { id: U2, name: "Filial" };
+const CENTRO = { id: U3, name: "Centro" };
+
+const PERSONAS = {
+  owner2: [
+    company(T1, "Bistrô Demo", "owner", [MATRIZ, FILIAL]),
+    company(T2, "Pizzaria Sul", "owner", [CENTRO]),
+  ],
+  manager: [
+    company(T1, "Bistrô Demo", "manager", [MATRIZ, FILIAL], { allUnits: false, unitIds: [U1, U2] }),
+  ],
+  staff: [company(T1, "Bistrô Demo", "staff", [MATRIZ], { allUnits: false, unitIds: [U1] })],
+  accountant: [company(T1, "Bistrô Demo", "accountant", [MATRIZ, FILIAL])],
+  readonly: [company(T1, "Bistrô Demo", "owner", [MATRIZ], { accountStatus: "read_only" })],
+};
+const DEFAULT_PERSONA = [company(T1, "Bistrô Demo", "owner", [MATRIZ])];
+
+function personaCompanies(req) {
+  const value = sessionValue(req) ?? "";
+  const name = value.startsWith(`${SESSION_VALUE}-`) ? value.slice(SESSION_VALUE.length + 1) : "";
+  return PERSONAS[name] ?? DEFAULT_PERSONA;
+}
+
+function cookieValue(req, name) {
+  const prefix = `${name}=`;
+  for (const part of (req.headers.cookie ?? "").split(/;\s*/)) {
+    if (part.startsWith(prefix)) return part.slice(prefix.length);
+  }
+  return null;
+}
+
+function parseCtx(raw) {
+  const m = /^([0-9a-f-]{36})\.([0-9a-f-]{36}|all)$/.exec(raw ?? "");
+  return m ? { tenantId: m[1], unitId: m[2] } : null;
+}
+
+function choiceValid(companies, choice) {
+  const c = companies.find((x) => x.tenantId === choice.tenantId);
+  if (!c) return false;
+  return choice.unitId === "all" ? c.allUnits : c.unitIds.includes(choice.unitId);
+}
+
+// Espelha resolvePanelContext do core, sem a regra completa de situação da conta.
+function resolveContext(req) {
+  const companies = personaCompanies(req);
+  const requested = parseCtx(cookieValue(req, CONTEXT_COOKIE));
+  if (requested && choiceValid(companies, requested)) {
+    return {
+      company: companies.find((c) => c.tenantId === requested.tenantId),
+      unitId: requested.unitId,
+      source: "cookie",
+      companies,
+    };
+  }
+  const kept = requested ? companies.find((c) => c.tenantId === requested.tenantId) : undefined;
+  const company = kept ?? companies[0];
+  return {
+    company,
+    unitId: company.startUnitId,
+    source: requested ? "invalid_cookie" : "fallback",
+    companies,
+  };
+}
+
+// Sessão restrita (pós-F2, A5): personas `restrito-dono` e `restrito-sem-vinculo`. Ao criar empresa
+// (`POST /api/companies`) a sessão passa a `full`, como na API real (a empresa nasce com unidade ativa).
+const RESTRICTED_REASONS = {
+  "restrito-dono": "owner_no_unit",
+  "restrito-sem-vinculo": "no_membership",
+};
+const promoted = new Set();
+// Persona `vira-restrito`: começa `full` e vira restrita (`owner_no_unit`) depois do primeiro 401 de
+// /api/units, simulando a classificação que muda no meio da sessão. Estado por valor completo do
+// cookie: spec que usa essa persona usa sufixo único.
+const turnedRestricted = new Set();
+
+function isTurning(value) {
+  return value?.startsWith(`${SESSION_VALUE}-vira-restrito-`) ?? false;
+}
+
+function restrictedReason(req) {
+  const value = sessionValue(req) ?? "";
+  if (promoted.has(value)) return null;
+  if (turnedRestricted.has(value)) return "owner_no_unit";
+  const name = value.startsWith(`${SESSION_VALUE}-`) ? value.slice(SESSION_VALUE.length + 1) : "";
+  // Nome exato ou com sufixo de isolamento (`restrito-dono-<id>`); o estado fica por valor completo.
+  for (const [persona, reason] of Object.entries(RESTRICTED_REASONS)) {
+    if (name === persona || name.startsWith(`${persona}-`)) return reason;
+  }
+  return null;
+}
+
+// Rotas de tenant e de perfil recusam a sessão restrita com 401 (RNF02).
+function hasFullSession(req) {
+  return hasSession(req) && restrictedReason(req) === null;
+}
+
+function meBody(req) {
+  const profile = profileOf(req);
+  const reason = restrictedReason(req);
+  if (reason) {
+    return {
+      access: "restricted",
+      reason,
+      userId: "u-1",
+      name: profile.name,
+      email: profile.email,
+    };
+  }
+  const { company, unitId, source, companies } = resolveContext(req);
+  return {
+    access: "full",
+    userId: "u-1",
+    name: profile.name,
+    email: profile.email,
+    companies: companies.map((c) => ({
+      tenantId: c.tenantId,
+      name: c.name,
+      role: c.role,
+      accountStatus: c.accountStatus,
+      startUnitId: c.startUnitId,
+    })),
+    context: {
+      tenantId: company.tenantId,
+      unitId,
+      role: company.role,
+      permissions: [],
+      allUnits: company.allUnits,
+      unitIds: company.unitIds,
+      accountStatus: company.accountStatus,
+      allowedActions: ACTIONS_BY_ROLE[company.role],
+    },
+    contextSource: source,
+  };
+}
+
+const EXPIRE_CTX = `${CONTEXT_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`;
+
 const login = {
-  "set-cookie": `${SESSION_COOKIE}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax`,
+  "set-cookie": [`${SESSION_COOKIE}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax`, EXPIRE_CTX],
 };
 
 function isValidCnpj(value) {
@@ -117,8 +299,38 @@ createServer(async (req, res) => {
 
   if (method === "GET" && url === "/api/me") {
     return hasSession(req)
-      ? send(res, 200, { userId: "u-1", name: "Dono Demo", email: "dono@demo.dev" })
+      ? send(res, 200, meBody(req))
       : send(res, 401, { code: "UNAUTHORIZED", message: "Entre para continuar." });
+  }
+
+  // Contexto do painel (F2): o cookie fr_ctx só é gravado aqui, e só se o par for válido.
+  if (method === "POST" && url === "/api/context") {
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
+    const body = await readJson(req);
+    const choice = { tenantId: body.tenantId, unitId: body.unitId };
+    if (!choiceValid(personaCompanies(req), choice)) {
+      return send(res, 403, { code: "context_invalid" });
+    }
+    res.setHeader(
+      "set-cookie",
+      `${CONTEXT_COOKIE}=${choice.tenantId}.${choice.unitId}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`,
+    );
+    res.statusCode = 204;
+    return res.end();
+  }
+
+  if (method === "GET" && url === "/api/units") {
+    if (isExpiring(sessionValue(req))) expiredSessions.add(sessionValue(req));
+    if (isTurning(sessionValue(req))) turnedRestricted.add(sessionValue(req));
+    if (!hasFullSession(req)) {
+      return send(res, 401, UNAUTHORIZED);
+    }
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    return send(res, 200, { units: company.units });
   }
 
   if (method === "POST" && url === "/api/auth/email-otp/send-verification-otp") {
@@ -127,6 +339,9 @@ createServer(async (req, res) => {
 
   if (method === "POST" && url === "/api/auth/sign-in/email-otp") {
     const body = await readJson(req);
+    if (body.otp === FIXED_OTP && body.email === NO_UNIT_EMAIL) {
+      return send(res, 403, { code: "NO_ACTIVE_UNIT" });
+    }
     return body.otp === FIXED_OTP
       ? send(res, 200, { token: "t", user: {} }, login)
       : send(res, 400, {
@@ -137,6 +352,10 @@ createServer(async (req, res) => {
 
   if (method === "POST" && url === "/api/auth/sign-in/email") {
     const body = await readJson(req);
+    // Gerente/contador sem unidade ativa: só depois da senha certa (RF02.R1, RF02.CA10).
+    if (acceptedPasswords.has(body.password) && body.email === NO_UNIT_EMAIL) {
+      return send(res, 403, { code: "NO_ACTIVE_UNIT" });
+    }
     return acceptedPasswords.has(body.password)
       ? send(res, 200, { token: "t", user: {} }, login)
       : send(res, 401, {
@@ -150,7 +369,7 @@ createServer(async (req, res) => {
       res,
       200,
       { success: true },
-      { "set-cookie": `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly` },
+      { "set-cookie": [`${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly`, EXPIRE_CTX] },
     );
   }
 
@@ -181,7 +400,7 @@ createServer(async (req, res) => {
 
   // Perfil (F1c, RF02.R8, CA09): espelha /api/profile/*, com estado por sessão.
   if (url?.startsWith("/api/profile")) {
-    if (!hasSession(req)) return send(res, 401, UNAUTHORIZED);
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
     const profile = profileOf(req);
 
     if (method === "GET" && url === "/api/profile") {
@@ -263,6 +482,7 @@ createServer(async (req, res) => {
         fields: { "company.cnpj": "cnpj_invalid" },
       });
     }
+    if (url === "/api/companies") promoted.add(sessionValue(req));
     return send(res, 201, { tenantId: "t-novo" }, url === "/api/signup" ? login : {});
   }
 

@@ -1,4 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { warmRoutes } from "./warm";
+
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  await warmRoutes();
+});
 
 // Valores fixos da API falsa (e2e/fake-api.mjs) e do web de teste (playwright.config.ts).
 const CODE = "123456";
@@ -29,7 +35,11 @@ async function fillCompany(page: Page, cnpj: string) {
   await page.getByLabel("Nome fantasia").fill("Bar do Zé");
   await page.getByLabel("CNPJ (opcional)").fill(cnpj);
   await page.getByLabel("Segmento").selectOption({ label: "Bar" });
-  await page.getByLabel("Estado (UF)").selectOption("AL");
+  // Antes da hidratação a troca de UF não dispara a carga dos municípios: repete até o campo liberar.
+  await expect(async () => {
+    await page.getByLabel("Estado (UF)").selectOption("AL");
+    await expect(page.getByLabel("Município")).toBeEnabled({ timeout: 2_000 });
+  }).toPass();
   await pickCity(page, "Maceió");
   await page.getByRole("checkbox", { name: /Li e aceito/ }).check();
 }
@@ -94,6 +104,8 @@ test('logged user opens "Criar outra empresa" and finishes on /bem-vindo', async
     { name: "better-auth.session_token", value: "sessao-falsa", url: baseURL as string },
   ]);
   await page.goto("/");
+  // A casca grava o cookie de contexto e recarrega na primeira visita: só clique depois disso.
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
 
   if (isMobile) {
     await page.getByRole("button", { name: "Abrir menu" }).click();

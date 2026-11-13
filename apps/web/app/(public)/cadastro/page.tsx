@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { RedirectIfSignedIn } from "@/components/redirect-if-signed-in";
 import { SignupFlow } from "@/features/signup/signup-flow";
 
 export const metadata = { title: "Criar conta | Finanças para restaurantes" };
@@ -13,7 +15,11 @@ export default function SignupPage() {
           e já entra no painel.
         </p>
       </div>
-      <SignupFlow />
+      <Suspense fallback={<p aria-busy="true">Carregando…</p>}>
+        <RedirectIfSignedIn>
+          <SignupFlow />
+        </RedirectIfSignedIn>
+      </Suspense>
       <p className="text-sm text-muted-foreground">
         Já tem conta?{" "}
         <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">

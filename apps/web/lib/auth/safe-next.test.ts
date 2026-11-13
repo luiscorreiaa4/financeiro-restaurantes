@@ -28,6 +28,34 @@ describe("destino depois do login (safeNext)", () => {
     expect(safeNext(undefined)).toBe("/");
   });
 
+  it("telas de acesso e rotas da API nunca são destino (sem laço de redirecionamento)", () => {
+    const refused = [
+      "/login",
+      "/login/",
+      "/login?x=1",
+      "/login#a",
+      "/LOGIN",
+      "/%6cogin",
+      "/login?next=/login",
+      "/cadastro",
+      "/cadastro/",
+      "/recuperar-senha",
+      "/recuperar-senha?x=1",
+      "/api",
+      "/api/",
+      "/api/auth/sign-out",
+      "/API/auth/sign-out",
+      "/api?x=1",
+    ];
+    for (const value of refused) expect(safeNext(value), value).toBe("/");
+  });
+
+  it("/redefinir-senha e caminhos parecidos continuam aceitos", () => {
+    expect(safeNext("/redefinir-senha")).toBe("/redefinir-senha");
+    expect(safeNext("/login-ajuda")).toBe("/login-ajuda");
+    expect(safeNext("/apis")).toBe("/apis");
+  });
+
   it("caminho interno válido mantém busca e âncora", () => {
     expect(safeNext("/lancamentos?mes=2026-11#topo")).toBe("/lancamentos?mes=2026-11#topo");
     expect(safeNext("/")).toBe("/");

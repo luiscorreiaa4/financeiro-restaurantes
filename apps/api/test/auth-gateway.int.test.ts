@@ -40,17 +40,25 @@ async function linkToken(address: string, ip: string): Promise<string> {
 }
 
 describe("operações do AuthGateway para recuperação de senha (F1c, DD-27)", () => {
-  it("requestPasswordLink envia o link a quem tem vínculo; desconhecido e sem vínculo, nada", async () => {
+  it("requestPasswordLink envia o link a quem tem acesso ou modo restrito; desconhecido e sem acesso (no_access), nada", async () => {
     const user = await h.createUser();
-    const gone = await h.createUser({ membership: "deactivated" });
+    const gone = await h.createUser();
+    await h.db.admin.query(
+      "update tenants set status = 'closed' where id in (select tenant_id from memberships where user_id = $1)",
+      [gone.userId],
+    );
+    const restricted = await h.createUser({ membership: "deactivated" });
     await h.gateway.requestPasswordLink({ email: user.email, ip: "10.9.0.1" });
     await h.gateway.requestPasswordLink({ email: gone.email, ip: "10.9.0.2" });
+    await h.gateway.requestPasswordLink({ email: restricted.email, ip: "10.9.0.4" });
     await expect(
       h.gateway.requestPasswordLink({ email: "ninguem@ex.com", ip: "10.9.0.3" }),
     ).resolves.toBeUndefined();
     await h.tasks.drain();
-    expect(h.email.sentLinks).toHaveLength(1);
-    expect(h.email.sentLinks[0]?.to).toBe(user.email);
+    expect(h.email.sentLinks).toHaveLength(2);
+    expect(h.email.sentLinks.map((l) => l.to).sort()).toEqual(
+      [user.email, restricted.email].sort(),
+    );
     expect(h.email.sentLinks[0]?.url).toMatch(/\/redefinir-senha#token=[\w-]+$/);
     expect(h.email.sent).toHaveLength(0);
   });

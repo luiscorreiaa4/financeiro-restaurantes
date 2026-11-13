@@ -3,6 +3,7 @@ import { resolveSender } from "@app/core";
 import {
   createAuthStore,
   createDatabase,
+  createPanelAccessStore,
   createPool,
   createSenderDirectory,
   createSignupRepo,
@@ -18,6 +19,7 @@ import { createSystemClock } from "../src/infra/clock";
 import { createMemoryEmailSender } from "../src/infra/email/memory-email-sender";
 import {
   type AuthGateway,
+  createCheckEntry,
   createCheckSession,
   createSessionBlocked,
 } from "../src/modules/auth/check-session";
@@ -32,6 +34,7 @@ const SECRET = "segredo-de-teste-com-mais-de-32-caracteres";
 let db: TestDatabase;
 let authPool: ReturnType<typeof createPool>;
 let ingestPool: ReturnType<typeof createPool>;
+let appPool: ReturnType<typeof createPool>;
 let gateway: AuthGateway;
 let app: ReturnType<typeof buildApp>;
 
@@ -39,6 +42,7 @@ beforeAll(async () => {
   db = await startTestDatabase();
   authPool = createPool(db.urls.auth);
   ingestPool = createPool(db.urls.ingest);
+  appPool = createPool(db.urls.app);
   const clock = createSystemClock();
   const authDb = createDatabase(authPool);
   const store = createAuthStore(authDb, clock);
@@ -61,15 +65,25 @@ beforeAll(async () => {
   );
   const repo = createSignupRepo(authDb);
   const checkSession = createCheckSession({ gateway, access: store, clock });
+  const checkEntry = createCheckEntry({ gateway, access: store, clock });
   app = buildApp(
-    { LOG_LEVEL: "warn" },
+    { LOG_LEVEL: "warn", APP_URL: ORIGIN },
     {
       auth: {
         gateway,
         checkSession,
         sessionBlocked: createSessionBlocked({ gateway, access: store }),
+        secure: true,
+      },
+      panel: {
+        checkSession,
+        checkEntry,
+        access: createPanelAccessStore(authDb),
+        appDb: createDatabase(appPool),
+        secure: true,
       },
       signup: {
+        secure: true,
         requestCode: createRequestSignupCode({
           store: signupStore,
           users: store,
@@ -88,7 +102,7 @@ beforeAll(async () => {
           newId: uuidv7,
         }),
         companies: {
-          checkSession,
+          checkEntry,
           createCompany: createCreateCompany({ repo, users: store, clock, newId: uuidv7 }),
         },
       },
@@ -100,6 +114,7 @@ afterAll(async () => {
   await app?.close();
   await authPool?.end();
   await ingestPool?.end();
+  await appPool?.end();
   await db?.stop();
 });
 
@@ -163,6 +178,11 @@ async function seedUser(
   await db.admin.query("insert into tenants (id, name) values ($1, $2)", [
     tenantId,
     `Antiga ${unique()}`,
+  ]);
+  // O painel exige ao menos uma unidade ativa (DD-31).
+  await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Matriz')", [
+    uuidv7(),
+    tenantId,
   ]);
   await db.admin.query(
     `insert into memberships (id, tenant_id, user_id, role, all_units, panel_access, created_at)
@@ -236,6 +256,10 @@ describe("criar outra empresa com usuário logado (F1b, RF01)", () => {
     const { tenantId } = response.json();
     expect(tenantId).toEqual(expect.any(String));
     expect(tenantId).not.toBe(user.tenantId);
+    // Mesmo usuário, mesma sessão: o contexto lembrado continua valendo (DD-25), nada é expirado.
+    expect(
+      [response.headers["set-cookie"] ?? []].flat().some((c) => String(c).includes("fr_ctx")),
+    ).toBe(false);
 
     const tenant = (
       await db.admin.query(
@@ -402,5 +426,46 @@ describe("criar outra empresa com usuário logado (F1b, RF01)", () => {
         response.json().tenantId,
       ]),
     ).toBe(1);
+  });
+
+  /** Dono sem unidade ativa e quem só tem vínculo desativado: sessão restrita (DD-33). */
+  async function restrictedUser(kind: "owner_no_unit" | "no_membership"): Promise<SeededUser> {
+    const user = await seedUser();
+    if (kind === "owner_no_unit") {
+      await db.admin.query("delete from units where tenant_id = $1", [user.tenantId]);
+    } else {
+      await db.admin.query(
+        "update memberships set status = 'deactivated', deactivated_at = now() where user_id = $1",
+        [user.userId],
+      );
+    }
+    return user;
+  }
+
+  const meOf = (cookie: string) =>
+    app.inject({ method: "GET", url: "/api/me", headers: { cookie } });
+
+  it("sessão restrita cria a empresa (201) e em seguida /api/me vira full com ela", async () => {
+    for (const kind of ["owner_no_unit", "no_membership"] as const) {
+      const user = await restrictedUser(kind);
+      const before = await meOf(user.cookie);
+      expect(before.json().access).toBe("restricted");
+      const response = await postCompany(form(), user.cookie);
+      expect(response.statusCode).toBe(201);
+      const after = (await meOf(user.cookie)).json();
+      expect(after.access).toBe("full");
+      expect(after.companies.map((c: { tenantId: string }) => c.tenantId)).toContain(
+        response.json().tenantId,
+      );
+    }
+  });
+
+  it("sessão de usuário recusado (gerente sem unidade ativa) → 401 e nada gravado", async () => {
+    const user = await seedUser({ role: "manager" });
+    await db.admin.query("delete from units where tenant_id = $1", [user.tenantId]);
+    const body = form();
+    const response = await postCompany(body, user.cookie);
+    expect(response.statusCode).toBe(401);
+    expect(await count("tenants where name = $1", [body.company.tradeName])).toBe(0);
   });
 });
