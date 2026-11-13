@@ -50,6 +50,15 @@ describe("destino depois do login (safeNext)", () => {
     for (const value of refused) expect(safeNext(value), value).toBe("/");
   });
 
+  it("barras codificadas (%2F) não viram host nem escondem tela de acesso ou API (PF2-7)", () => {
+    // Continua caminho interno: o navegador não decodifica %2F para decidir o host.
+    expect(safeNext("/%2F%2Fevil.com")).toBe("/%2F%2Fevil.com");
+    expect(safeNext("/%2Fevil.com")).toBe("/%2Fevil.com");
+    for (const next of ["/api%2Fme", "/API%2fme", "/login%2F", "/%2e%2e/api/me"]) {
+      expect(safeNext(next), next).toBe("/");
+    }
+  });
+
   it("/redefinir-senha e caminhos parecidos continuam aceitos", () => {
     expect(safeNext("/redefinir-senha")).toBe("/redefinir-senha");
     expect(safeNext("/login-ajuda")).toBe("/login-ajuda");

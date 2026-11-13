@@ -28,12 +28,14 @@ async function signIn(page: Page, persona: string, ctx?: string) {
 const visible = (page: Page, label: string) =>
   page.locator(`select[aria-label="${label}"]:visible`);
 
-async function openNav(page: Page) {
+async function openNav(page: Page, isMobile: boolean) {
   // Na primeira visita a casca grava o contexto e recarrega; só mexa no menu depois disso.
   await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
-  // No celular a navegação fica atrás do botão do menu.
-  const toggle = page.getByRole("button", { name: "Abrir menu" });
-  if (await toggle.isVisible()) {
+  // No celular a navegação fica atrás do botão do menu. Decida pelo projeto (`isMobile`), nunca por
+  // `toggle.isVisible()`: a casca chega por streaming e, logo depois do `goto`, o botão ainda não
+  // existe; a checagem única responde "não" e o menu do celular nunca é aberto (PF2-9).
+  if (isMobile) {
+    const toggle = page.getByRole("button", { name: "Abrir menu" });
     // Um clique antes da hidratação não abre nada: repete até o menu aparecer, sem fechar o aberto.
     const dialog = page.getByRole("dialog");
     await expect(async () => {
@@ -113,12 +115,12 @@ const MENU = [
 ];
 
 for (const { persona, links } of MENU) {
-  test(`menu por papel: ${persona}`, async ({ page }) => {
+  test(`menu por papel: ${persona}`, async ({ page, isMobile }) => {
     const unit = persona === "manager" || persona === "staff" ? U1 : "all";
     await signIn(page, persona, `${T1}.${unit}`);
     await page.goto("/");
 
-    const nav = await openNav(page);
+    const nav = await openNav(page, isMobile);
 
     await expect(nav.getByRole("link")).toHaveText(links);
   });
