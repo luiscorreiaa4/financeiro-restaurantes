@@ -46,11 +46,7 @@ import { createLocalMediaStore } from "./infra/media/local-media-store";
 import { createQrReader } from "./infra/media/qr-reader";
 import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
-import {
-  createCheckEntry,
-  createCheckSession,
-  createSessionBlocked,
-} from "./modules/auth/check-session";
+import { createCheckEntry, createCheckSession } from "./modules/auth/check-session";
 import { createEntryHandlers } from "./modules/entries/entry-handlers";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
@@ -172,7 +168,6 @@ function composeAuth(env: Env): {
     deps: {
       gateway,
       checkSession,
-      sessionBlocked: createSessionBlocked({ gateway, access: store }),
       secure: env.NODE_ENV !== "development",
     },
     signup: {

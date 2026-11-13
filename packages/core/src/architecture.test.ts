@@ -10,5 +10,6 @@ describe("regras de arquitetura do core", () => {
   it("não tem dependências circulares entre os arquivos", async () => {
     const violations = await projectFiles().inFolder("src/**").should().haveNoCycles().check();
     expect(violations).toEqual([]);
-  });
+    // Lê todos os arquivos do pacote: com a máquina carregada passa dos 5 s padrão (PF2-6).
+  }, 30_000);
 });

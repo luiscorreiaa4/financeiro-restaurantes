@@ -5,7 +5,6 @@ import {
   type AuthSession,
   createCheckEntry,
   createCheckSession,
-  createSessionBlocked,
   type SessionAccess,
 } from "./check-session";
 
@@ -34,7 +33,6 @@ function setup(entry: PanelEntry, found: AuthSession | null = session) {
   return {
     checkEntry: createCheckEntry({ gateway, access, clock }),
     checkSession: createCheckSession({ gateway, access, clock }),
-    sessionBlocked: createSessionBlocked({ gateway, access }),
     touchSession,
   };
 }
@@ -86,7 +84,7 @@ describe("createCheckEntry", () => {
   });
 });
 
-describe("createCheckSession e createSessionBlocked com a regra nova", () => {
+describe("createCheckSession com a regra nova", () => {
   it("checkSession só aceita acesso completo", async () => {
     for (const entry of [
       { kind: "restricted", reason: "owner_no_unit" },
@@ -96,15 +94,5 @@ describe("createCheckSession e createSessionBlocked com a regra nova", () => {
       expect(await setup(entry).checkSession(new Headers())).toEqual({ ok: false });
     }
     expect((await setup({ kind: "full" }).checkSession(new Headers())).ok).toBe(true);
-  });
-
-  it("sessionBlocked bloqueia só o recusado: o restrito consegue sair", async () => {
-    expect(
-      await setup({ kind: "refused", reason: "no_access" }).sessionBlocked(new Headers()),
-    ).toBe(true);
-    expect(
-      await setup({ kind: "restricted", reason: "no_membership" }).sessionBlocked(new Headers()),
-    ).toBe(false);
-    expect(await setup({ kind: "full" }).sessionBlocked(new Headers())).toBe(false);
   });
 });

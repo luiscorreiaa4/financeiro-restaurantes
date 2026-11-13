@@ -87,7 +87,7 @@ describe("nova senha pelo link (RF03, DD-27)", () => {
     expect(order).toEqual(["reset", "signOut", "done"]);
   });
 
-  it("se o sign-out falhar, ainda vai ao login", async () => {
+  it("se o sign-out falhar, confirma a troca na própria tela, sem depender do login (PF2-4)", async () => {
     const user = userEvent.setup();
     const client = fakeClient({
       signOut: vi.fn(async () => {
@@ -100,7 +100,50 @@ describe("nova senha pelo link (RF03, DD-27)", () => {
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Alterar senha" }));
 
-    expect(onDone).toHaveBeenCalled();
+    expect(await screen.findByRole("status")).toHaveTextContent("Senha alterada");
+    expect(screen.getByRole("link", { name: "Ir para o login" })).toHaveAttribute("href", "/login");
+    expect(onDone).not.toHaveBeenCalled();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("se o sign-out não responder, desiste depois do tempo limite e confirma na tela (PF2-4)", async () => {
+    const user = userEvent.setup();
+    const client = fakeClient({ signOut: vi.fn(() => new Promise<void>(() => {})) });
+    const onDone = vi.fn();
+    render(<ResetPasswordForm client={client} onDone={onDone} signOutTimeoutMs={20} />);
+
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Alterar senha" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Senha alterada");
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("o botão fica desativado até o sign-out terminar: sem segundo envio (PF2-4)", async () => {
+    const user = userEvent.setup();
+    let finishSignOut = () => {};
+    const client = fakeClient({
+      signOut: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSignOut = resolve;
+          }),
+      ),
+    });
+    const onDone = vi.fn();
+    render(<ResetPasswordForm client={client} onDone={onDone} />);
+
+    await fill(user);
+    const button = screen.getByRole("button", { name: "Alterar senha" });
+    await user.click(button);
+    await vi.waitFor(() => expect(client.signOut).toHaveBeenCalled());
+
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(client.resetPassword).toHaveBeenCalledTimes(1);
+
+    finishSignOut();
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledOnce());
   });
 
   it("conclui: chama resetPassword com o token e a senha, avisa no login e vai para ele", async () => {

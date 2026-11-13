@@ -16,7 +16,7 @@ Hierarquia da documentação, da mais forte para a mais fraca:
 
 | Documento | Papel |
 |---|---|
-| `docs/requisitos.md` | **O quê** e as regras de negócio (39 RFs, 14 RNFs, matriz de permissões, pendências). Versão 1.12 (11/11/2026). Fonte da verdade. |
+| `docs/requisitos.md` | **O quê** e as regras de negócio (39 RFs, 14 RNFs, matriz de permissões, pendências). Versão 1.13 (13/11/2026). Fonte da verdade. |
 | `docs/decisoes.md` | **Por quê**: registro de decisões (D1 a D7, D-F1 a D-F9, DE-xx das etapas, DN-xx de 29/10/2026, DD-xx da reunião de descoberta de 05/11/2026). Resumo em `docs/DESCOBERTA.md`. |
 | `docs/arquitetura.md` | **Como**: stack, fluxo, modelo de dados e divergências do modelo atual em relação aos requisitos. |
 | `docs/produto.md` | Visão de produto e de negócio: problema, público, custos, validação, riscos. |

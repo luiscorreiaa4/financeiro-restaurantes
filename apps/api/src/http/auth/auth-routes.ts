@@ -1,5 +1,5 @@
 import type { FastifyError, FastifyPluginAsync } from "fastify";
-import type { AuthGateway, CheckSession, SessionBlocked } from "../../modules/auth/check-session";
+import type { AuthGateway, CheckSession } from "../../modules/auth/check-session";
 import { expiredContextCookie } from "../panel/panel-context";
 import { authError } from "./auth-messages";
 import { toWebHeaders } from "./require-session";
@@ -8,7 +8,6 @@ export interface AuthRoutesDeps {
   readonly gateway: AuthGateway;
   readonly checkSession: CheckSession;
   /** Sessão válida de quem perdeu o vínculo ativo (RF02.CA07). */
-  readonly sessionBlocked: SessionBlocked;
   /** Cookie `__Secure-` e atributo `Secure` (fora de development); define qual `fr_ctx` expirar. */
   readonly secure: boolean;
 }

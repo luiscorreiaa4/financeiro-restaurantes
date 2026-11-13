@@ -65,7 +65,7 @@ A recusa `ask_owner` acontece depois da conferência da credencial. Ponto único
 **Sessão a cada requisição:**
 - `checkSession` (existente) continua exigindo `full`. Todas as rotas atuais seguem recusando a sessão restrita com 401, inclusive `/api/profile/*`, `/api/context` e `/api/units`.
 - `checkEntry` (novo) aceita `full` e `restricted` e devolve qual é. Só duas rotas o usam: `GET /api/me` e `POST /api/companies`.
-- `sessionBlocked` (rotas `/api/auth/*`) passa a bloquear só `refused`, para a sessão restrita conseguir sair.
+- `sessionBlocked` (rotas `/api/auth/*`): **removido em 13/11/2026 (DD-34)**. Nenhuma rota o chamava e a lista fechada de `/api/auth/*` não tem ação que dependa da sessão. O texto original previa bloquear só `refused`.
 - Uma sessão `full` que vira `refused` no meio do caminho recebe 401 em tudo, como hoje (RF02.CA07).
 
 **`GET /api/me`:** ganha o campo `access`. `full` devolve o corpo de hoje mais `access: "full"`. `restricted` devolve só `{ access: "restricted", reason, userId, name, email }`, sem empresas, sem contexto e sem tocar no `fr_ctx`.

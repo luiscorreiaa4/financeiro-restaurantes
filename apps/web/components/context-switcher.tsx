@@ -28,7 +28,9 @@ function normalize(text: string): string {
  * Seletor de empresa e de unidade (RF02.R6). Cada um só aparece havendo mais de uma opção.
  * "Todas as unidades" só para quem tem todas (`allUnits`). Trocar grava o cookie de contexto
  * (POST /api/context) e recarrega a página inteira, o que limpa o cache do router e o do
- * TanStack de uma vez (RF02.CA05).
+ * TanStack de uma vez (RF02.CA05). `autoComplete="off"`: sem ele, ao voltar no histórico o
+ * navegador restaura o valor antigo do `<select>` e a tela mostra a empresa anterior, embora o
+ * contexto real seja o novo.
  */
 export function ContextSwitcher({
   me,
@@ -97,6 +99,7 @@ export function ContextSwitcher({
           <select
             aria-label="Empresa"
             className={selectClass}
+            autoComplete="off"
             value={me.context.tenantId}
             disabled={busy}
             onFocus={refreshUnits}
@@ -119,6 +122,7 @@ export function ContextSwitcher({
         <select
           aria-label="Unidade"
           className={selectClass}
+          autoComplete="off"
           value={me.context.unitId}
           disabled={busy}
           onFocus={refreshUnits}

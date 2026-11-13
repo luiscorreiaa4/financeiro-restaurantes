@@ -2,7 +2,7 @@
 
 > **Só índice.** Cada linha aponta para o arquivo que explica a pendência; o texto, o contexto e a decisão moram lá. Ao fechar uma pendência, marque na fonte e **tire a linha daqui**. Pendência nova entra primeiro na fonte e depois ganha uma linha aqui, na etapa de origem.
 >
-> Atualizado em 11/11/2026 (fechamento do bloco pós-F2, DD-33: saíram F1b-8, F1b-14, F1c-8, F1c-9, F1c-10, F1c-12, F1c-17, F2-1, F2-2, F2-6 e F2-7; entraram PF2-1 a PF2-9). Antes, em 11/11/2026 (entrevista de pendências, DD-32: F0-2 e F1c-11 saíram; "pós-F2" é o bloco de código antes da F3). Antes, em 10/11/2026 (F2 feita: F1a-1, F1b-12 e F1c-6 saíram daqui). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
+> Atualizado em 13/11/2026 (DD-34: saíram PF2-1, PF2-2, PF2-3, PF2-4, PF2-6, PF2-7 e PF2-8, e a PF2-9, corrigida no teste; fica PF2-5). Antes, em 11/11/2026 (fechamento do bloco pós-F2, DD-33: saíram F1b-8, F1b-14, F1c-8, F1c-9, F1c-10, F1c-12, F1c-17, F2-1, F2-2, F2-6 e F2-7; entraram PF2-1 a PF2-9). Antes, em 11/11/2026 (entrevista de pendências, DD-32: F0-2 e F1c-11 saíram; "pós-F2" é o bloco de código antes da F3). Antes, em 10/11/2026 (F2 feita: F1a-1, F1b-12 e F1c-6 saíram daqui). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
 
 **Fontes:** [`andamento.md`](andamento.md) (pendências técnicas, quem está travado e documentação) · [`requisitos.md` §5](../requisitos.md#5-pendências-e-decisões-em-aberto) (pendências de negócio P01 a P18) · [`contingencia-canal.md`](contingencia-canal.md) · [`politica-meta-whatsapp.md`](../politica-meta-whatsapp.md) · `matheus.md` e `luis.md` (locais, fora do git).
 
@@ -105,15 +105,7 @@
 
 | ID | Pendência | Resolver em | Detalhe |
 |---|---|---|---|
-| PF2-1 | E2E do seletor após `goBack()` mostra a empresa anterior (suspeita de produto, RF02.CA05) | antes da F3 | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-2 | `sessionBlocked` montado mas não chamado: remover ou ligar | Decisão | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-3 | Normalização do nome do perfil sem observação no RF02 | Decisão | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-4 | `ResetPasswordForm`: duplo envio e aviso perdido se o `sign-out` falhar | rever | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
 | PF2-5 | `SUPPORT_EMAIL` provisório em `apps/web/lib/support.ts` | antes do piloto | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-6 | Testes que estouram 5 s com a máquina carregada (`architecture.test.ts`, `signup-flow.test.tsx`) | rever | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-7 | Lacunas menores de teste do hook de `Origin` e do `safeNext` | rever | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-8 | Código de `ask_owner` consumido antes da recusa `NO_ACTIVE_UNIT` | Decisão (Luís) | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
-| PF2-9 | E2E "menu por papel" no celular instável com `CI=true` | Técnica | [andamento §6](andamento.md#6-painel) · bloco "pós-F2" |
 
 ## Negócio (requisitos §5)
 

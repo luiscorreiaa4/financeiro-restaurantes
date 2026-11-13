@@ -53,6 +53,35 @@ describe("hook global de Origin (DD-32, RNF01.R10)", () => {
     },
   );
 
+  it("Origin repetido ou com maiúsculas é recusado: a comparação é exata (PF2-7)", async () => {
+    const app = appFor();
+    for (const origin of [[ORIGIN, ORIGIN], [ORIGIN, "http://evil.com"], "HTTP://LOCALHOST:3000"]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/t/escrita",
+        headers: { origin: origin as string },
+      });
+      expect(response.statusCode, String(origin)).toBe(403);
+    }
+    await app.close();
+  });
+
+  it("variações do caminho isento não ficam isentas (PF2-7)", async () => {
+    const app = appFor();
+    for (const url of [
+      "//webhooks/whatsapp",
+      "/webhooks//whatsapp",
+      "/webhooks/whatsapp/",
+      "/webhooks%2Fwhatsapp",
+      "/%77ebhooks/whatsapp",
+      "/WEBHOOKS/WHATSAPP",
+    ]) {
+      const response = await app.inject({ method: "POST", url });
+      expect(response.statusCode, url).toBe(403);
+    }
+    await app.close();
+  });
+
   it("Origin de outro site, 'null' e prefixo parecido são recusados", async () => {
     const app = appFor();
     for (const origin of [
@@ -152,7 +181,7 @@ describe("hook global de Origin (DD-32, RNF01.R10)", () => {
       { LOG_LEVEL: "silent", APP_URL },
       {
         whatsapp: { appSecret: "s", verifyToken: "t", ingest: stub },
-        auth: { gateway: stub, checkSession: stub, sessionBlocked: stub, secure: true },
+        auth: { gateway: stub, checkSession: stub, secure: true },
         signup: stub,
         recovery: stub,
         profile: stub,
