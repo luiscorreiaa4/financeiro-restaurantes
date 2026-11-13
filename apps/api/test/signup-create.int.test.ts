@@ -17,11 +17,7 @@ import { createBackgroundTasks } from "../src/infra/auth/background-tasks";
 import { createAuth, createAuthGateway } from "../src/infra/auth/create-auth";
 import { createSystemClock } from "../src/infra/clock";
 import { createMemoryEmailSender } from "../src/infra/email/memory-email-sender";
-import {
-  createCheckEntry,
-  createCheckSession,
-  createSessionBlocked,
-} from "../src/modules/auth/check-session";
+import { createCheckEntry, createCheckSession } from "../src/modules/auth/check-session";
 import { createCreateAccount } from "../src/modules/signup/create-account";
 import { createRequestSignupCode } from "../src/modules/signup/request-signup-code";
 import { createVerifySignupCode } from "../src/modules/signup/verify-signup-code";
@@ -75,7 +71,6 @@ beforeAll(async () => {
       auth: {
         gateway,
         checkSession: createCheckSession({ gateway, access: store, clock }),
-        sessionBlocked: createSessionBlocked({ gateway, access: store }),
         secure: true,
       },
       panel: {

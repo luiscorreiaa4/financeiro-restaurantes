@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app";
-import type { AuthGateway, CheckSession, SessionBlocked } from "../../modules/auth/check-session";
+import type { AuthGateway, CheckSession } from "../../modules/auth/check-session";
 
 const ORIGIN = "http://localhost:3000";
 
@@ -20,7 +20,6 @@ function appWith(secure: boolean) {
       auth: {
         gateway,
         checkSession: (async () => ({ ok: false })) as unknown as CheckSession,
-        sessionBlocked: (async () => false) as unknown as SessionBlocked,
         secure,
       },
     },

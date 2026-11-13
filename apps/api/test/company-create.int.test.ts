@@ -21,7 +21,6 @@ import {
   type AuthGateway,
   createCheckEntry,
   createCheckSession,
-  createSessionBlocked,
 } from "../src/modules/auth/check-session";
 import { createCreateAccount } from "../src/modules/signup/create-account";
 import { createCreateCompany } from "../src/modules/signup/create-company";
@@ -72,7 +71,6 @@ beforeAll(async () => {
       auth: {
         gateway,
         checkSession,
-        sessionBlocked: createSessionBlocked({ gateway, access: store }),
         secure: true,
       },
       panel: {

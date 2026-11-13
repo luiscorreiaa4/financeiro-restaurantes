@@ -16,11 +16,7 @@ import { createBackgroundTasks } from "../../src/infra/auth/background-tasks";
 import { createAuth, createAuthGateway } from "../../src/infra/auth/create-auth";
 import { createSystemClock } from "../../src/infra/clock";
 import { createMemoryEmailSender } from "../../src/infra/email/memory-email-sender";
-import {
-  createCheckEntry,
-  createCheckSession,
-  createSessionBlocked,
-} from "../../src/modules/auth/check-session";
+import { createCheckEntry, createCheckSession } from "../../src/modules/auth/check-session";
 import { createProfileService } from "../../src/modules/profile/profile-service";
 import {
   createRecoverPassword,
@@ -119,7 +115,6 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       auth: {
         gateway,
         checkSession,
-        sessionBlocked: createSessionBlocked({ gateway, access: store }),
         secure: true,
       },
       recovery: {

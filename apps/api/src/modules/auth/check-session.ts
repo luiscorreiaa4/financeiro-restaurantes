@@ -1,6 +1,5 @@
 import {
   type Clock,
-  canHoldSession,
   type PanelEntry,
   type RestrictedReason,
   sessionExpiresAt,
@@ -136,22 +135,5 @@ export function createCheckEntry(deps: {
     const setCookies = await renewSession(deps, session, headers);
     if (entry.kind === "full") return { ok: true, session, setCookies, access: "full" };
     return { ok: true, session, setCookies, access: "restricted", reason: entry.reason };
-  };
-}
-
-export type SessionBlocked = (headers: Headers) => Promise<boolean>;
-
-/**
- * Para as rotas do Better Auth (`/api/auth/*`): há sessão válida, mas o usuário não pode mais
- * mantê-la (`refused`, RF02.CA07). A sessão restrita passa, para conseguir sair. Sem sessão
- * devolve `false`: o próprio Better Auth responde.
- */
-export function createSessionBlocked(deps: {
-  gateway: AuthGateway;
-  access: SessionAccess;
-}): SessionBlocked {
-  return async (headers) => {
-    const session = await deps.gateway.readSession(headers);
-    return session !== null && !canHoldSession(await deps.access.panelEntry(session.userId));
   };
 }
