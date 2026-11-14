@@ -227,7 +227,15 @@ export function validateContextChoice(
   return toContext(m, choice.unitId);
 }
 
-/** Ações liberadas ao ator, sem considerar unidade, na ordem de `ACTIONS`. */
+/**
+ * Ações que o ator pode fazer em algum lançamento ou recurso que lhe cabe, sem considerar
+ * unidade, na ordem de `ACTIONS`. É o que o painel usa para montar menu e rotas.
+ *
+ * Avalia o melhor caso (`isOwnEntry: true`): o lançador só vê, edita, exclui e restaura os
+ * próprios lançamentos (RF22.R3), e sem isso essas ações sumiriam da lista dele. Para os
+ * outros papéis o resultado é o mesmo de `can(actor, action)`. Quem decide lançamento a
+ * lançamento é a API, com o recorte (`entryScopeFor`) e `entryActions`.
+ */
 export function allowedActions(actor: Actor): readonly Action[] {
-  return ACTIONS.filter((action) => can(actor, action));
+  return ACTIONS.filter((action) => can(actor, action, { isOwnEntry: true }));
 }
