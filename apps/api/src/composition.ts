@@ -93,6 +93,7 @@ export async function compose(
       recovery: auth.recovery,
       profile: auth.profile,
       panel: auth.panel,
+      entries: auth.entries,
     },
     async close() {
       await queue.stop();
@@ -111,6 +112,7 @@ function composeAuth(env: Env): {
   recovery: NonNullable<AppDeps["recovery"]>;
   profile: NonNullable<AppDeps["profile"]>;
   panel: NonNullable<AppDeps["panel"]>;
+  entries: NonNullable<AppDeps["entries"]>;
   close(): Promise<void>;
 } {
   if (env.DATABASE_AUTH_URL === undefined) {
@@ -164,6 +166,13 @@ function composeAuth(env: Env): {
   const checkSession = createCheckSession({ gateway, access: store, clock });
   const checkEntry = createCheckEntry({ gateway, access: store, clock });
   const signupRepo = createSignupRepo(authDb);
+  const panel: NonNullable<AppDeps["panel"]> = {
+    checkSession,
+    checkEntry,
+    access: panelAccess,
+    appDb,
+    secure: env.NODE_ENV !== "development",
+  };
   return {
     deps: {
       gateway,
@@ -214,13 +223,9 @@ function composeAuth(env: Env): {
       checkSession,
       service: createProfileService({ store, gateway, email, background, clock, onAuditFailure }),
     },
-    panel: {
-      checkSession,
-      checkEntry,
-      access: panelAccess,
-      appDb,
-      secure: env.NODE_ENV !== "development",
-    },
+    panel,
+    // Lançamentos (F3a): os mesmos guards e o mesmo banco do painel, mais o relógio.
+    entries: { ...panel, clock },
     async close() {
       await background.drain();
       await Promise.all([pool.end(), appPool.end()]);

@@ -109,6 +109,13 @@ export async function startAuthHarness(): Promise<AuthHarness> {
   const logLines: string[] = [];
   const checkSession = createCheckSession({ gateway, access: store, clock });
   const checkEntry = createCheckEntry({ gateway, access: store, clock });
+  const panel = {
+    checkSession,
+    checkEntry,
+    access: createPanelAccessStore(createDatabase(authPool)),
+    appDb: createDatabase(appPool),
+    secure: true,
+  };
   const app = buildApp(
     { LOG_LEVEL: "debug", APP_URL: ORIGIN },
     {
@@ -125,13 +132,8 @@ export async function startAuthHarness(): Promise<AuthHarness> {
         checkSession,
         service: createProfileService({ store, gateway, email, background: tasks, clock }),
       },
-      panel: {
-        checkSession,
-        checkEntry,
-        access: createPanelAccessStore(createDatabase(authPool)),
-        appDb: createDatabase(appPool),
-        secure: true,
-      },
+      panel,
+      entries: { ...panel, clock },
       logStream: { write: (line) => logLines.push(line) },
     },
   );
