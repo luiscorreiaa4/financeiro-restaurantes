@@ -1,5 +1,6 @@
 // API falsa, só para o E2E exercitar o rewrite de /api/* sem depender da API real.
 import { createServer } from "node:http";
+import { answerEntries } from "./fake-entries.mjs";
 
 const port = Number(process.env.FAKE_API_PORT ?? 4010);
 
@@ -331,6 +332,18 @@ createServer(async (req, res) => {
       return send(res, 409, { code: "context_changed" });
     }
     return send(res, 200, { units: company.units });
+  }
+
+  // Lançamentos (A12): leitura com as mesmas checagens de /api/units (sessão completa e contexto).
+  if (method === "GET" && new URL(url, "http://localhost").pathname.startsWith("/api/entries")) {
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    const answer = answerEntries(url, company, unitId);
+    return send(res, answer.status, answer.body);
   }
 
   if (method === "POST" && url === "/api/auth/email-otp/send-verification-otp") {
