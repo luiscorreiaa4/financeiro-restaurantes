@@ -8,3 +8,4 @@ export * from "./group-receipt";
 export * from "./interpret";
 export * from "./quantity";
 export * from "./resolve-amount";
+export * from "./version-diff";
