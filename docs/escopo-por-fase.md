@@ -60,7 +60,7 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 - [ ] **RF22** Lista e pesquisa de lançamentos: F3
 - [ ] **RF23** Edição de lançamento: F3
 - [ ] **RF24** Lixeira de 30 dias: F3
-- [ ] **RF25** Ver origem e histórico de versões: F3
+- [ ] **RF25** Ver origem e histórico de versões: F3. Áudio e imagem da origem ficam para a E10 (pendência F3-1, DD-36)
 - [ ] **RF27** Dashboard (indicadores e gráficos): F4. Inclui ticket médio, ponto de equilíbrio e imposto estimado (DD-13)
 - [ ] **RF28 (tela)** DRE gerencial na tela, antecipada da v1.1; o PDF fica na v1.1: F12
 - [ ] **RF39** Imposto estimado por regime, opcional, todos os regimes, regras por vigência: F12 **[PROVISÓRIO – P16, P17]**
