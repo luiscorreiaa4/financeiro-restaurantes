@@ -4,6 +4,7 @@ export * from "./auth-store";
 export * from "./choice-store";
 export * from "./client";
 export * from "./dev-seed";
+export * from "./entry-reader";
 export * from "./entry-store";
 export * from "./inbound-ingest-repo";
 export * from "./inbound-media-repo";
