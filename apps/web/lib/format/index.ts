@@ -1,4 +1,18 @@
-export { formatBRL } from "@app/core";
+import { formatBRL, money } from "@app/core";
+
+export { formatBRL };
+
+/**
+ * Centavos do contrato da API (`number` inteiro, D-F4) como "R$ 1.234,56". O sinal só existe
+ * no resultado (receitas menos despesas, que o servidor calcula) e vai na frente: "-R$ 5,00".
+ * Não faz conta com dinheiro; valor que não é inteiro seguro é erro, nunca arredondamento.
+ */
+export function formatCents(cents: number): string {
+  if (!Number.isSafeInteger(cents)) throw new RangeError(`Centavos inválidos: ${cents}`);
+  const amount = money(Math.abs(cents));
+  if (!amount.ok) throw new RangeError(`Centavos inválidos: ${cents}`);
+  return cents < 0 ? `-${formatBRL(amount.value)}` : formatBRL(amount.value);
+}
 
 const BUSINESS_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -25,4 +39,16 @@ export function formatBusinessDate(date: string): string {
     instant.getUTCDate() === day;
   if (!exists) throw new RangeError(`Data de negócio inexistente: "${date}"`);
   return brDate.format(instant);
+}
+
+const businessDay = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** O dia de hoje em America/Sao_Paulo como data de negócio (`YYYY-MM-DD`). `now` é um instante. */
+export function todayBusinessDate(now: Date = new Date()): string {
+  return businessDay.format(now);
 }

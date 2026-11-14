@@ -1,0 +1,24 @@
+"use client";
+
+import { Suspense, useMemo } from "react";
+import { browserApi } from "@/lib/api/browser-client";
+import { contextHeaderOf, type FullMe } from "@/lib/api/me-contract";
+import { entriesApi } from "./entries-api";
+import { EntriesView } from "./entries-view";
+import { EntriesProvider } from "./use-entries";
+
+/**
+ * Liga a tela de lançamentos à API do navegador e ao contexto ativo (empresa e unidade, que
+ * entram em toda chave de query). `today` vem do servidor, já como data de negócio.
+ */
+export function EntriesScreen({ me, today }: { me: FullMe; today: string }) {
+  const api = useMemo(() => entriesApi(browserApi(() => contextHeaderOf(me))), [me]);
+  return (
+    <EntriesProvider ctx={{ tenantId: me.context.tenantId, unitId: me.context.unitId }} api={api}>
+      {/* `useSearchParams` exige um limite de Suspense na página. */}
+      <Suspense fallback={null}>
+        <EntriesView today={today} role={me.context.role} />
+      </Suspense>
+    </EntriesProvider>
+  );
+}
