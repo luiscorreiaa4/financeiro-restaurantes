@@ -12,6 +12,16 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 6. **Toda chave de query de dado de tenant usa `tenantKey(ctx, ...)`** (`lib/query/keys.ts`), que inclui empresa e unidade. Chave escrita à mão para dado de tenant é proibida. Dado do usuário (perfil) não é do tenant e usa chave própria. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
 7. Texto de mensagem de usuário é entrada não confiável: renderize como texto, nunca como HTML.
 
+## Lançamentos (`features/entries`, F3a)
+
+- Contrato da API em `@app/core/contracts` (Zod); o web não redefine schema de lançamento. Cliente em `entries-api.ts`, hooks em `use-entries.ts` (dentro de `EntriesProvider`, que entrega empresa, unidade e cliente).
+- **A tela não soma, não subtrai e não reordena.** Totais e resultado vêm de `/api/entries/totals`; a ordenação é pedida ao servidor pela URL (DD-35). O teste "os totais são os do servidor" (`entries-view.test.tsx`) dá um total diferente da soma das linhas e espera o do servidor.
+- Centavos do contrato são `number`: formate com `formatCents` (`@/lib/format`), que aceita o resultado negativo. `formatBRL` exige `Money` do core.
+- O estado mora na URL: filtros, `sort`, `dir` e o lançamento aberto (`?entry=<id>`). Ler e escrever só por `parseFilters` e `serializeFilters` (`url-filters.ts`); `cursor` e `limit` nunca vão para a URL da tela.
+- Campo controlado pela URL que o usuário marca (caixa de marcação) guarda o valor local até a navegação terminar (`useSynced` em `filters-bar.tsx`); sem isso a caixa volta ao estado antigo por um instante e o E2E falha em `check()`.
+- TanStack Table instalado é a v9: `useTable`, `tableFeatures` e `table.FlexRender`, com recursos e colunas fora do componente. A API da v8 (`useReactTable`, `getCoreRowModel`) só existe em `@tanstack/react-table/legacy`.
+- No jsdom o CSS não se aplica: a tabela do computador e os cartões do celular aparecem juntos no teste de componente. Escopo com `within(screen.getByRole("table"))`.
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).

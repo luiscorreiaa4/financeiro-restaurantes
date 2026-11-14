@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 11/11/2026 (F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; alinhado ao Documento de Requisitos v1.0). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 14/11/2026 (F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -26,7 +26,7 @@ Legenda de confiança, usada em todo o documento:
 | F1c Recuperação de senha, perfil e lista de sessões | **Feita (09/11/2026)** | Recuperação de senha por link temporário (DD-27), "Meu perfil" com nome, senha e sessões (encerrar as outras), rotas próprias `/api/recovery/reset` e `/api/profile/*`, lista de rotas permitidas em `/api/auth/*`. DD-26, requisitos 1.5. Desenho: `docs/superpowers/specs/2026-11-09-f1c-recuperacao-perfil-sessoes-design.md`; plano: `docs/superpowers/plans/2026-11-09-f1c-recuperacao-perfil-sessoes.md` Pendências abertas (auditoria após a troca e login por código) em [`andamento.md`](andamento.md). |
 | F2 Conta, unidade e permissões | **Feita (10/11/2026)** | Cookie `fr_ctx` revalidado pela API a cada requisição (DD-31), seletor de empresa e unidade, menu e rotas por `can()`, faixas de RF37, `SessionKeeper` (renova a sessão pelo navegador), 401 leva ao login e 409 recarrega; migration 0017; perfil lido no servidor. Desenho: `docs/superpowers/specs/2026-11-10-f2-conta-unidade-permissoes-design.md`; plano: `docs/superpowers/plans/2026-11-10-f2-conta-unidade-permissoes.md` |
 | pós-F2 (não é etapa Fn) | **Feito (11/11/2026)** | Entrada no painel com três resultados, hook global de `Origin`, telas de acesso com sessão aberta, `pnpm lint` verde (DD-33). Ver `docs/superpowers/plans/2026-11-11-pos-f2.md`. |
-| F3 Lançamentos | A fazer | |
+| F3 Lançamentos | **Em andamento: F3a feita (14/11/2026)** | F3a ("ver"): lista com filtros na URL, ordenação pelo servidor (DD-35), totais do servidor, detalhe, origem (texto, transcrição, chave) e histórico; contrato em `@app/core/contracts`, leitor `entryReader`, rotas `/api/entries*` com `requireEntryAction`, `features/entries` no web, migration 0018 (índices). Falta a F3b ("mudar": edição, exclusão, lixeira, lote). Desenho: `docs/superpowers/specs/2026-11-13-f3-lancamentos-design.md`; planos: `docs/superpowers/plans/2026-11-13-f3a-lancamentos-ver.md` e `2026-11-13-f3b-lancamentos-mudar.md` |
 | F4 Dashboard | A fazer | |
 | F5 Exportação Excel/CSV | A fazer | Escolher a biblioteca de planilha (D-F7) |
 | F6 Configurações | A fazer | |
@@ -78,7 +78,7 @@ O painel é o lugar de **consulta, edição e exportação**. O lançamento do d
 
 **Dentro (MVP):** autocadastro do dono, acesso por senha ou código, seleção de conta e unidade, lista de lançamentos com filtros, edição e lixeira de 30 dias, "ver origem" (texto, áudio ou imagem), histórico de versões, dashboard, exportação XLSX/CSV, gestão de unidades, colaboradores e papéis, categorias, formas de pagamento, canais e taxas, assinatura e período de teste, painel interno, layout responsivo e PWA. Requisitos: RF01 a RF10 (parte de painel), RF22 a RF25, RF27, RF29, RF37 e RF38.
 
-**Fora do MVP (v1.1 ou Fase 2):** app nativo (Expo), lançamento manual (RF26), DRE e PDF (RF28), perguntas em linguagem natural (RF30), importação de planilhas (RF35), perfil contador multicliente (RF36).
+**Fora do MVP (v1.1 ou Fase 2):** app nativo (Expo), lançamento manual (RF26), DRE e PDF (RF28), perguntas em linguagem natural (RF30), importação de planilhas (RF35). O contador (RF36) é MVP desde 05/11/2026 (DD-03): lê e exporta, nunca grava; a lista de empresas dele é a F13.
 
 **Princípio:** o painel **nunca calcula dinheiro**. Ele apresenta o que a API devolveu. Somas, taxas e líquidos vêm do banco e do `core`. A formatação (`formatBRL`) acontece só na borda.
 
@@ -191,8 +191,8 @@ A explicação de cada decisão (motivo, onde vale e situação) está em [`deci
 |---|---|---|
 | D-F1 | Better Auth na API, com `rewrites` no web | Decidida |
 | D-F2 | shadcn direto em `apps/web` no MVP | Recomendação |
-| D-F3 | Contrato em Zod compartilhado + OpenAPI como documentação | Recomendação |
-| D-F4 | Dinheiro no JSON como `number` inteiro | Recomendação |
+| D-F3 | Contrato em Zod compartilhado + OpenAPI como documentação | Decidida (13/11/2026, DD-36) |
+| D-F4 | Dinheiro no JSON como `number` inteiro | Decidida (13/11/2026, DD-36) |
 | D-F5 | Acesso por senha ou código no e-mail; WhatsApp e 2º fator na v1.1 | Decidida, **ampliada em 29/10/2026** (DN-03) |
 | D-F6 | Lançamento manual é o RF26 (v1.1); no MVP só edição, lixeira e restauração | Decidida, **ampliada em 29/10/2026** |
 | D-F7 | Biblioteca de planilha Excel, decidir na F5 | Aberta |
@@ -242,14 +242,19 @@ Cada etapa do front traz o seu pedaço da API. Todos os endpoints validam entrad
 | `POST /api/auth/*` (Better Auth) | F1 | Código por e-mail e senha (RF02); recuperação de acesso (RF03); o login comum não cria usuário |
 | `GET/DELETE /api/sessions` | F1 | Sessões ativas e encerramento das outras (RF02.R8) |
 | `GET /api/me` | F1, F2 | Usuário, contas, unidades, papéis e permissões adicionais; a partir da F2 também devolve o contexto efetivo. `POST /api/context` e `GET /api/units` passam a existir na F2 |
-| `GET /api/entries` | F3 | Filtros: período, tipo, categoria, unidade, busca; cursor; exclui apagados |
-| `GET /api/entries/:id` | F3 | Inclui origem e versões |
-| `PATCH /api/entries/:id` | F3 | Exige a versão esperada (409 se mudou); gera `entry_versions` |
-| `DELETE /api/entries/:id` e `POST /api/entries/:id/restore` | F3 | Soft delete e restauração |
-| `GET /api/entries/:id/source` | F3 | URL assinada de áudio ou imagem |
+| `GET /api/entries` | F3 | `entry:view`. Filtros do RF22, `sort`, `dir`, `cursor`, `limit` (padrão 50, máx. 100). Não traz lixeira |
+| `GET /api/entries/totals` | F3 | `entry:view`. Mesmos filtros; receitas, despesas, resultado, quantidade, `hasRestricted` |
+| `GET /api/entries/options` | F3 | `entry:view`. Categorias (sem sensíveis para quem não vê), fornecedores, formas, canais, unidades de acesso, membros (vazio para lançador) |
+| `GET /api/entries/:id` | F3 | `entry:view`. Detalhe com versões; aceita lançamento na lixeira (dentro dos 30 dias) |
+| `GET /api/entries/:id/source` | F3 | `entry:view`. Canal, tipo, texto, transcrição, chave de acesso, quem e quando; `restricted` (RF25.Obs1); `mediaAvailable: false` |
+| `PATCH /api/entries/:id` | F3 | `entry:edit`. `{ expectedVersion, patch, markReviewed }`; 409 `entry_stale` |
+| `DELETE /api/entries/:id` | F3 | `entry:delete`. Corpo `{ reason? }` (até 200) |
+| `POST /api/entries/:id/restore` | F3 | `entry:restore`. Só dentro de `restorable_until` |
+| `POST /api/entries/batch/preview` | F3 | `entry:delete`. `{ ids }` → quantidade e soma, calculadas no servidor |
+| `POST /api/entries/batch/delete` | F3 | `entry:delete`. Só dono e gerente (RF24.Obs3); tudo ou nada; até 100 ids |
 | `GET /api/reports/summary`, `/by-category`, `/monthly` | F4 | Agregações calculadas no banco |
 | `POST /api/exports` e `GET /api/exports/:id` | F5 | Cria job e informa estado e link assinado |
-| `GET /api/trash` e restauração em lote | F3 | Lixeira de 30 dias (RF24) |
+| `GET /api/trash` | F3 | `entry:restore`. Filtros: período de exclusão, unidade, quem excluiu; cursor. Lixeira de 30 dias (RF24) |
 | `GET/POST/PATCH /api/members` | F6 | Convite por telefone, papéis, unidades de acesso e permissões adicionais (RF05) |
 | `GET/POST/PATCH /api/units` | F6 | Unidades, apelidos e status (RF04) |
 | `GET/POST/PATCH /api/categories` | F6 | Árvore e subcategorias da empresa (RF07) |
@@ -323,18 +328,18 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 ### F3: Lançamentos — G
 
-**Entrega os requisitos:** RF22 (lista e pesquisa), RF23 (edição), RF24 (lixeira), RF25 (origem e histórico). Critérios: RF22.CA01 a CA05, RF23.CA01 a CA04, RF24.CA01 a CA03, RF25.CA01 a CA04.
+**Entrega os requisitos:** RF22 (lista e pesquisa), RF23 (edição), RF24 (lixeira), RF25 (origem e histórico). Critérios: RF22.CA01 a CA05, RF23.CA01 a CA04, RF24.CA01 a CA03, RF25.CA01 a CA04. Desenho: `docs/superpowers/specs/2026-11-13-f3-lancamentos-design.md` (DD-35, DD-36).
 
-**Mudanças pelos requisitos v1.0:** **lixeira visível por 30 dias** com restauração, exclusão em lote e motivo (RF24); **sinais de revisão** (CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e o filtro "a revisar", com "marcar como revisado" gerando versão (RF22.R4, RF23); filtros completos (período com atalhos, tipo, unidades, categorias, fornecedor, forma de pagamento, canal, lançado por, canal de origem, busca por valor e chave de acesso, RF22).
+**Mudanças pelos requisitos v1.0:** **lixeira visível por 30 dias** com restauração, exclusão em lote e motivo (RF24); **sinais de revisão** (CATEGORIA_A_REVISAR, CANAL_A_REVISAR, POSSIVEL_DUPLICIDADE, DATA_ANTIGA) e o filtro "a revisar", com "marcar como revisado" gerando versão (RF22.R4, RF23); data de pagamento, pedidos e unidade de medida entram nesta etapa, e não na F13 (RF22, RF23); filtros completos (período com atalhos, tipo, unidades, categorias, fornecedor, forma de pagamento, canal, lançado por, canal de origem, busca por valor e chave de acesso, RF22).
 
 **Entregas**
-- Lista com os filtros do RF22 **na URL**, ordenação, paginação por cursor, totais calculados pelo servidor, estados vazio, carregando e erro; no celular, cartões e filtros em folha lateral.
-- Drawer de edição com formulário validado pelo schema do contrato; envia a versão esperada; trata 409 com a mensagem do RF23.Obs2.
+- Lista com os filtros do RF22 **na URL**, ordenação pelo servidor por Criação, Data, Data de Pagamento e Valor Bruto, nos dois sentidos (DD-35), paginação por cursor, totais calculados pelo servidor, estados vazio, carregando e erro; no celular, cartões e filtros em folha lateral. Data de pagamento, pedidos e unidade de medida aparecem na lista.
+- Drawer de edição com formulário validado pelo schema do contrato; envia a versão esperada; trata 409 com a mensagem do RF23.Obs2. Data de pagamento, pedidos e unidade de medida são editáveis (RF23).
 - Excluir para a lixeira e restaurar; tela "Lixeira" (30 dias) com filtros; exclusão em lote com confirmação (quantidade e soma).
-- **"Ver origem":** texto original (sempre como texto), player de áudio com a transcrição ao lado enquanto existir (90 dias), ou imagem da nota com os itens e a chave de acesso, por URL assinada de até 10 minutos; aviso de "informação restrita" quando a origem gerou lançamento sensível (RF25.Obs1).
+- **"Ver origem":** texto original (sempre como texto), transcrição e chave de acesso. Na F3 não há áudio, imagem nem URL assinada: isso fica para a E10, com o S3 (pendência F3-1), e os itens lidos da nota não são gravados hoje (pendência F3-2). Aviso de "informação restrita" quando a origem gerou lançamento sensível (RF25.Obs1).
 - **Histórico de versões:** quem, quando, canal (WhatsApp, painel, importação, e-mail, sistema), ação (criação, alteração, exclusão, restauração) e o que mudou (antes/depois).
 - Campos de dinheiro com máscara de entrada em reais, convertidos para centavos sem `float` (RF23.R1); data futura no painel até 60 dias.
-- Categorias sensíveis ocultas conforme a permissão (RF06.R3), inclusive em totais, com o aviso "inclui valores restritos".
+- Categorias sensíveis ocultas conforme a permissão (RF06.R3), inclusive em totais; a lista mostra o aviso "Há valores restritos que não entram nestes totais." quando existem no período filtrado (RF22.Obs7).
 
 **Testes:** unitário da conversão de entrada em reais para centavos (vírgula, ponto, milhar); componentes do formulário; E2E de editar, excluir, restaurar e ver origem; conflito de edição entre duas abas; filtros sobrevivem a recarregar e ao botão voltar; permissão (lançador sem acesso a categoria sensível não vê o valor); a edição gera versão (verificada pela API).
 
@@ -462,7 +467,7 @@ Depois do piloto, nesta ordem de prioridade a definir: RF26 (lançamento manual,
 
 ### F13: Acesso do contador e importações no painel — M/G (MVP; nova em 05/11/2026)
 
-**Entrega os requisitos:** RF36 (convite do contador com o aviso de folha e o aceite, lista de empresas, revogação, leitura e exportação), RF35 (telas de upload de planilha e OFX, pré-visualização e desfazer) e RF31 manual (upload de XML). RF22, RF23 e RF29 ganham a data de pagamento e os pedidos.
+**Entrega os requisitos:** RF36 (convite do contador com o aviso de folha e o aceite, lista de empresas, revogação, leitura e exportação), RF35 (telas de upload de planilha e OFX, pré-visualização e desfazer) e RF31 manual (upload de XML). RF29 ganha a data de pagamento e os pedidos.
 
 **Depende de:** F2 (papéis), F5 (exportação) e E14 (processamento).
 

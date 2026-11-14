@@ -179,7 +179,26 @@ A1 → A2 → A3, A4 → A5 → A6 → A7 → A8 → A9 → A10 → A11 → A12 
 
 ## Desvios do desenho aprovado
 
-Nenhum no planejamento. A execução preenche (resultado dos ⚠️ de A2 e A8).
+Preenchido na execução (13 e 14/11/2026). Nenhuma dependência além das três aprovadas.
+
+**Resultado dos ⚠️**
+- A2 (a): o TanStack Table instalado é a v9.3.1. O peer aceita React 19 e o React Compiler não está ligado, mas a API mudou: a tabela usa `useTable`, `tableFeatures` e `table.FlexRender` (a da v8 só existe em `/legacy`).
+- A2 (b): `@hookform/resolvers` 7 aceita Zod 4 (peer `^3.25 || ^4`). (c): o registro `base-nova` tem os oito componentes; o `button.tsx` não foi sobrescrito. (d): o Next resolve `@app/core/contracts` no `next build` (E2E com `CI=true`).
+- A8: o papel `app` lê o nome em `users` pela política `users_same_tenant_select`; valeu o plano A. Autor sem vínculo na empresa aparece com nome vazio.
+
+**Desvios e acréscimos em relação ao desenho**
+1. `allowedActions` (`packages/core/src/access/panel-context.ts`, código da F2, fora da lista de arquivos do plano) passou a avaliar `can` com `isOwnEntry: true`. Sem isso o `/api/me` real não dava `entry:view` ao lançador e o painel escondia "Lançamentos" dele, contra o RF22.R3 e a seção 1.6.
+2. As rotas de lançamentos usam `requireEntryAction(action)` no lugar de `requirePermission` (seção 1.7), pelo mesmo motivo: `requirePermission` chama `can` sem o contexto e recusa o lançador.
+3. Origem (seção 1.9): além do caso do irmão sensível, a origem vem restrita quando alguma versão do próprio lançamento esteve em categoria sensível e quem pede não vê sensíveis. Sem isso, um lançamento que nasceu na folha e foi reclassificado entregava o texto original.
+4. Contrato: `category` do lançamento e `sentAt` da origem aceitam nulo (o domínio permite lançamento sem categoria; origem sem mensagem não tem instante). O contrato recusa versão ou origem marcada como restrita que traga conteúdo. Há um tipo de entrada da consulta (`EntryListQueryInput`) e limites nomeados (fornecedor 120, unidade de medida 20, cursor 512, listas de filtro até 100).
+5. Sensível falha fechado em todo lugar: categoria preenchida que a consulta não resolve, ou id ausente do mapa de nomes, conta como sensível.
+6. Recorte com lista de unidades vazia devolve nada (lista, totais e detalhe).
+7. O detalhe e a origem usam as unidades de acesso do ator, não a do seletor (a lista aceita filtro de unidade fora do seletor).
+8. `canEdit`, `canDelete` e `canRestore` saem falsos em conta somente leitura.
+9. Web: os hooks recebem empresa, unidade e cliente por um `EntriesProvider`; os filtros usam controles nativos (`select`, `input type="date"`, caixas de marcação) em vez dos componentes `select` e `checkbox` instalados na A2, que ficam para o F3b; `formatCents` e `todayBusinessDate` entraram em `lib/format`; "hoje" vem do servidor em `America/Sao_Paulo`, não do fuso da unidade.
+10. `ROUTE_MATRIX` ficou em `apps/api/test/support/route-matrix.ts` (arquivo de suporte), com uma persona a mais: lançador sem painel (401).
+
+**Decisões em aberto** (em `andamento.md`, F3-3 a F3-6): o aviso de valores restritos respeita a busca e deixa confirmar dado de folha (F3-3); o filtro "Lançado por" lista todos os vínculos da empresa (F3-4); limites conhecidos do histórico e do detalhe (F3-5).
 
 ## Contagem por classe
 
