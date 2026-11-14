@@ -114,6 +114,9 @@ export const entries = pgTable(
     index("entries_confirmation_idx")
       .on(t.tenantId, t.confirmationWaMessageId)
       .where(sql`${t.confirmationWaMessageId} is not null`),
+    // Lista do painel na ordem padrão (criação, desempate pelo id) e lixeira (RF22.Obs3, RF24).
+    index("entries_created_idx").on(t.tenantId, t.createdAt, t.id),
+    index("entries_trash_idx").on(t.tenantId, t.deletedAt).where(sql`${t.deletedAt} is not null`),
     oneOf("entries_type_check", "type", ENTRY_TYPES),
     check("entries_amount_check", sql`${t.amountCents} > 0`),
     check(
