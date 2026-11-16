@@ -1,10 +1,12 @@
 "use client";
 
 import type { EntryListQuery } from "@app/core/contracts";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BatchBar } from "./batch-bar";
 import { EntriesTable } from "./entries-table";
 import { EntryCard } from "./entry-card";
 import { EntryDrawer } from "./entry-drawer";
@@ -12,6 +14,8 @@ import { FiltersBar } from "./filters-bar";
 import { TotalsBar } from "./totals-bar";
 import { parseFilters, serializeFilters } from "./url-filters";
 import { useEntries, useEntryOptions, useEntryTotals } from "./use-entries";
+
+const EMPTY_SELECTION: ReadonlySet<string> = new Set();
 
 export const EMPTY_MESSAGE =
   "Nenhum lançamento neste período. Que tal mandar o primeiro pelo WhatsApp?";
@@ -21,7 +25,16 @@ export const EMPTY_MESSAGE =
  * recarregar e o botão voltar mantêm a consulta (RF22.Obs1). Lista e totais vêm do servidor; a
  * tela não soma nem reordena.
  */
-export function EntriesView({ today, role }: { today: string; role: string }) {
+export function EntriesView({
+  today,
+  role,
+  canSeeTrash = false,
+}: {
+  today: string;
+  role: string;
+  /** Quem pode restaurar (RF24) ganha o botão da lixeira. */
+  canSeeTrash?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -33,6 +46,26 @@ export function EntriesView({ today, role }: { today: string; role: string }) {
   const totals = useEntryTotals(query);
   const options = useEntryOptions();
   const items = entries.data?.pages.flatMap((page) => page.items) ?? [];
+
+  // Seleção do lote (RF24.Obs3): só dono e gerente, só na tabela do computador. Ela é da consulta
+  // em que foi feita: mudar filtro ou ordem (a chave) a descarta; abrir o drawer não.
+  const canBatch = role === "owner" || role === "manager";
+  const queryKey = serializeFilters(query);
+  const [picked, setPicked] = useState<{ key: string; ids: ReadonlySet<string> }>({
+    key: queryKey,
+    ids: new Set(),
+  });
+  const selected = picked.key === queryKey ? picked.ids : EMPTY_SELECTION;
+  const selectable = items.filter((item) => item.canDelete);
+  function toggle(id: string) {
+    const next = new Set(selected);
+    if (!next.delete(id)) next.add(id);
+    setPicked({ key: queryKey, ids: next });
+  }
+  function toggleAll() {
+    const all = selectable.length > 0 && selected.size === selectable.length;
+    setPicked({ key: queryKey, ids: all ? new Set() : new Set(selectable.map((item) => item.id)) });
+  }
 
   function go(next: EntryListQuery) {
     router.push(`${pathname}?${serializeFilters(next)}`);
@@ -47,7 +80,17 @@ export function EntriesView({ today, role }: { today: string; role: string }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Lançamentos</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Lançamentos</h1>
+        {canSeeTrash && (
+          <Link
+            href="/lancamentos/lixeira"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Lixeira
+          </Link>
+        )}
+      </div>
       <FiltersBar
         // Refaz o campo de busca quando a URL muda por fora (botão voltar, "Limpar filtros").
         key={query.q ?? ""}
@@ -79,12 +122,26 @@ export function EntriesView({ today, role }: { today: string; role: string }) {
         </p>
       ) : (
         <>
+          {canBatch && selected.size > 0 && (
+            <div className="hidden md:block">
+              <BatchBar
+                ids={[...selected]}
+                onDone={() => setPicked({ key: queryKey, ids: new Set() })}
+                onClear={() => setPicked({ key: queryKey, ids: new Set() })}
+              />
+            </div>
+          )}
           <div className="hidden md:block">
             <EntriesTable
               items={items}
               sort={{ sort: query.sort, dir: query.dir }}
               onSort={(next) => go({ ...query, ...next, cursor: undefined })}
               onOpen={open}
+              selection={
+                canBatch
+                  ? { selected, total: selectable.length, onToggle: toggle, onToggleAll: toggleAll }
+                  : undefined
+              }
             />
           </div>
           <ul className="flex flex-col gap-2 md:hidden">

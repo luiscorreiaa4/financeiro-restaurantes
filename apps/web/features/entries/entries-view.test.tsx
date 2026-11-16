@@ -23,7 +23,7 @@ vi.mock("next/navigation", () => ({
 const TODAY = "2026-11-13";
 const MONTH = "from=2026-11-01&to=2026-11-30";
 
-function show(api?: EntriesApi, role: "owner" | "staff" = "owner") {
+function show(api?: EntriesApi, role: "owner" | "manager" | "staff" = "owner") {
   return renderWithEntries(<EntriesView today={TODAY} role={role} />, api);
 }
 
@@ -268,5 +268,70 @@ describe("lista de lançamentos (RF22)", () => {
     const review = screen.getByLabelText("Só a revisar");
     await user.click(review);
     expect(review).toBeChecked();
+  });
+});
+
+describe("seleção para exclusão em lote (RF24.Obs3)", () => {
+  const twoItems = () =>
+    fakeEntriesApi(
+      listOf(
+        itemFixture({ id: entryId(1), description: "Primeiro" }),
+        itemFixture({ id: entryId(2), description: "Segundo" }),
+      ),
+    );
+
+  it("lançador não vê as caixas de seleção", async () => {
+    show(twoItems(), "staff");
+    const table = await screen.findByRole("table");
+    expect(within(table).queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("gerente vê uma caixa por linha na tabela do computador e escolhe linhas", async () => {
+    const user = userEvent.setup();
+    show(twoItems(), "manager");
+    const table = await screen.findByRole("table");
+    await user.click(within(table).getByRole("checkbox", { name: "Selecionar Primeiro" }));
+    await user.click(within(table).getByRole("checkbox", { name: "Selecionar Segundo" }));
+    expect(screen.getByText("2 selecionados")).toBeInTheDocument();
+  });
+
+  it("a caixa do cabeçalho seleciona todas as linhas carregadas", async () => {
+    const user = userEvent.setup();
+    show(twoItems(), "owner");
+    const table = await screen.findByRole("table");
+    await user.click(
+      within(table).getByRole("checkbox", { name: "Selecionar todos os carregados" }),
+    );
+    expect(screen.getByText("2 selecionados")).toBeInTheDocument();
+  });
+
+  it("trocar o filtro ou a ordem limpa a seleção", async () => {
+    const user = userEvent.setup();
+    const { rerender } = show(twoItems(), "owner");
+    const table = await screen.findByRole("table");
+    await user.click(within(table).getByRole("checkbox", { name: "Selecionar Primeiro" }));
+    expect(screen.getByText("1 selecionado")).toBeInTheDocument();
+    nav.search = "type=expense";
+    const role = "owner";
+    rerender(<EntriesView today={TODAY} role={role} />);
+    await waitFor(() => expect(screen.queryByText("1 selecionado")).toBeNull());
+  });
+});
+
+describe("botão da lixeira (RF24)", () => {
+  it("quem pode restaurar vê o link para a lixeira", async () => {
+    const role = "manager";
+    renderWithEntries(<EntriesView today={TODAY} role={role} canSeeTrash />);
+    expect(await screen.findByRole("link", { name: "Lixeira" })).toHaveAttribute(
+      "href",
+      "/lancamentos/lixeira",
+    );
+  });
+
+  it("sem permissão para restaurar não há link", async () => {
+    const role = "accountant";
+    renderWithEntries(<EntriesView today={TODAY} role={role} />);
+    await screen.findByRole("heading", { name: "Lançamentos" });
+    expect(screen.queryByRole("link", { name: "Lixeira" })).toBeNull();
   });
 });

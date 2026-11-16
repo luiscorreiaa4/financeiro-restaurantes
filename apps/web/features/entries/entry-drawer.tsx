@@ -1,5 +1,7 @@
 "use client";
 
+import type { EntryDetail } from "@app/core/contracts";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,10 +14,82 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError } from "@/lib/api/client";
+import { DeleteDialog } from "./delete-dialog";
 import { EntryData } from "./entry-data";
+import { EntryForm } from "./entry-form";
 import { EntryHistory } from "./entry-history";
 import { EntrySource } from "./entry-source";
-import { useEntryDetail } from "./use-entries";
+import { useEntryDetail, useEntryOptions, useRemoveEntry, useSetEntryDetail } from "./use-entries";
+
+/** Aba Dados: leitura, ou o formulário de edição quando o lançamento permite (RF23). */
+function DataTab({ entry, onDeleted }: { entry: EntryDetail; onDeleted(): void }) {
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const remove = useRemoveEntry();
+  const options = useEntryOptions();
+  const setDetail = useSetEntryDetail();
+  if (!editing || !entry.canEdit) {
+    const inTrash = entry.deleted !== null;
+    async function confirmDelete(reason: string | undefined) {
+      setDeleteError(null);
+      try {
+        await remove.mutateAsync({ id: entry.id, reason });
+        setConfirming(false);
+        onDeleted();
+      } catch {
+        setDeleteError("Não foi possível excluir. Tente de novo.");
+      }
+    }
+    return (
+      <>
+        <EntryData
+          entry={entry}
+          onEdit={entry.canEdit && !inTrash ? () => setEditing(true) : undefined}
+          onDelete={entry.canDelete && !inTrash ? () => setConfirming(true) : undefined}
+        />
+        <DeleteDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title="Excluir lançamento?"
+          summary="O lançamento sai da lista e dos totais e fica 30 dias na lixeira, de onde pode ser restaurado."
+          pending={remove.isPending}
+          error={deleteError}
+          onConfirm={(reason) => void confirmDelete(reason)}
+        />
+      </>
+    );
+  }
+  if (options.isPending) {
+    return (
+      <div role="status" className="flex flex-col gap-2">
+        <span className="sr-only">Carregando o formulário…</span>
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+  if (options.isError) {
+    return (
+      <div role="alert" className="flex flex-col items-start gap-2">
+        <p className="text-sm">Não foi possível carregar as opções do formulário.</p>
+        <Button variant="outline" onClick={() => void options.refetch()}>
+          Tentar de novo
+        </Button>
+      </div>
+    );
+  }
+  return (
+    // A chave é a versão: ao recarregar depois de um conflito, o formulário recomeça da versão atual.
+    <EntryForm
+      key={entry.version}
+      entry={entry}
+      options={options.data}
+      onSaved={() => setEditing(false)}
+      onReload={setDetail}
+      onCancel={() => setEditing(false)}
+    />
+  );
+}
 
 /**
  * Drawer do lançamento (RF25), aberto pelo `?entry=<id>` da URL. Id inexistente, de outra
@@ -67,7 +141,7 @@ export function EntryDrawer({ entryId, onClose }: { entryId: string | null; onCl
               <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
             <TabsContent value="data">
-              <EntryData entry={detail.data} />
+              <DataTab entry={detail.data} onDeleted={onClose} />
             </TabsContent>
             {/* A origem só é buscada quando a aba abre (o painel inativo não é montado). */}
             <TabsContent value="source">

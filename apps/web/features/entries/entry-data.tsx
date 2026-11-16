@@ -1,5 +1,6 @@
 import type { EntryDetail } from "@app/core/contracts";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { formatBusinessDate, formatCents } from "@/lib/format";
 import { CHANNEL_LABELS, formatInstant, formatQuantity, TYPE_LABELS } from "./field-labels";
 import { FlagBadges } from "./flag-badges";
@@ -13,8 +14,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** Aba Dados, só leitura no F3a. Todo valor é o que a API devolveu; nada é calculado aqui. */
-export function EntryData({ entry }: { entry: EntryDetail }) {
+/** Aba Dados. Todo valor é o que a API devolveu; nada é calculado aqui. */
+export function EntryData({
+  entry,
+  onEdit,
+  onDelete,
+}: {
+  entry: EntryDetail;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const quantity = formatQuantity(entry.quantity, entry.quantityUnit);
   return (
     <div className="flex flex-col gap-3">
@@ -25,6 +34,20 @@ export function EntryData({ entry }: { entry: EntryDetail }) {
         </p>
       )}
       <FlagBadges flags={entry.flags} />
+      {(onEdit || onDelete) && (
+        <div className="flex flex-wrap gap-2">
+          {onEdit && (
+            <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+              Editar
+            </Button>
+          )}
+          {onDelete && (
+            <Button type="button" variant="outline" size="sm" onClick={onDelete}>
+              Excluir
+            </Button>
+          )}
+        </div>
+      )}
       <dl className="grid grid-cols-2 gap-3">
         <Row label="Tipo">{TYPE_LABELS[entry.type]}</Row>
         <Row label="Data">{formatBusinessDate(entry.occurredOn)}</Row>

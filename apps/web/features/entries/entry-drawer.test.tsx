@@ -1,5 +1,5 @@
 import type { EntrySource, EntryVersion } from "@app/core/contracts";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
@@ -246,5 +246,111 @@ describe("drawer do lançamento (RF25)", () => {
     const { user, onClose } = show();
     await user.click(await screen.findByRole("button", { name: "Fechar" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("edição no drawer (RF23)", () => {
+  it("quem pode editar vê o botão Editar e abre o formulário", async () => {
+    const { user } = show({ detail: () => Promise.resolve(detailFixture({ canEdit: true })) });
+    await user.click(await screen.findByRole("button", { name: "Editar" }));
+    expect(await screen.findByLabelText("Descrição")).toHaveValue("Gás de cozinha");
+  });
+
+  it("contador (sem canEdit) não vê o botão Editar", async () => {
+    show({ detail: () => Promise.resolve(detailFixture({ canEdit: false })) });
+    await screen.findByText("Gás de cozinha");
+    expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
+  });
+
+  it("depois de salvar, volta a mostrar os dados do lançamento atualizado", async () => {
+    let current = detailFixture({ version: 1, canEdit: true });
+    const update = vi.fn().mockImplementation(async () => {
+      current = detailFixture({ version: 2, canEdit: true, description: "Gás novo" });
+      return current;
+    });
+    const { user } = show({ detail: () => Promise.resolve(current), update });
+    await user.click(await screen.findByRole("button", { name: "Editar" }));
+    const field = await screen.findByLabelText("Descrição");
+    await user.clear(field);
+    await user.type(field, "Gás novo");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(await screen.findByRole("button", { name: "Editar" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Descrição")).toBeNull();
+    expect(await screen.findByText("Gás novo")).toBeInTheDocument();
+  });
+
+  it("recarregar depois do conflito mostra a versão atual no formulário", async () => {
+    const current = detailFixture({
+      version: 2,
+      canEdit: true,
+      description: "Versão da Bia",
+      versions: [
+        {
+          version: 2,
+          action: "update",
+          channel: "web",
+          changedBy: { id: AUTHOR, name: "Bia" },
+          changedAt: "2026-11-03T12:30:00.000Z",
+          restricted: false,
+          changes: [],
+        },
+      ],
+    });
+    const update = vi
+      .fn()
+      .mockRejectedValue(new ApiError("409", 409, { code: "entry_stale", current }));
+    const { user } = show({
+      detail: () => Promise.resolve(detailFixture({ version: 1, canEdit: true })),
+      update,
+    });
+    await user.click(await screen.findByRole("button", { name: "Editar" }));
+    const field = await screen.findByLabelText("Descrição");
+    await user.type(field, " x");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await user.click(await screen.findByRole("button", { name: "Recarregar" }));
+    await waitFor(() => expect(screen.getByLabelText("Descrição")).toHaveValue("Versão da Bia"));
+  });
+});
+
+describe("exclusão no drawer (RF24)", () => {
+  it("quem pode excluir confirma com motivo, o lançamento é excluído e o drawer fecha", async () => {
+    const remove = vi.fn().mockResolvedValue(detailFixture());
+    const { user, onClose } = show({
+      detail: () => Promise.resolve(detailFixture({ canDelete: true })),
+      remove,
+    });
+    await user.click(await screen.findByRole("button", { name: "Excluir" }));
+    await user.type(await screen.findByLabelText("Motivo (opcional)"), "duplicado");
+    const dialogs = await screen.findAllByRole("alertdialog");
+    await user.click(within(dialogs[0] as HTMLElement).getByRole("button", { name: "Excluir" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(ID, "duplicado"));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("sem canDelete não há botão Excluir", async () => {
+    show({ detail: () => Promise.resolve(detailFixture({ canDelete: false })) });
+    await screen.findByText("Gás de cozinha");
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+  });
+
+  it("lançamento já na lixeira não oferece Editar nem Excluir", async () => {
+    show({
+      detail: () =>
+        Promise.resolve(
+          detailFixture({
+            canEdit: true,
+            canDelete: true,
+            deleted: {
+              at: "2026-11-04T12:00:00.000Z",
+              by: { id: AUTHOR, name: "Ana" },
+              reason: null,
+              restorableUntil: "2026-12-04",
+            },
+          }),
+        ),
+    });
+    await screen.findByText(/Na lixeira desde/);
+    expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
   });
 });
