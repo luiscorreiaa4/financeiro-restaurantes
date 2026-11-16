@@ -113,7 +113,7 @@
 ### B13. Fechamento da F3 — NATIVA
 - [ ] `pnpm typecheck && pnpm lint && pnpm test && pnpm test:int` e E2E com `CI=true`; conferência do Review Focus S1 a S10.
 - [ ] "Pronto quando": lançamento criado no `pnpm dev:chat`, editado no painel, histórico com WhatsApp e Painel.
-- [ ] `painel.md` (F3 "Feita", desenho e planos), `andamento.md` e `pendencias.md` (fechar F2-3; manter F3-1 e F3-2), `escopo-por-fase.md` (RF22 a RF25, com a ressalva do RF25), `CLAUDE.md` da raiz ("Estado atual": F3 feita, próxima F4), `apps/web/CLAUDE.md` (rota `/lancamentos/lixeira` na tabela de rotas por estado de sessão). Preencher "Desvios do desenho aprovado". Propor, sem criar, regras, skills e hooks.
+- [ ] `painel.md` (F3 "Feita", desenho e planos), `andamento.md` e `pendencias.md` (fechar F2-3; manter F3-1 e F3-2), `escopo-por-fase.md` (RF22 a RF25, com a ressalva do RF25), `CLAUDE.md` da raiz ("Estado atual": F3b feita, próxima F3c), `apps/web/CLAUDE.md` (rota `/lancamentos/lixeira` na tabela de rotas por estado de sessão). Preencher "Desvios do desenho aprovado". Propor, sem criar, regras, skills e hooks.
 - [ ] Roteiro à mão para o Luís: editar com duas abas, excluir e restaurar, lote como gerente, tentar como contador, conferir que o gerente sem VER_FOLHA não vê salário em lista, total, histórico e origem.
 
 ## Ordem e dependências
@@ -122,7 +122,15 @@ B1 → B2 → B3 → B4 → B5 → B6, B7 → B8 → B9 → B10 → B11 → B12 
 
 ## Desvios do desenho aprovado
 
-Nenhum no planejamento. A execução preenche (resultado dos ⚠️ de B1 e B2).
+Execução em 16/11/2026 (resultado dos ⚠️ e decisões):
+
+- **B1 ⚠️:** a lógica da DE-18 já era pura no core (`planCorrection` e `resolveFeeRule`); `preparePanelEdit` reusa `resolveFeeRule` e o handler do canal não mudou. Quantidade só é exigida quando o patch toca categoria, quantidade ou unidade de medida (lançamento antigo sem quantidade continua editável). Trocar só o `type` recopia a taxa (receita) ou zera (despesa) (tratado na B3).
+- **B2 ⚠️:** (a) `applyChanges` aceita duas mudanças consecutivas do mesmo lançamento (versões consecutivas), então o plano B não foi usado; (b) `findSupplier` foi extraída do canal para o core (`build-drafts.ts`) e reusada na edição; (c) a composição não tinha `EntryStore` do painel: criado `createEntryStore(appDb)`. `applyChanges` ganhou o 3º parâmetro opcional `{ newSuppliers }` (fornecedor novo na mesma transação). **Desvio de assinatura:** `entryReader.sum(tx, scope, ids, today)` (o plano dizia `sum(tx, ids)`) aplica recorte, sensível e prazo da lixeira (falha fechado). O período da lixeira usa o fuso da unidade.
+- **B3:** o `can` do estado antigo vem antes da checagem de versão (quem não pode editar nunca recebe `current` no 409). Categoria sensível ou inexistente no patch responde o mesmo 422 `UnknownReference` para quem não vê sensíveis (revisão final de segurança).
+- **B4:** o 409 do lote responde `{ code: "entry_stale" }` sem `current`. "Hoje" do prazo da lixeira usa o relógio padrão (America/Sao_Paulo) em `load`, `trash` e `restore`.
+- **B7/B9:** ponto digitado no `MoneyInput` é milhar; ponto decimal só no texto colado. Fornecedor com lista própria (`supplier-field.tsx`) e `select` nativo, em vez do `Combobox` do shadcn (testabilidade em jsdom; o desenho 1.10 deixa isso ao construtor).
+- **B8:** a API falsa ganhou `entry:restore` em `ACTIONS_BY_ROLE` (dono, gerente e lançador). A tabela do dono e do gerente tem uma coluna de seleção, o que obrigou a ajustar seletores do `entries.spec.ts` (posição de coluna e `getByLabel` exato).
+- **Pendências novas:** F3b-1 a F3b-5 em `docs/planos/andamento.md`.
 
 ## Contagem por classe
 

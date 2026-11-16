@@ -22,6 +22,15 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - TanStack Table instalado é a v9: `useTable`, `tableFeatures` e `table.FlexRender`, com recursos e colunas fora do componente. A API da v8 (`useReactTable`, `getCoreRowModel`) só existe em `@tanstack/react-table/legacy`.
 - No jsdom o CSS não se aplica: a tabela do computador e os cartões do celular aparecem juntos no teste de componente. Escopo com `within(screen.getByRole("table"))`.
 
+## Lançamentos: escrita (`features/entries`, F3b)
+
+- Escrita só por `entriesApi` (`update`, `remove`, `restore`, `batchPreview`, `batchDelete`, `trash`); as mutações (`use-entries.ts`) invalidam `tenantKey(ctx, "entries")`. `isEntryStale(e)` devolve o detalhe atual do 409 `entry_stale`, que a tela trata (`StaleNotice`); o 409 `context_changed` continua do `browser-client` e o formulário não perde o digitado. O 409 do lote não traz `current`.
+- Dinheiro digitado: `MoneyInput` (`components/money-input.tsx`) emite centavos inteiros; texto colado passa por `parseBRLInput` do core. A tela nunca soma: confirmação do lote usa quantidade e soma de `batch/preview`.
+- Formulário (`entry-form.tsx`): React Hook Form, só o que mudou vai no `patch`, com `expectedVersion`; trava síncrona (`useRef`) contra duplo envio. `select` nativo e fornecedor com lista própria (`supplier-field.tsx`), não o `Combobox` do shadcn.
+- Seleção de linhas do lote: só na tabela do desktop, só dono e gerente; a chave é `serializeFilters` (abrir o drawer não limpa, mudar filtro ou ordem limpa).
+- Link com aparência de botão: `<Link className={buttonVariants(...)}>`, não `<Button render={<Link/>}>` (vira `role=button`).
+- No E2E, a tabela de dono e gerente tem a coluna de seleção: não selecione célula por posição nem `getByLabel("Insumos")` sem `{ exact: true }` (as caixas se chamam "Selecionar Insumos #n"). A API falsa guarda estado: `POST http://localhost:4010/__reset` no `beforeEach` e no `afterEach` de spec que escreve.
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
@@ -49,6 +58,8 @@ A API (`/api/me`) classifica a sessão; o `proxy.ts` só olha se há cookie. O E
 | `/login`, `/cadastro`, `/recuperar-senha` | abre | `safeNext(next)`, padrão `/` | `/acesso-restrito` (via `/`) | abre, sem laço |
 | `/redefinir-senha` | abre | abre; ao concluir, sai e vai a `/login` | idem | abre |
 | `/termos`, `/privacidade` | abre | abre | abre | abre |
+
+`/lancamentos/lixeira` é do grupo `(app)` (linha 1 da tabela) e exige `entry:restore` (`PageGuard`): quem não tem vê "Você não tem acesso a esta página".
 
 - Página nova em `app/(app)/` entra em `APP_ROUTES` (`e2e/routes.ts`). `lib/routes-list.test.ts` compara a lista com o disco e falha se faltar.
 - Escrita feita pelo servidor do Next, ou webhook novo, exige entrada explícita em `ORIGIN_EXEMPT_PATHS` da API (`apps/api/src/http/origin-guard.ts`; ver `.claude/rules/rota-de-tenant.md`, regra 6). Sem isso a API recusa por `origin_forbidden`.

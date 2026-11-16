@@ -1,6 +1,6 @@
 # F3a (lançamentos, leitura): registro da execução
 
-> O que aconteceu ao executar o plano `docs/superpowers/plans/2026-11-13-f3a-lancamentos-ver.md` em 13 e 14/11/2026: como foi conduzido, o que mudou em relação ao desenho, o que ficou para decidir e as propostas do fechamento. Como testar: [`f3a-como-testar.md`](f3a-como-testar.md). Os documentos que já existiam (`andamento.md`, `pendencias.md`, `painel.md`) foram atualizados durante a execução; este arquivo não os substitui.
+> O que aconteceu ao executar o plano `docs/superpowers/plans/2026-11-13-f3a-lancamentos-ver.md` em 13 e 14/11/2026: como foi conduzido, o que mudou em relação ao desenho, o que ficou para decidir e as propostas do fechamento. Como testar: [`f3-como-testar.md`](f3-como-testar.md). Os documentos que já existiam (`andamento.md`, `pendencias.md`, `painel.md`) foram atualizados durante a execução; este arquivo não os substitui.
 
 ## 1. Como foi conduzido
 
