@@ -1,6 +1,6 @@
 // API falsa, só para o E2E exercitar o rewrite de /api/* sem depender da API real.
 import { createServer } from "node:http";
-import { answerEntries } from "./fake-entries.mjs";
+import { answerEntries, resetEntries } from "./fake-entries.mjs";
 
 const port = Number(process.env.FAKE_API_PORT ?? 4010);
 
@@ -111,9 +111,16 @@ const U2 = "0190a000-0000-7000-8000-0000000000a2";
 const U3 = "0190a000-0000-7000-8000-0000000000a3";
 
 const ACTIONS_BY_ROLE = {
-  owner: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
-  manager: ["entry:view", "report:view", "catalog:view", "panel:access"],
-  staff: ["entry:view", "panel:access"],
+  owner: [
+    "entry:view",
+    "entry:restore",
+    "report:view",
+    "export:data",
+    "catalog:view",
+    "panel:access",
+  ],
+  manager: ["entry:view", "entry:restore", "report:view", "catalog:view", "panel:access"],
+  staff: ["entry:view", "entry:restore", "panel:access"],
   accountant: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
 };
 
@@ -334,16 +341,26 @@ createServer(async (req, res) => {
     return send(res, 200, { units: company.units });
   }
 
-  // Lançamentos (A12): leitura com as mesmas checagens de /api/units (sessão completa e contexto).
-  if (method === "GET" && new URL(url, "http://localhost").pathname.startsWith("/api/entries")) {
+  // Lançamentos (A12, B8): leitura e escrita com as mesmas checagens de /api/units (sessão completa
+  // e contexto). O corpo só é lido nas escritas.
+  const { pathname } = new URL(url, "http://localhost");
+  if (pathname.startsWith("/api/entries") || pathname === "/api/trash") {
+    const body = method === "GET" ? {} : await readJson(req);
     if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
     const { company, unitId, source } = resolveContext(req);
     if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
     if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
       return send(res, 409, { code: "context_changed" });
     }
-    const answer = answerEntries(url, company, unitId);
+    const answer = answerEntries(method, url, body, company, unitId);
     return send(res, answer.status, answer.body);
+  }
+
+  // Rota de teste: volta os lançamentos e os fornecedores criados ao estado inicial.
+  if (method === "POST" && url === "/__reset") {
+    resetEntries();
+    res.statusCode = 204;
+    return res.end();
   }
 
   if (method === "POST" && url === "/api/auth/email-otp/send-verification-otp") {
