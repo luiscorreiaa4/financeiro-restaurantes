@@ -17,7 +17,11 @@ export function EntriesScreen({ me, today }: { me: FullMe; today: string }) {
     <EntriesProvider ctx={{ tenantId: me.context.tenantId, unitId: me.context.unitId }} api={api}>
       {/* `useSearchParams` exige um limite de Suspense na página. */}
       <Suspense fallback={null}>
-        <EntriesView today={today} role={me.context.role} />
+        <EntriesView
+          today={today}
+          role={me.context.role}
+          canSeeTrash={me.context.allowedActions.includes("entry:restore")}
+        />
       </Suspense>
     </EntriesProvider>
   );
