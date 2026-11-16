@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** diz **o quê** o produto faz e quais são as regras de negócio. É a **fonte única** das regras. O porquê das escolhas fica em [`decisoes.md`](decisoes.md); o como (técnica) em [`arquitetura.md`](arquitetura.md); a ordem de execução nos planos de desenvolvimento.
 
-- **Versão:** 1.14 (13/11/2026). RF22.Obs3 e RF22.Obs7: ordenação da lista pelo servidor e aviso de valores restritos na lista (DD-35, DD-36). Antes: 1.13 (13/11/2026). RF02.Obs5: normalização do nome do perfil (DD-34). Antes: 1.12 (11/11/2026). RF01.Obs4 e RF02.R1: o acesso ao painel tem três resultados (`full`, `restricted`, `refused`) e quem só tem vínculos desativados entra em modo restrito; RF02.R9, CA11 e CA12: telas de acesso com sessão aberta e orientação só depois da credencial provada; RF03.Obs3; RNF01.R10: `Origin` ausente recusado; RNF02.R8 (DD-33). Antes: 1.11 (11/11/2026). RF02.R1 e CA10: dono sem unidade ativa entra em modo restrito, outros papéis não; RF01.Obs4: quem só tem vínculos desativados pode criar empresa (DD-32). Antes: 1.10 (10/11/2026). Contador no MVP corrigido em §1.6 e no mapeamento de enums; RF02.R6 aponta DD-31. Antes: 1.9 (10/11/2026). RF03.R2: um pedido novo de link invalida os anteriores, e RF02.R1: erros de código iguais para e-mail com e sem conta (DD-30). Antes: 1.8 (10/11/2026). RF01 e RF04: o município da unidade é escolhido da lista oficial do IBGE para a UF, e a API recusa outro valor (DD-29). Antes: 1.7 (10/11/2026). RF01.R3: o CNPJ aceita o formato alfanumérico da Receita (DD-28). Antes: 1.6 (09/11/2026). RF03: a recuperação de acesso passa a ser por **link temporário** enviado ao e-mail (uso único, vale 30 minutos), no lugar do código de 6 dígitos; vale também para definir a primeira senha pelo "Meu perfil" (DD-27). Antes: 1.5 (09/11/2026). F1c: RF02.R8 alinhado ao RF02.CA09 (trocar a senha pelo perfil encerra as outras sessões e mantém a atual; a recuperação encerra todas; DD-26). Antes: 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
+- **Versão:** 1.15 (16/11/2026). RF26 passa a Essencial e MVP (etapa F3c), sem sugestão de categoria, com idempotência por tentativa, sinais POSSIVEL_DUPLICIDADE e DATA_ANTIGA, data futura até 60 dias e origem pela versão de criação com canal PAINEL; notas no RF12.R12 e R13 (critério alinhado ao código), RF25.Obs3 e RNF04.R3; linha "Lançar no painel" na matriz 2.3 (DD-37). Antes: 1.14 (13/11/2026). RF22.Obs3 e RF22.Obs7: ordenação da lista pelo servidor e aviso de valores restritos na lista (DD-35, DD-36). Antes: 1.13 (13/11/2026). RF02.Obs5: normalização do nome do perfil (DD-34). Antes: 1.12 (11/11/2026). RF01.Obs4 e RF02.R1: o acesso ao painel tem três resultados (`full`, `restricted`, `refused`) e quem só tem vínculos desativados entra em modo restrito; RF02.R9, CA11 e CA12: telas de acesso com sessão aberta e orientação só depois da credencial provada; RF03.Obs3; RNF01.R10: `Origin` ausente recusado; RNF02.R8 (DD-33). Antes: 1.11 (11/11/2026). RF02.R1 e CA10: dono sem unidade ativa entra em modo restrito, outros papéis não; RF01.Obs4: quem só tem vínculos desativados pode criar empresa (DD-32). Antes: 1.10 (10/11/2026). Contador no MVP corrigido em §1.6 e no mapeamento de enums; RF02.R6 aponta DD-31. Antes: 1.9 (10/11/2026). RF03.R2: um pedido novo de link invalida os anteriores, e RF02.R1: erros de código iguais para e-mail com e sem conta (DD-30). Antes: 1.8 (10/11/2026). RF01 e RF04: o município da unidade é escolhido da lista oficial do IBGE para a UF, e a API recusa outro valor (DD-29). Antes: 1.7 (10/11/2026). RF01.R3: o CNPJ aceita o formato alfanumérico da Receita (DD-28). Antes: 1.6 (09/11/2026). RF03: a recuperação de acesso passa a ser por **link temporário** enviado ao e-mail (uso único, vale 30 minutos), no lugar do código de 6 dígitos; vale também para definir a primeira senha pelo "Meu perfil" (DD-27). Antes: 1.5 (09/11/2026). F1c: RF02.R8 alinhado ao RF02.CA09 (trocar a senha pelo perfil encerra as outras sessões e mantém a atual; a recuperação encerra todas; DD-26). Antes: 1.4 (09/11/2026). Autocadastro (F1b): nota do RF01.Obs4 sobre "Criar outra empresa" e notas do RF08.Obs2 e RF09.Obs2 sobre "Não informada/Não informado" fora das listas padrão (P07, DD-25). Antes: 1.3 (09/11/2026). Celular do RF05 obrigatório só para quem usa o WhatsApp; contador pode existir só com e-mail e é ignorado na identificação do RF11 (DD-20, DE-26). Antes: 1.2 (06/11/2026), correção do RF05.R4 (CONTADOR é MVP, DD-03); 1.1 (05/11/2026). Base: Documento de Requisitos v1.0, de 29/10/2026, convertido para Markdown sem resumir, mais as decisões DD-01 a DD-16 da reunião de descoberta (ver [`decisoes.md`](decisoes.md) seção 5 e [`DESCOBERTA.md`](DESCOBERTA.md))
 - **Data:** 05/11/2026
 - **Situação:** rascunho para revisão dos sócios
 - **Mudanças da v1.1:** data de pagamento (RF12); contador com login no MVP e vendo folha (RF06, RF36, matriz 2.3); imposto estimado opcional por regime (RF01, RF27, RF28, novo RF39); receita sempre com canal padrão (RF09, RF12, RF27); investimento acima de R$ 1.500 (RF12); OFX e planilha no MVP (RF35); XML de NF-e enviado manualmente (RF31); DRE na tela no MVP (RF28); resumos fixos pelo WhatsApp no MVP (RF20); ticket médio, ponto de equilíbrio e imposto no dashboard (RF27); pendências P02, P05, P09 e P10 fechadas
@@ -225,6 +225,7 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | Ação | Dono | Gerente | Lançador | Contador |
 |---|---|---|---|---|
 | Lançar pelo WhatsApp | Sim | Sim | Sim | Não |
+| Lançar no painel (RF26) | Sim | Suas unidades | Suas unidades, se tiver acesso ao painel | Não |
 | Lançar categoria sensível (folha) | Sim | Com VER_FOLHA | Não | Não |
 | Corrigir e desfazer os próprios lançamentos | Sim | Sim | Sim | Não |
 | Corrigir e desfazer lançamentos de outros | Sim | Suas unidades | Não | Não |
@@ -276,7 +277,7 @@ Referência para o RF06 e para os testes de permissão. Valores entre papéis po
 | [RF23](#rf23--edição-de-lançamento-no-painel) | Edição de Lançamento no Painel | Painel | Essencial | MVP |
 | [RF24](#rf24--lixeira-exclusão-e-restauração-de-lançamentos) | Lixeira: Exclusão e Restauração de Lançamentos | Painel | Essencial | MVP |
 | [RF25](#rf25--ver-origem-e-histórico-de-versões) | Ver Origem e Histórico de Versões | Painel | Essencial | MVP |
-| [RF26](#rf26--lançamento-manual-no-painel) | Lançamento Manual no Painel | Painel | Desejável | v1.1 |
+| [RF26](#rf26--lançamento-manual-no-painel) | Lançamento Manual no Painel | Painel | Essencial | MVP |
 | [RF27](#rf27--dashboard-indicadores-e-gráficos) | Dashboard (indicadores e gráficos) | Painel | Essencial | MVP |
 | [RF28](#rf28--dre-gerencial-e-fechamento-mensal-pdf) | DRE Gerencial e Fechamento Mensal (PDF) | Relatórios | Importante | MVP (tela) e v1.1 (PDF) |
 | [RF29](#rf29--exportação-de-dados-excel-e-csv) | Exportação de Dados (Excel e CSV) | Relatórios | Essencial | MVP |
@@ -1036,8 +1037,8 @@ Requisito responsável por transformar uma mensagem de texto livre, escrita do j
 - **R9** Canal de Venda só se aplica a receitas e é obrigatório nelas (DD-08): sem canal na mensagem, vale o canal padrão da unidade com o sinal CANAL_A_REVISAR (RF09, Obs3).
 - **R10** Unidade é a citada na mensagem (pelo nome ou apelido, RF04) ou, se nenhuma for citada, a Unidade Padrão do colaborador. Se a unidade citada não estiver entre as Unidades de Acesso, o lançamento é recusado (RF06, regra 5).
 - **R11** Taxas e líquido são calculados pelo sistema na gravação, conforme RF08 e RF09, e copiados para o lançamento. Para despesas, taxa zero e líquido igual ao bruto. O banco garante que líquido = bruto − taxa.
-- **R12** Canal de Origem: WHATSAPP, PAINEL, IMPORTACAO, EMAIL ou SISTEMA (recorrentes). Lançamentos do WhatsApp guardam a mensagem de origem (texto, transcrição ou imagem), a posição do lançamento dentro dela (uma mensagem pode gerar vários) e a mensagem de confirmação enviada (usada na correção por resposta). Reprocessar a mesma mensagem nunca duplica lançamentos: a combinação mensagem de origem + posição é única.
-- **R13** Sinais de Revisão: CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE (mesmo valor, mesmo fornecedor ou descrição e mesma data de outro lançamento feito nas últimas 24 horas, vindo de outra mensagem) e DATA_ANTIGA. Os sinais não impedem a gravação; aparecem na confirmação e no painel como filtro "a revisar".
+- **R12** Canal de Origem: WHATSAPP, PAINEL, IMPORTACAO, EMAIL ou SISTEMA (recorrentes). Lançamentos do WhatsApp guardam a mensagem de origem (texto, transcrição ou imagem), a posição do lançamento dentro dela (uma mensagem pode gerar vários) e a mensagem de confirmação enviada (usada na correção por resposta). Reprocessar a mesma mensagem nunca duplica lançamentos: a combinação mensagem de origem + posição é única. No painel (RF26) não há mensagem de origem: a origem é a versão de criação, com canal PAINEL, autor e data (DD-37).
+- **R13** Sinais de Revisão: CATEGORIA_A_REVISAR, POSSIVEL_DUPLICIDADE (outro lançamento feito nas últimas 24 horas com o mesmo valor e o mesmo fornecedor, ou com a mesma descrição e a mesma data; no WhatsApp, vindo de outra mensagem; no painel, entre os lançamentos que quem lança pode ver, RF26.R4; critério alinhado ao código, DD-37) e DATA_ANTIGA. Os sinais não impedem a gravação; aparecem na confirmação e no painel como filtro "a revisar".
 - **R14** Versão começa em 1 e aumenta a cada alteração (RF23 e RF25).
 - **R15** Status: ATIVO ou NA_LIXEIRA (RF24). Não existe exclusão física.
 
@@ -1706,6 +1707,7 @@ Requisito responsável por mostrar, para cada lançamento, de onde ele veio (o t
 
 - **Obs1:** Quem vê o lançamento vê a origem, com uma exceção: se a mensagem de origem gerou vários lançamentos e algum deles é de categoria sensível, quem não pode ver sensíveis vê a origem com o aviso "contém informação restrita" e sem o conteúdo.
 - **Obs2:** Endereços assinados expiram em até 10 minutos e nunca revelam o local real do arquivo.
+- **Obs3:** Lançamento criado no painel (RF26) não tem mensagem de origem: a Origem mostra "Lançado manualmente no painel por [nome] em [data e hora]" (DD-37).
 
 **Alteração:**
 
@@ -1728,9 +1730,9 @@ Não se aplica.
 
 ### RF26 – Lançamento Manual no Painel
 
-**Prioridade:** Desejável · **Fase:** v1.1 · **Módulo:** Painel
+**Prioridade:** Essencial · **Fase:** MVP · **Módulo:** Painel (DD-37; era Desejável, v1.1)
 
-Requisito responsável por permitir criar lançamentos diretamente no painel, por formulário, para quem prefere o computador ou precisa lançar algo fora do dia a dia (por exemplo, um gasto antigo).
+Requisito responsável por permitir criar lançamentos diretamente no painel, por formulário, para quem prefere o computador ou precisa lançar algo fora do dia a dia (por exemplo, um gasto antigo). Serve também de entrada alternativa enquanto o WhatsApp não está disponível.
 
 **Cadastro:**
 
@@ -1738,10 +1740,15 @@ Os mesmos campos do Lançamento (RF12), com Canal de Origem = PAINEL. (R1)
 
 **Regras e observações do preenchimento dos campos:**
 
-- **R1** Campos obrigatórios: Tipo, Data de Competência, Descrição, Valor Bruto, Categoria e Unidade; Quantidade e Unidade de Medida quando a categoria exigir. O formulário sugere categoria a partir da descrição, como no WhatsApp. Taxas e líquido são calculados pelo sistema.
+- **R1** Campos obrigatórios: Tipo, Data de Competência, Descrição, Valor Bruto, Categoria e Unidade; Canal de Venda nas receitas (RF12.R9); Quantidade e Unidade de Medida quando a categoria exigir (RF12.R4). A categoria é escolhida pelo usuário entre as ativas e compatíveis com o tipo, **sem sugestão automática** (nem por IA, nem por histórico). Unidade, categoria, forma de pagamento e canal precisam estar ativos e a unidade entre as de acesso do usuário. Fornecedor: um existente ou um nome novo (RF10). Taxas e líquido são calculados pelo sistema na gravação e mostrados só depois de salvar; a tela não calcula.
+- **R2** Data de Competência até 60 dias no futuro, contados de hoje no fuso da unidade (como RF23.R1); mais de 60 dias no passado grava com o sinal DATA_ANTIGA. Data de Pagamento: padrão igual à Data de Competência, editável (RF12.R21).
+- **R3** Repetir o envio do mesmo formulário (duplo clique, falha de rede) nunca duplica: o sistema devolve o lançamento já gravado.
+- **R4** POSSIVEL_DUPLICIDADE segue o RF12.R13, comparando com os lançamentos que quem lança pode ver (unidades de acesso, sem categorias sensíveis que não pode ver); não impede a gravação e é avisado na tela.
+- **R5** A descrição segue o RF12.R3: CPF e números de cartão ou de conta são omitidos.
 
-- **Obs1:** Permissão: quem pode lançar pelo WhatsApp e tem acesso ao painel (RF06).
-- **Obs2:** Formulário de lançamentos em sequência ("salvar e lançar outro") para digitar várias notas de uma vez.
+- **Obs1:** Permissão: quem pode lançar pelo WhatsApp e tem acesso ao painel (matriz 2.3, RF06). Lançador só nas próprias unidades; categoria sensível só para Dono e Gerente com VER_FOLHA (RF06.R3); Contador nunca lança; conta em SOMENTE_LEITURA (RF37) não grava.
+- **Obs2:** Formulário de lançamentos em sequência ("Salvar e lançar outro"): mantém Tipo, Data de Competência e Unidade e limpa os demais campos.
+- **Obs3:** A origem é a criação (versão 1) com canal PAINEL, autor e data; não há mensagem de origem (RF25.Obs3). Não se aplicam a pergunta de volta (RF15), a confirmação pelo WhatsApp (RF16), a pergunta de investimento (RF12.R23) nem o registro de uso de IA (RNF08): o formulário valida os campos e a categoria é escolhida.
 
 **Alteração:**
 
@@ -1758,7 +1765,13 @@ RF22.
 **Critérios de aceite:**
 
 - **CA01** – Dado o formulário sem valor, quando o usuário tenta salvar, então a gravação é bloqueada com mensagem no campo.
-- **CA02** – Dado um lançamento criado no painel, quando o histórico é aberto, então a criação aparece com canal PAINEL.
+- **CA02** – Dado um lançamento criado no painel, quando o histórico é aberto, então a criação aparece com canal PAINEL, quem e quando, e a origem mostra "Lançado manualmente no painel por [nome] em [data e hora]".
+- **CA03** – Dado o mesmo envio do formulário feito duas vezes (duplo clique ou reenvio), quando as duas chegam ao sistema, então existe um só lançamento e a segunda resposta devolve o mesmo.
+- **CA04** – Dado um lançamento com o mesmo valor e fornecedor, ou a mesma descrição e data, de outro lançamento visível a quem lança nas últimas 24 horas, quando é salvo, então grava com o sinal POSSIVEL_DUPLICIDADE e a tela avisa.
+- **CA05** – Dada uma data de competência 61 dias no futuro, quando o usuário salva, então é recusada; com 60 dias é aceita; com mais de 60 dias no passado grava com DATA_ANTIGA.
+- **CA06** – Dado um Gerente sem VER_FOLHA ou um Lançador, quando tentam lançar em categoria sensível (inclusive direto pela API), então são recusados e nada é gravado; o Contador e a conta em SOMENTE_LEITURA também são recusados.
+- **CA07** – Dada uma receita no Crédito com taxa de 3,20%, quando é salva, então a taxa e o líquido mostrados são os calculados pelo servidor.
+- **CA08** – Dado "Salvar e lançar outro", quando o lançamento é gravado, então o formulário mantém Tipo, Data de Competência e Unidade e limpa os demais campos.
 
 ### RF27 – Dashboard (indicadores e gráficos)
 
@@ -2514,7 +2527,7 @@ Não se aplica.
 
 - **R1** Nenhum lançamento é apagado fisicamente pelo cliente; exclusões são lógicas (lixeira).
 - **R2** Toda criação, alteração, exclusão e restauração de lançamento gera uma versão imutável com quem, quando, canal e valores anteriores e novos (RF25). O usuário de banco da aplicação só pode inserir e ler versões, nunca alterar ou apagar.
-- **R3** Todo lançamento guarda a origem (mensagem, áudio, imagem, arquivo importado ou e-mail).
+- **R3** Todo lançamento guarda a origem (mensagem, áudio, imagem, arquivo importado ou e-mail); o lançamento criado no painel (RF26) guarda a criação com canal, autor e data, sem mensagem (DD-37).
 - **R4** Trilha de auditoria imutável para ações sensíveis: login, bloqueios, troca de senha ou e-mail, mudança de papel e permissões, cadastro e desativação de colaboradores, exportações, alterações de taxas, importações e ações do painel interno.
 - **R5** A trilha guarda data e hora, autor, ação, alvo e metadados (IP e dispositivo, quando aplicável), sem conteúdo de mensagens nem senhas.
 

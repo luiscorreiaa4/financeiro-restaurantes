@@ -33,7 +33,7 @@ Cada item abaixo tem o seu requisito. Nada aqui define regra.
 - **Receitas**, canal de venda, forma de pagamento e taxas (bruto, taxa e líquido): RF08 e RF09. **[PENDENTE: P06, P07.]**
 - **Fornecedores**, cadastro automático a partir dos lançamentos: RF10.
 - **Recorrentes**: valor fixo lança sozinho, valor variável só aparece no fechamento como "ainda sem lançamento": RF33.
-- **Painel** (PWA, sem modo offline): lista, edição, lixeira, origem e histórico, dashboard e exportação. RF22 a RF27, RF29, RNF10. Cadastro da empresa pelo próprio dono, com período de teste: RF01 e RF37.
+- **Painel** (PWA, sem modo offline): lista, lançamento manual, edição, lixeira, origem e histórico, dashboard e exportação. RF22 a RF27, RF29, RNF10. Cadastro da empresa pelo próprio dono, com período de teste: RF01 e RF37.
 - **Relatórios e IA**: dashboard (com ticket médio, ponto de equilíbrio e imposto estimado), DRE na tela e resumos fixos de hoje, semana e mês pelo WhatsApp no MVP (RF27, RF28, RF20, RF39); perguntas em linguagem natural (RF30) e consultas livres pelo WhatsApp (RF20) na v1.1; resumo semanal e alertas por exceção (RF34); fechamento mensal em PDF (RF28). A IA escolhe consultas parametrizadas e o banco calcula (RNF13.R3).
 - **Estoque** fora do escopo; futuro: precificação sugerida por prato.
 

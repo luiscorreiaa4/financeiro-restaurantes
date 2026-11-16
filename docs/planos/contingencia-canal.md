@@ -81,7 +81,7 @@ Também serve, mesmo sem crise, ao teste "mágico de Oz" do `produto.md` (seçã
 
 ### Plano D: painel web como entrada principal
 
-O painel já é PWA (F7). Adiantar o **lançamento manual** (RF26, hoje v1.1) e acrescentar gravação de voz e foto da nota pelo próprio navegador, reaproveitando a transcrição e a leitura de cupom da E9. Mais perto do "app" que o MVP tinha deixado de fora, com atrito maior (abrir o painel, não só mandar uma mensagem). **Quando acionar 🧭:** a Meta nega e os planos B e C não resolvem. A captura de nota por e-mail (RF31) é um reforço natural.
+O painel já é PWA (F7). Adiantar o **lançamento manual** (RF26, já no MVP desde o DD-37, etapa F3c; o que falta adiantar é a ordem e a gravação de voz e foto no navegador) e acrescentar gravação de voz e foto da nota pelo próprio navegador, reaproveitando a transcrição e a leitura de cupom da E9. Mais perto do "app" que o MVP tinha deixado de fora, com atrito maior (abrir o painel, não só mandar uma mensagem). **Quando acionar 🧭:** a Meta nega e os planos B e C não resolvem. A captura de nota por e-mail (RF31) é um reforço natural.
 
 ### Descartados
 
