@@ -80,3 +80,16 @@ export function formatInstant(iso: string): string {
   if (Number.isNaN(date.getTime())) return "—";
   return instantFormat.format(date).replace(",", "");
 }
+
+const timeFormat = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Hora (`HH:mm`) de um instante ISO 8601 em America/Sao_Paulo; instante inválido vira "—". */
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "—" : timeFormat.format(date);
+}
