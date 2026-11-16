@@ -32,7 +32,7 @@ async function signIn(page: Page, persona: string, unit: string) {
 function descriptions(page: Page, isMobile: boolean): Locator {
   return isMobile
     ? page.locator("main ul > li button > span:first-child > span:first-child")
-    : page.locator("table tbody tr td:nth-child(3) button");
+    : page.locator('table tbody tr td button:not([role="checkbox"])');
 }
 
 /** Espera a lista chegar (o dado só vem depois da hidratação, então a tela já responde). */
@@ -78,7 +78,7 @@ test("filtros de tipo e categoria ficam na URL e sobrevivem a recarregar e ao vo
   await filters.getByLabel("Tipo").selectOption("expense");
   await expect(page).toHaveURL(/type=expense/);
   await filters.locator("summary", { hasText: "Categorias" }).click();
-  await filters.getByLabel("Insumos").check();
+  await filters.getByLabel("Insumos", { exact: true }).check();
   await expect(page).toHaveURL(/categoryIds=0190a200-0000-7000-8000-000000000002/);
   await closeFilters(page, isMobile);
 
@@ -136,7 +136,7 @@ test("ordenar por valor pede a ordem ao servidor e marca o cabeçalho", async ({
   await expect(header).toHaveAttribute("aria-sort", "descending");
 
   // Valor bruto de cada linha, na ordem em que o servidor mandou: nunca crescente.
-  const cells = page.locator("table tbody tr td:nth-child(5) span:first-child");
+  const cells = page.locator("table tbody tr td:nth-last-child(6) span:first-child");
   await expect(cells.first()).toBeVisible();
   const cents = (await cells.allTextContents()).map((text) => Number(text.replace(/\D/g, "")));
   expect(cents.length).toBeGreaterThan(5);
@@ -202,8 +202,8 @@ test("gerente sem VER_FOLHA vê o aviso de valores restritos e nada de Salários
   // Nem como opção de filtro.
   const filters = await openFilters(page, isMobile);
   await filters.locator("summary", { hasText: "Categorias" }).click();
-  await expect(filters.getByLabel("Insumos")).toBeVisible();
-  await expect(filters.getByLabel("Salários")).toHaveCount(0);
+  await expect(filters.getByLabel("Insumos", { exact: true })).toBeVisible();
+  await expect(filters.getByLabel("Salários", { exact: true })).toHaveCount(0);
 });
 
 test("abrir o lançamento mostra origem como texto e o histórico; voltar fecha (RF25.CA01, CA03)", async ({
