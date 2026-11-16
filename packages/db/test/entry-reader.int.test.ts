@@ -7,6 +7,7 @@ import {
   entryListQuerySchema,
   entryOptionsSchema,
   type SortDirection,
+  trashQuerySchema,
 } from "@app/core/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, createPool, type Database, withTenant } from "../src/client";
@@ -1591,5 +1592,465 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
     expect(names.paymentMethods.has(b.paymentMethodId)).toBe(false);
     expect(names.salesChannels.has(b.salesChannelId)).toBe(false);
     expect(names.units.has(b.unitId)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// F3b: carga para escrita, lixeira e soma do lote (RF23, RF24)
+// ---------------------------------------------------------------------------------------
+
+function load(tenantId: string, scope: EntryScope, ids: readonly string[], today = TODAY) {
+  return withTenant(appDb, tenantId, (tx) => entryReader.load(tx, scope, ids, today));
+}
+
+function trash(tenantId: string, scope: EntryScope, overrides: Record<string, unknown> = {}) {
+  const query = trashQuerySchema.parse({
+    deletedFrom: "2026-05-01",
+    deletedTo: "2026-05-31",
+    ...overrides,
+  });
+  return withTenant(appDb, tenantId, (tx) => entryReader.trash(tx, scope, query, TODAY));
+}
+
+/** Insere um excluído e fixa o instante da exclusão (o auxiliar usa `now()`). */
+async function insertTrashed(
+  e: Omit<NewEntry, "deleted">,
+  deletedAt: string,
+  deletedBy?: string,
+): Promise<string> {
+  const id = await insertEntry({ ...e, deleted: true });
+  await db.admin.query(
+    `update entries set deleted_at = $2::timestamptz, deleted_by = coalesce($3::uuid, deleted_by)
+      where id = $1`,
+    [id, deletedAt, deletedBy ?? null],
+  );
+  return id;
+}
+
+describe("carga de lançamentos para escrita (RF23, RF24.R2)", () => {
+  let active: string;
+  let otherUnit: string;
+  let payroll: string;
+  let staffOwn: string;
+  let staffOthers: string;
+  let trashedOk: string;
+  let trashedExpired: string;
+  let noCategory: string;
+  let orphanCategory: string;
+
+  beforeAll(async () => {
+    active = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-02",
+      amountCents: 1500,
+      description: "Ativo",
+      supplierId: supplier2,
+    });
+    otherUnit = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-02",
+      amountCents: 1600,
+      unitId: unit2,
+    });
+    payroll = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-03",
+      amountCents: 900000,
+      categoryId: payrollCategoryId,
+    });
+    staffOwn = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-04",
+      amountCents: 700,
+      createdBy: staffId,
+    });
+    staffOthers = await insertEntry({ tenant: a, occurredOn: "2026-07-04", amountCents: 800 });
+    trashedOk = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-05",
+      amountCents: 1100,
+      deleted: true,
+      restorableUntil: "2026-06-15",
+    });
+    trashedExpired = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-05",
+      amountCents: 1200,
+      deleted: true,
+      restorableUntil: "2026-06-14",
+    });
+    noCategory = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-06",
+      amountCents: 1300,
+      categoryId: null,
+    });
+    // Categoria de outra empresa: a junção não a resolve, então conta como sensível.
+    const moved = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group)
+       values ($1, $2, 'Categoria que vai sumir 2', 'expense', 'outras')`,
+      [moved, a.tenantId],
+    );
+    orphanCategory = await insertEntry({
+      tenant: a,
+      occurredOn: "2026-07-06",
+      amountCents: 1400,
+      categoryId: moved,
+    });
+    await db.admin.query("update categories set tenant_id = $2 where id = $1", [moved, b.tenantId]);
+  });
+
+  it("devolve o lançamento completo (taxas copiadas, versão, fornecedor) e se a categoria é sensível", async () => {
+    const [row] = await load(a.tenantId, OWNER, [active]);
+    expect(row?.categoryIsSensitive).toBe(false);
+    expect(row?.entry).toMatchObject({
+      id: active,
+      tenantId: a.tenantId,
+      unitId: a.unitId,
+      type: "expense",
+      occurredOn: "2026-07-02",
+      amountCents: 1500,
+      netCents: 1500,
+      feePercentBp: 0,
+      feeFixedCents: 0,
+      supplierId: supplier2,
+      categoryId: a.categoryId,
+      version: 1,
+      deletedAt: null,
+    });
+    expect(row?.entry.createdAt).toBeInstanceOf(Date);
+  });
+
+  it("omite o que está fora do recorte (unidade, empresa, sensível sem permissão, autor)", async () => {
+    const ids = [active, otherUnit, payroll, staffOwn, staffOthers, b.entryId];
+    const owner = await load(a.tenantId, OWNER, ids);
+    expect(owner.map((r) => r.entry.id).sort()).toEqual(
+      [active, otherUnit, payroll, staffOwn, staffOthers].sort(),
+    );
+    const manager = await load(a.tenantId, managerNoPayroll, ids);
+    expect(manager.map((r) => r.entry.id).sort()).toEqual([active, staffOwn, staffOthers].sort());
+    const own = await load(a.tenantId, staff, ids);
+    expect(own.map((r) => r.entry.id)).toEqual([staffOwn]);
+  });
+
+  it("gerente sem VER_FOLHA não carrega o sensível nem o de categoria que a junção não resolve", async () => {
+    expect(await load(a.tenantId, managerNoPayroll, [payroll, orphanCategory])).toEqual([]);
+    const owner = await load(a.tenantId, OWNER, [payroll, orphanCategory]);
+    expect(owner.map((r) => r.categoryIsSensitive)).toEqual([true, true]);
+  });
+
+  it("lançamento sem categoria não é sensível", async () => {
+    const [row] = await load(a.tenantId, managerNoPayroll, [noCategory]);
+    expect(row?.categoryIsSensitive).toBe(false);
+  });
+
+  it("inclui a lixeira dentro do prazo (30º dia) e omite a vencida (31º dia)", async () => {
+    const rows = await load(a.tenantId, OWNER, [trashedOk, trashedExpired]);
+    expect(rows.map((r) => r.entry.id)).toEqual([trashedOk]);
+    expect(rows[0]?.entry.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it("ids malformados, vazios ou repetidos não derrubam a transação", async () => {
+    expect(await load(a.tenantId, OWNER, [])).toEqual([]);
+    expect(await load(a.tenantId, OWNER, ["não-é-uuid", active, active])).toHaveLength(1);
+  });
+
+  it("a empresa B não carrega lançamento da empresa A (RNF02)", async () => {
+    expect(await load(b.tenantId, OWNER, [active])).toEqual([]);
+  });
+});
+
+describe("lixeira (RF24.R2, S6)", () => {
+  let t30: string;
+  let t31: string;
+  let tUnit2: string;
+  let tStaff: string;
+  let tPayroll: string;
+  let tEarly: string;
+  let tOtherTenant: string;
+
+  beforeAll(async () => {
+    // 30º dia: restaurável até hoje (inclusive). 31º dia: venceu ontem.
+    t30 = await insertTrashed(
+      { tenant: a, occurredOn: "2026-04-10", amountCents: 100, restorableUntil: "2026-06-15" },
+      "2026-05-16T12:00:00.000003Z",
+    );
+    t31 = await insertTrashed(
+      { tenant: a, occurredOn: "2026-04-10", amountCents: 110, restorableUntil: "2026-06-14" },
+      "2026-05-15T12:00:00.000000Z",
+    );
+    tUnit2 = await insertTrashed(
+      {
+        tenant: a,
+        occurredOn: "2026-04-11",
+        amountCents: 120,
+        unitId: unit2,
+        restorableUntil: "2026-06-20",
+      },
+      "2026-05-20T12:00:00.000000Z",
+    );
+    tStaff = await insertTrashed(
+      {
+        tenant: a,
+        occurredOn: "2026-04-12",
+        amountCents: 130,
+        createdBy: staffId,
+        restorableUntil: "2026-06-20",
+      },
+      "2026-05-21T12:00:00.000000Z",
+      staffId,
+    );
+    tPayroll = await insertTrashed(
+      {
+        tenant: a,
+        occurredOn: "2026-04-13",
+        amountCents: 140,
+        categoryId: payrollCategoryId,
+        restorableUntil: "2026-06-20",
+      },
+      "2026-05-22T12:00:00.000000Z",
+    );
+    tEarly = await insertTrashed(
+      { tenant: a, occurredOn: "2026-04-14", amountCents: 150, restorableUntil: "2026-06-20" },
+      "2026-04-20T12:00:00.000000Z",
+    );
+    tOtherTenant = await insertTrashed(
+      { tenant: b, occurredOn: "2026-04-10", amountCents: 160, restorableUntil: "2026-06-20" },
+      "2026-05-20T12:00:00.000000Z",
+    );
+  });
+
+  const ids = (page: { rows: Array<{ id: string }> }) => page.rows.map((r) => r.id);
+
+  it("lista só o que está no prazo, mantém o do 30º dia, omite o do 31º e a outra empresa", async () => {
+    const page = await trash(a.tenantId, OWNER);
+    const got = ids(page);
+    expect(got).toContain(t30);
+    expect(got).not.toContain(t31);
+    expect(got).not.toContain(tOtherTenant);
+    expect(got).not.toContain(tEarly);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("devolve a linha no formato do contrato com os dados da exclusão", async () => {
+    const page = await trash(a.tenantId, OWNER, {
+      unitIds: [a.unitId],
+      deletedFrom: "2026-05-16",
+      deletedTo: "2026-05-16",
+    });
+    expect(page.rows).toHaveLength(1);
+    const row = page.rows[0];
+    expect(
+      entryItemSchema.omit({ canEdit: true, canDelete: true, canRestore: true }).safeParse(row)
+        .success,
+    ).toBe(true);
+    expect(row?.deleted).toMatchObject({
+      by: { id: a.userId },
+      restorableUntil: "2026-06-15",
+    });
+    expect(row?.deleted.at).toBe("2026-05-16T12:00:00.000003Z");
+  });
+
+  it("filtra por período da exclusão (inclusive nas pontas)", async () => {
+    const april = await trash(a.tenantId, OWNER, {
+      deletedFrom: "2026-04-01",
+      deletedTo: "2026-04-30",
+    });
+    expect(ids(april)).toEqual([tEarly]);
+    const day = await trash(a.tenantId, OWNER, {
+      deletedFrom: "2026-05-20",
+      deletedTo: "2026-05-20",
+    });
+    expect(ids(day)).toEqual([tUnit2]);
+  });
+
+  it("filtra por unidade", async () => {
+    const page = await trash(a.tenantId, OWNER, { unitIds: [unit2] });
+    expect(ids(page)).toEqual([tUnit2]);
+  });
+
+  it("filtra por quem excluiu", async () => {
+    const page = await trash(a.tenantId, OWNER, { deletedBy: staffId });
+    expect(ids(page)).toEqual([tStaff]);
+  });
+
+  it("ordena por exclusão decrescente, com id no empate, e pagina por cursor sem repetir nem pular", async () => {
+    const full = ids(await trash(a.tenantId, OWNER));
+    expect(full).toEqual([tPayroll, tStaff, tUnit2, t30]);
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let i = 0; i < 10; i++) {
+      const page = await trash(a.tenantId, OWNER, { limit: 2, cursor });
+      seen.push(...ids(page));
+      if (page.nextCursor === null) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toEqual(full);
+  });
+
+  it("cursor adulterado é recusado", async () => {
+    await expect(trash(a.tenantId, OWNER, { cursor: "xxxx" })).rejects.toBeInstanceOf(
+      InvalidCursorError,
+    );
+  });
+
+  it("gerente sem VER_FOLHA não vê o sensível na lixeira", async () => {
+    const page = await trash(a.tenantId, managerNoPayroll);
+    expect(ids(page)).toEqual([tStaff, t30]);
+  });
+
+  it("lançador só vê os próprios na lixeira", async () => {
+    const page = await trash(a.tenantId, staff);
+    expect(ids(page)).toEqual([tStaff]);
+  });
+
+  it("recorte sem unidade não vê nada", async () => {
+    const none: EntryScope = { unitIds: [], ownerUserId: null, includeSensitive: true };
+    expect(ids(await trash(a.tenantId, none))).toEqual([]);
+  });
+
+  it("omite excluído sem autor da exclusão (falha fechado)", async () => {
+    const noAuthor = await insertTrashed(
+      { tenant: a, occurredOn: "2026-04-15", amountCents: 170, restorableUntil: "2026-06-20" },
+      "2026-05-23T12:00:00.000000Z",
+    );
+    await db.admin.query("update entries set deleted_by = null where id = $1", [noAuthor]);
+    expect(ids(await trash(a.tenantId, OWNER))).not.toContain(noAuthor);
+  });
+
+  it("quem excluiu combinado com unidade fora do recorte do lançador não devolve nada", async () => {
+    const page = await trash(a.tenantId, staff, { deletedBy: staffId, unitIds: [unit2] });
+    expect(ids(page)).toEqual([]);
+  });
+
+  it("o período da exclusão usa o fuso da unidade", async () => {
+    const nz = uuidv7();
+    await db.admin.query(
+      "insert into units (id, tenant_id, name, timezone) values ($1, $2, 'Auckland', 'Pacific/Auckland')",
+      [nz, a.tenantId],
+    );
+    // 20h UTC do dia 10 já é 08h do dia 11 em Auckland (e ainda dia 10 em São Paulo).
+    const id = await insertTrashed(
+      {
+        tenant: a,
+        occurredOn: "2026-02-10",
+        amountCents: 180,
+        unitId: nz,
+        restorableUntil: "2026-06-20",
+      },
+      "2026-03-10T20:00:00.000000Z",
+    );
+    const day10 = await trash(a.tenantId, OWNER, {
+      deletedFrom: "2026-03-10",
+      deletedTo: "2026-03-10",
+    });
+    const day11 = await trash(a.tenantId, OWNER, {
+      deletedFrom: "2026-03-11",
+      deletedTo: "2026-03-11",
+    });
+    expect(ids(day10)).toEqual([]);
+    expect(ids(day11)).toEqual([id]);
+  });
+
+  it("a empresa B só vê a lixeira dela (RNF02)", async () => {
+    expect(ids(await trash(b.tenantId, OWNER))).toEqual([tOtherTenant]);
+  });
+});
+
+describe("soma do lote (RF24.Obs3)", () => {
+  const sum = (scope: EntryScope, ids: readonly string[], today = TODAY, tenantId = a.tenantId) =>
+    withTenant(appDb, tenantId, (tx) => entryReader.sum(tx, scope, ids, today));
+
+  it("quantidade e soma conferem com um SELECT sum independente", async () => {
+    const rows = await db.admin.query<{ id: string }>(
+      `select e.id from entries e join categories c on c.id = e.category_id
+        where e.tenant_id = $1 and e.occurred_on between '2026-03-01' and '2026-03-31'
+          and e.deleted_at is null and c.is_sensitive is false and e.unit_id = $2`,
+      [a.tenantId, a.unitId],
+    );
+    const ids = rows.rows.map((r) => r.id);
+    expect(ids.length).toBeGreaterThan(2);
+    const expected = await db.admin.query<{ n: number; total: string }>(
+      "select count(*)::int as n, sum(amount_cents)::text as total from entries where id = any($1::uuid[])",
+      [ids],
+    );
+    const got = await sum(OWNER, ids);
+    expect(got.count).toBe(expected.rows[0]?.n);
+    expect(String(got.totalCents)).toBe(expected.rows[0]?.total);
+    expect(Number.isSafeInteger(got.totalCents)).toBe(true);
+  });
+
+  it("lista vazia soma zero e ids de outra empresa não entram", async () => {
+    expect(await sum(OWNER, [])).toEqual({ count: 0, totalCents: 0 });
+    expect(await sum(OWNER, [b.entryId])).toEqual({ count: 0, totalCents: 0 });
+  });
+
+  describe("só o que o recorte enxerga (falha fechado)", () => {
+    let plain: string;
+    let payroll: string;
+    let orphan: string;
+    let otherUnit: string;
+    let own: string;
+    let others: string;
+    let inTrash: string;
+    let expired: string;
+
+    beforeAll(async () => {
+      const base = { tenant: a, occurredOn: "2026-08-02" } as const;
+      plain = await insertEntry({ ...base, amountCents: 1000 });
+      payroll = await insertEntry({ ...base, amountCents: 2000, categoryId: payrollCategoryId });
+      const moved = uuidv7();
+      await db.admin.query(
+        "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, $2, 'Some na soma', 'expense', 'outras')",
+        [moved, a.tenantId],
+      );
+      orphan = await insertEntry({ ...base, amountCents: 4000, categoryId: moved });
+      await db.admin.query("update categories set tenant_id = $2 where id = $1", [
+        moved,
+        b.tenantId,
+      ]);
+      otherUnit = await insertEntry({ ...base, amountCents: 8000, unitId: unit2 });
+      own = await insertEntry({ ...base, amountCents: 16000, createdBy: staffId });
+      others = await insertEntry({ ...base, amountCents: 32000 });
+      inTrash = await insertEntry({
+        ...base,
+        amountCents: 64000,
+        deleted: true,
+        restorableUntil: "2026-06-15",
+      });
+      expired = await insertEntry({
+        ...base,
+        amountCents: 128000,
+        deleted: true,
+        restorableUntil: "2026-06-14",
+      });
+    });
+
+    const all = () => [plain, payroll, orphan, otherUnit, own, others, inTrash, expired];
+
+    it("dono soma tudo no prazo: sensível, categoria órfã, outra unidade e lixeira do 30º dia; não soma o vencido", async () => {
+      expect(await sum(OWNER, all())).toEqual({
+        count: 7,
+        totalCents: 1000 + 2000 + 4000 + 8000 + 16000 + 32000 + 64000,
+      });
+    });
+
+    it("gerente sem VER_FOLHA não soma o sensível, a categoria órfã nem a outra unidade", async () => {
+      expect(await sum(managerNoPayroll, all())).toEqual({
+        count: 4,
+        totalCents: 1000 + 16000 + 32000 + 64000,
+      });
+    });
+
+    it("lançador soma só os próprios", async () => {
+      expect(await sum(staff, all())).toEqual({ count: 1, totalCents: 16000 });
+    });
+
+    it("o excluído vencido não entra, e no 30º dia entra", async () => {
+      expect(await sum(OWNER, [expired])).toEqual({ count: 0, totalCents: 0 });
+      expect(await sum(OWNER, [inTrash], "2026-06-15")).toEqual({ count: 1, totalCents: 64000 });
+      expect(await sum(OWNER, [inTrash], "2026-06-16")).toEqual({ count: 0, totalCents: 0 });
+    });
   });
 });

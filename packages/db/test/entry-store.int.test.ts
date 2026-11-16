@@ -205,6 +205,12 @@ describe("EntryStore: catálogo e duplicidade", () => {
     const catalog = await store().loadCatalog(a.tenantId);
     expect(catalog.categories.map((category) => category.id)).toContain(a.categoryId);
     expect(catalog.categories.map((category) => category.id)).not.toContain(b.categoryId);
+    // O painel valida a edição com estes dois campos (RF12.R4, RF23).
+    expect(catalog.categories.find((category) => category.id === a.categoryId)).toMatchObject({
+      requiresQuantity: false,
+      status: "active",
+      isSensitive: false,
+    });
     expect(catalog.units).toEqual([
       {
         id: a.unitId,
@@ -212,6 +218,7 @@ describe("EntryStore: catálogo e duplicidade", () => {
         aliases: [],
         status: "active",
         defaultSalesChannelId: null,
+        timezone: "America/Sao_Paulo",
       },
     ]);
     expect(catalog.paymentMethods.map((method) => method.name)).toContain("Pix");
@@ -334,6 +341,42 @@ describe("EntryStore: desfazer e corrigir", () => {
       since: new Date(t0 + 60_000),
     });
     expect(outsideWindow).toEqual([]);
+  });
+
+  it("fornecedor novo entra na mesma transação da edição e some junto se o lançamento mudou no meio (RF23)", async () => {
+    const inboundId = await inbound(a);
+    const original = newEntry(a, inboundId);
+    await store().register({
+      tenantId: a.tenantId,
+      userId: a.userId,
+      inboundMessageId: inboundId,
+      entries: [{ position: 0, change: original }],
+      newSuppliers: [],
+      usage: [],
+    });
+    const context = { actorId: a.userId, channel: "web" as const, at: new Date() };
+    const supplierId = uuidv7();
+    const edited = editEntry(original.entry, { supplierId }, context);
+    if (!edited.ok) throw new Error("edição falhou");
+    const ok = await store().applyChanges(a.tenantId, [edited.value], {
+      newSuppliers: [{ id: supplierId, name: "Padaria Nova" }],
+    });
+    expect(ok).toBe(true);
+    const created = await db.admin.query("select name, tenant_id from suppliers where id = $1", [
+      supplierId,
+    ]);
+    expect(created.rows).toEqual([{ name: "Padaria Nova", tenant_id: a.tenantId }]);
+
+    // Mesma base antiga: recusada, e o fornecedor desta tentativa não fica no banco.
+    const lostId = uuidv7();
+    const stale = editEntry(original.entry, { supplierId: lostId }, context);
+    if (!stale.ok) throw new Error("edição falhou");
+    const refused = await store().applyChanges(a.tenantId, [stale.value], {
+      newSuppliers: [{ id: lostId, name: "Fornecedor Perdido" }],
+    });
+    expect(refused).toBe(false);
+    const lost = await db.admin.query("select 1 from suppliers where id = $1", [lostId]);
+    expect(lost.rows).toHaveLength(0);
   });
 
   it("recusa a alteração quando o lançamento mudou no meio e não grava versão", async () => {

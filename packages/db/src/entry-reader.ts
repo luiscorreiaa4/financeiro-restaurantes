@@ -1,4 +1,4 @@
-import { type EntryScope, parseBRLInput } from "@app/core";
+import { type Entry, type EntryScope, parseBRLInput } from "@app/core";
 import {
   businessDateSchema,
   ENTRY_CURSOR_MAX,
@@ -9,9 +9,13 @@ import {
   type EntrySort,
   type SortDirection,
   type SourceKind,
+  type TrashQuery,
 } from "@app/core/contracts";
-import { type SQL, sql } from "drizzle-orm";
+import { eq, type SQL, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { categories, entries } from "../schema";
 import type { Transaction } from "./client";
+import { toEntry } from "./entry-store";
 
 /**
  * Linha da lista de lançamentos do painel (RF22): os campos do contrato sem as permissões
@@ -478,6 +482,42 @@ function toEntryRow(raw: RawRow): EntryRow {
   };
 }
 
+/** Linha da lixeira: a da lista mais os dados da exclusão (RF24). */
+export interface TrashRow extends EntryRow {
+  deleted: EntryDeleted;
+}
+
+interface RawTrashRow extends RawRow {
+  deleted_by: string;
+  deleted_by_name: string | null;
+  delete_reason: string | null;
+  restorable_until: string;
+}
+
+function encodeTrashCursor(cursor: Cursor): string {
+  return Buffer.from(JSON.stringify({ s: "trash", v: cursor.v, id: cursor.id }), "utf8").toString(
+    "base64url",
+  );
+}
+
+/** Mesma conferência do cursor da lista: nada malformado chega ao SQL. */
+function decodeTrashCursor(text: string): Cursor {
+  if (text.length > ENTRY_CURSOR_MAX) throw new InvalidCursorError();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(text, "base64url").toString("utf8"));
+  } catch {
+    throw new InvalidCursorError();
+  }
+  if (typeof payload !== "object" || payload === null) throw new InvalidCursorError();
+  const { s, v, id } = payload as Record<string, unknown>;
+  if (s !== "trash" || typeof v !== "string" || typeof id !== "string") {
+    throw new InvalidCursorError();
+  }
+  if (!UUID_VALUE.test(id) || !isCreatedAtText(v)) throw new InvalidCursorError();
+  return { v, id };
+}
+
 interface RawTotals extends Record<string, unknown> {
   revenue_cents: string;
   expense_cents: string;
@@ -720,6 +760,151 @@ export const entryReader = {
       sentAt: raw.sent_at,
       siblingsSensitive: raw.siblings_sensitive,
     };
+  },
+
+  /**
+   * Carga para escrita (edição, exclusão, restauração): os lançamentos pedidos que o ator
+   * enxerga no recorte, inclusive os da lixeira ainda restaurável (`restorable_until >= today`).
+   * Quem está fora do recorte, é de outra empresa ou venceu na lixeira simplesmente não vem:
+   * a rota responde 404. `categoryIsSensitive` falha fechado (`sensitiveExpression`).
+   * Ids malformados são descartados; a ordem do resultado é a do id.
+   *
+   * @param today Data de negócio `AAAA-MM-DD` de quem chama (hoje no fuso da unidade).
+   * @throws RangeError quando `today` não é uma data de negócio válida.
+   */
+  async load(
+    tx: Transaction,
+    scope: EntryScope,
+    ids: readonly string[],
+    today: string,
+  ): Promise<Array<{ entry: Entry; categoryIsSensitive: boolean }>> {
+    if (!isBusinessDate(today)) throw new RangeError("entryReader: data de hoje inválida");
+    const valid = [...new Set(ids.filter((id) => UUID_VALUE.test(id)))];
+    if (valid.length === 0) return [];
+
+    // Os apelidos "e" e "c" são os que `scopeConditions` e `sensitiveExpression` esperam.
+    const e = alias(entries, "e");
+    const c = alias(categories, "c");
+    const rows = await tx
+      .select({ row: e, sensitive: sql<boolean>`${IS_SENSITIVE}` })
+      .from(e)
+      .leftJoin(c, eq(c.id, e.categoryId))
+      .where(
+        sql.join(
+          [
+            sql`e.id = any(${arrayLiteral(valid)}::uuid[])`,
+            sql`(e.deleted_at is null
+                 or (e.restorable_until >= ${today}::date and e.deleted_by is not null))`,
+            ...scopeConditions(scope, "visible"),
+          ],
+          sql` and `,
+        ),
+      )
+      .orderBy(e.id);
+    return rows.map(({ row, sensitive }) => ({
+      entry: toEntry(row),
+      categoryIsSensitive: sensitive,
+    }));
+  },
+
+  /**
+   * Lixeira (RF24.R2): excluídos ainda restauráveis (`restorable_until >= today`, inclusive),
+   * dentro do recorte, na ordem `deleted_at` decrescente e id. O período filtra o dia da
+   * exclusão no fuso da unidade (`units.timezone`). Lixeira sem autor da exclusão não aparece.
+   *
+   * @throws InvalidCursorError quando o cursor não é deste leitor.
+   * @throws RangeError quando `today` não é uma data de negócio válida.
+   */
+  async trash(
+    tx: Transaction,
+    scope: EntryScope,
+    query: TrashQuery,
+    today: string,
+  ): Promise<{ rows: TrashRow[]; nextCursor: string | null }> {
+    if (!isBusinessDate(today)) throw new RangeError("entryReader: data de hoje inválida");
+    const where: SQL[] = [
+      sql`e.deleted_at is not null`,
+      sql`e.deleted_by is not null`,
+      sql`e.restorable_until >= ${today}::date`,
+      sql`(e.deleted_at at time zone u.timezone)::date
+          between ${query.deletedFrom}::date and ${query.deletedTo}::date`,
+      ...scopeConditions(scope, "visible"),
+    ];
+    if (query.unitIds !== undefined) {
+      where.push(sql`e.unit_id = any(${arrayLiteral(query.unitIds)}::uuid[])`);
+    }
+    if (query.deletedBy !== undefined) where.push(sql`e.deleted_by = ${query.deletedBy}::uuid`);
+    if (query.cursor !== undefined) {
+      const cursor = decodeTrashCursor(query.cursor);
+      where.push(sql`(e.deleted_at, e.id) < (${cursor.v}::timestamptz, ${cursor.id}::uuid)`);
+    }
+
+    const result = await tx.execute<RawTrashRow>(sql`
+      select ${ROW_COLUMNS},
+             e.deleted_by, du.name as deleted_by_name, e.delete_reason,
+             e.restorable_until::text as restorable_until
+      ${FROM}
+      left join users du on du.id = e.deleted_by
+      where ${sql.join(where, sql` and `)}
+      order by e.deleted_at desc, e.id desc
+      limit ${query.limit + 1}
+    `);
+    const page = result.rows.slice(0, query.limit);
+    const last = page.at(-1);
+    let nextCursor: string | null = null;
+    if (result.rows.length > query.limit && last !== undefined) {
+      // A consulta só devolve excluídos; nulo aqui seria bug, e descartar o cursor em silêncio
+      // faria a paginação parar sem aviso.
+      if (last.deleted_at === null) throw new Error("entryReader: excluído sem deleted_at");
+      nextCursor = encodeTrashCursor({ v: last.deleted_at, id: last.id });
+    }
+    return {
+      rows: page.map((raw) => ({
+        ...toEntryRow(raw),
+        deleted: {
+          at: raw.deleted_at ?? "",
+          by: { id: raw.deleted_by, name: raw.deleted_by_name ?? "" },
+          reason: raw.delete_reason,
+          restorableUntil: raw.restorable_until,
+        },
+      })),
+      nextCursor,
+    };
+  },
+
+  /**
+   * Quantidade e soma do valor bruto dos ids, calculadas pelo banco (RF24.Obs3), só do que o
+   * ator enxerga: mesmo recorte, mesma noção de sensível (falha fechado) e mesmo prazo da
+   * lixeira de `load`. O que está fora não entra na soma nem na contagem.
+   *
+   * @param today Data de negócio `AAAA-MM-DD` de quem chama (hoje no fuso da unidade).
+   * @throws RangeError quando `today` não é uma data de negócio válida.
+   */
+  async sum(
+    tx: Transaction,
+    scope: EntryScope,
+    ids: readonly string[],
+    today: string,
+  ): Promise<{ count: number; totalCents: number }> {
+    if (!isBusinessDate(today)) throw new RangeError("entryReader: data de hoje inválida");
+    const valid = [...new Set(ids.filter((id) => UUID_VALUE.test(id)))];
+    if (valid.length === 0) return { count: 0, totalCents: 0 };
+    const result = await tx.execute<{ count: number; total_cents: string }>(sql`
+      select count(*)::int as count, coalesce(sum(e.amount_cents), 0)::text as total_cents
+        from entries e
+        left join categories c on c.id = e.category_id
+       where ${sql.join(
+         [
+           sql`e.id = any(${arrayLiteral(valid)}::uuid[])`,
+           sql`(e.deleted_at is null
+                or (e.restorable_until >= ${today}::date and e.deleted_by is not null))`,
+           ...scopeConditions(scope, "visible"),
+         ],
+         sql` and `,
+       )}
+    `);
+    const row = result.rows[0];
+    return { count: row?.count ?? 0, totalCents: toCents(row?.total_cents ?? "0") };
   },
 
   /**

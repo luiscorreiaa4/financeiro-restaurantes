@@ -37,7 +37,8 @@ function asMoney(value: number) {
   return result.value;
 }
 
-function toEntry(row: EntryRow): Entry {
+/** Linha de `entries` para o domínio; o leitor do painel reusa. */
+export function toEntry(row: EntryRow): Entry {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -168,7 +169,14 @@ export function createEntryStore(db: Database): EntryStore {
       return withTenant(db, tenantId, async (tx) => {
         const [categoryRows, supplierRows, paymentRows, channelRows, unitRows] = await Promise.all([
           tx
-            .select({ id: categories.id, name: categories.name, kind: categories.kind })
+            .select({
+              id: categories.id,
+              name: categories.name,
+              kind: categories.kind,
+              requiresQuantity: categories.requiresQuantity,
+              status: categories.status,
+              isSensitive: categories.isSensitive,
+            })
             .from(categories)
             .where(or(eq(categories.tenantId, tenantId), isNull(categories.tenantId))),
           tx
@@ -206,6 +214,7 @@ export function createEntryStore(db: Database): EntryStore {
               aliases: units.aliases,
               status: units.status,
               defaultSalesChannelId: units.defaultSalesChannelId,
+              timezone: units.timezone,
             })
             .from(units)
             .where(eq(units.tenantId, tenantId))
@@ -216,6 +225,7 @@ export function createEntryStore(db: Database): EntryStore {
           categories: categoryRows.map((row) => ({
             ...row,
             kind: row.kind as "revenue" | "expense" | "investment" | "deduction",
+            status: row.status as CatalogStatus,
           })),
           suppliers: supplierRows.map((row) => ({ ...row, aliases: row.aliases ?? [] })),
           paymentMethods: paymentRows.map((row) => ({
@@ -363,8 +373,18 @@ export function createEntryStore(db: Database): EntryStore {
       });
     },
 
-    async applyChanges(tenantId, changes) {
+    async applyChanges(tenantId, changes, extra) {
       return withTenant(db, tenantId, async (tx) => {
+        // Fornecedor novo antes dos lançamentos que o citam; a transação desfeita o leva junto.
+        if (extra?.newSuppliers && extra.newSuppliers.length > 0) {
+          await tx.insert(suppliers).values(
+            extra.newSuppliers.map((supplier) => ({
+              id: supplier.id,
+              tenantId,
+              name: supplier.name,
+            })),
+          );
+        }
         for (const { entry, version } of changes) {
           // Guarda de versão: só aplica se ninguém mexeu no lançamento desde que o lemos.
           const updated = await tx
