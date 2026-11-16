@@ -105,7 +105,7 @@ Cada regra aponta para o requisito que a detalha em `docs/requisitos.md`.
 - Mudou prompt ou schema de extração em `packages/ai`: rodar os evals (`pnpm --filter @app/ai eval`) e não deixar a taxa de acerto cair.
 - Toda regra nova em `packages/core` vem com teste.
 - Testar o canal e a IA sem WhatsApp: `pnpm dev:chat` (chat de terminal, só para desenvolvimento, criado na E5; ver seção 3.6 de `docs/planos/canal-whatsapp.md`; usuários de exemplo em `pnpm db:seed:dev`). O WhatsApp real só é ligado no fim, na E10 (`CHANNEL_MODE=whatsapp`).
-- Prefira mudanças pequenas e verificáveis. Rode `pnpm typecheck && pnpm lint && pnpm test` antes de concluir.
+- Prefira mudanças pequenas e verificáveis. Verifique pelo menor conjunto que prova a mudança (skill `testes-direcionados`: ciclo só no arquivo mexido, conclusão uma vez com os testes do assunto, typecheck do pacote e biome dos arquivos tocados). `pnpm typecheck && pnpm lint && pnpm test` inteiros só nos gatilhos da skill (schema, config, dependência, contrato compartilhado), no fechamento de etapa e antes de PR.
 
 ## Comandos
 

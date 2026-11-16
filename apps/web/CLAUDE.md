@@ -33,6 +33,7 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 
 - Unitários e de componente: Vitest com jsdom, `*.test.ts(x)` ao lado do código. O Vitest ignora `e2e/` e o JSX é transformado pelo `oxc` (o tsconfig usa `jsx: "preserve"`).
 - E2E: Playwright em `e2e/*.spec.ts`, projetos `Desktop Chrome` e `Pixel 7`. `pnpm --filter @app/web test:e2e`. Sobe o web em `:3100` e uma API falsa em `:4010` (`e2e/fake-api.mjs`); com `CI=true` faz `next build` + `next start`, sem `CI` usa `next dev`. Instalar o navegador uma vez: `pnpm --filter @app/web exec playwright install chromium`.
+- Durante a tela, rode só a spec dela (`... exec playwright test <spec> --project="Desktop Chrome"`) e, ao concluir, a mesma spec nos dois projetos. Todas as specs com `CI=true` são nível 3 (skill `testes-direcionados`): mudança estrutural, fechamento de etapa, PR.
 - Selecione por papel e texto acessível, não por classe CSS. Toda tela nova precisa de teste no celular (sem rolagem horizontal).
 - Se o `typecheck` acusar `Cannot find module '../../app/...'` em `.next/types`, apague `apps/web/.next` (saída de build ignorada pelo git).
 - Biome precisa de `css.parser.tailwindDirectives` (já ligado) para ler o `globals.css`.
