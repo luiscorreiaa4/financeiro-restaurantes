@@ -186,6 +186,7 @@ describe("hook global de Origin (DD-32, RNF01.R10)", () => {
         recovery: stub,
         profile: stub,
         panel: stub,
+        entries: stub,
       },
     );
     const routes: Array<{ method: string; url: string }> = [];

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   createAuthStore,
   createDatabase,
+  createEntryStore,
   createPanelAccessStore,
   createPool,
   seedDevData,
@@ -133,7 +134,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
         service: createProfileService({ store, gateway, email, background: tasks, clock }),
       },
       panel,
-      entries: { ...panel, clock },
+      entries: { ...panel, clock, store: createEntryStore(panel.appDb), newId: uuidv7 },
       logStream: { write: (line) => logLines.push(line) },
     },
   );

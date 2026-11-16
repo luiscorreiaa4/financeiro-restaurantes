@@ -1,5 +1,6 @@
 import { createEntry, editEntry, type Money } from "@app/core";
 import {
+  batchPreviewSchema,
   type EntryDetail,
   type EntryListResponse,
   type EntryOptions,
@@ -9,7 +10,10 @@ import {
   entryListResponseSchema,
   entryOptionsSchema,
   entrySourceSchema,
+  entryStaleSchema,
   entryTotalsSchema,
+  type TrashResponse,
+  trashResponseSchema,
 } from "@app/core/contracts";
 import { createDatabase, createEntryStore, uuidv7 } from "@app/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -709,7 +713,16 @@ describe("matriz papel × rota dos lançamentos (RF06.CA06)", () => {
 
   it("sem sessão: 401 em todas as rotas", async () => {
     for (const route of ROUTE_MATRIX) {
-      const response = await h.app.inject({ method: "GET", url: route.url(FIXTURE, "owner") });
+      const response = await h.app.inject({
+        method: route.method,
+        url: route.url(FIXTURE, "owner"),
+        // A escrita passa antes pelo hook de Origin: o que se prova aqui é o 401 da sessão.
+        headers: {
+          origin: h.origin,
+          ...(route.body ? { "content-type": "application/json" } : {}),
+        },
+        ...(route.body ? { payload: JSON.stringify(route.body(FIXTURE)) } : {}),
+      });
       expect(response.statusCode, route.name).toBe(401);
     }
   });
@@ -718,8 +731,9 @@ describe("matriz papel × rota dos lançamentos (RF06.CA06)", () => {
 describe("contexto do painel nas rotas de lançamentos", () => {
   it("sem X-Context: 409 context_changed, sem dado", async () => {
     for (const route of ROUTE_MATRIX) {
-      const response = await get(personas.owner, route.url(FIXTURE, "owner"), {
+      const response = await call(personas.owner, route.method, route.url(FIXTURE, "owner"), {
         xContext: null,
+        body: route.body?.(FIXTURE),
       });
       expect(response.statusCode, route.name).toBe(409);
       expect(response.json(), route.name).toEqual({ code: "context_changed" });
@@ -984,7 +998,10 @@ describe("R8: cursor", () => {
 describe("R9: isolamento entre empresas (RNF02)", () => {
   it("sessão da empresa A nunca recebe lançamento, total ou cadastro da empresa B", async () => {
     for (const persona of ["owner", "accountant", "manager", "staff"] as const) {
-      for (const route of ROUTE_MATRIX) {
+      // Rota que a persona não pode usar (lixeira do contador) responde 403, sem dado.
+      for (const route of ROUTE_MATRIX.filter(
+        (candidate) => candidate.method === "GET" && candidate.expected[persona] === 200,
+      )) {
         const response = await get(personas[persona], route.url(FIXTURE, persona));
         expect(response.statusCode, route.name).toBe(200);
         for (const secret of [SECRET_B, entryB, unitB, categoryB, tenantB, "Categoria da B"]) {
@@ -1020,7 +1037,10 @@ describe("R9: isolamento entre empresas (RNF02)", () => {
   it("cookie de contexto forjado para a empresa B: 403 context_invalid, sem dado", async () => {
     const forged = `${tenantB}.all`;
     for (const route of ROUTE_MATRIX) {
-      const response = await get(personas.owner, route.url(FIXTURE, "owner"), { ctx: forged });
+      const response = await call(personas.owner, route.method, route.url(FIXTURE, "owner"), {
+        ctx: forged,
+        body: route.body?.(FIXTURE),
+      });
       expect(response.statusCode, route.name).toBe(403);
       expect(response.json(), route.name).toEqual({ code: "context_invalid" });
       expect(response.body).not.toContain(SECRET_B);
@@ -1588,5 +1608,1117 @@ describe("registro de log das rotas de lançamentos (RNF11)", () => {
     ]) {
       expect(logs, secret).not.toContain(secret);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// PATCH /api/entries/:id (F3b, RF23)
+// ---------------------------------------------------------------------------------------
+
+const patchEntry = (who: PersonaSession, id: string, body: unknown, extra = {}) =>
+  call(who, "PATCH", `/api/entries/${id}`, { body, ...extra });
+
+/** Lançamento novo da empresa A em outubro, para cada teste mexer no seu. */
+const freshEntry = (over: Partial<Parameters<typeof addEntry>[0]> & { by?: PersonaSession } = {}) =>
+  addEntry({
+    tenantId: tenantA,
+    unitId: unit1,
+    categoryId: categoryA,
+    createdBy: (over.by ?? personas.owner).userId,
+    amountCents: 10_000,
+    occurredOn: OCTOBER,
+    ...over,
+  });
+
+const rowOf = async (id: string) =>
+  (await admin("select * from entries where id = $1", [id])).rows[0] as Record<string, unknown>;
+
+const versionsOf = async (id: string) =>
+  (
+    await admin(
+      "select version, action, channel, changed_by, before, after from entry_versions where entry_id = $1 order by version",
+      [id],
+    )
+  ).rows as Array<{
+    version: number;
+    action: string;
+    channel: string;
+    changed_by: string;
+    before: { flags: string[] } | null;
+    after: { description: string; flags: string[] };
+  }>;
+
+describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
+  it("S1: duas abas na mesma versão: a segunda recebe 409 entry_stale com o detalhe atual e nada é sobrescrito (RF23.CA02)", async () => {
+    const id = await freshEntry({ description: "Original" });
+    const first = await patchEntry(personas.owner, id, {
+      expectedVersion: 1,
+      patch: { description: "Da aba A" },
+    });
+    expect(first.statusCode).toBe(200);
+    expect(entryDetailSchema.parse(first.json())).toMatchObject({
+      id,
+      version: 2,
+      description: "Da aba A",
+    });
+
+    const second = await patchEntry(personas.manager, id, {
+      expectedVersion: 1,
+      patch: { description: "Da aba B", amountCents: 99_999 },
+    });
+    expect(second.statusCode).toBe(409);
+    const body = entryStaleSchema.parse(second.json());
+    expect(body.current).toMatchObject({ id, version: 2, description: "Da aba A" });
+    // O 409 traz só o código e o detalhe atual.
+    expect(Object.keys(second.json()).sort()).toEqual(["code", "current"]);
+    expect(await rowOf(id)).toMatchObject({
+      description: "Da aba A",
+      amount_cents: "10000",
+      version: 2,
+    });
+    expect(await versionsOf(id)).toHaveLength(2);
+  });
+
+  it("S1: o 409 de quem não vê folha vem filtrado: versões da folha restritas, sem o salário antigo", async () => {
+    const response = await patchEntry(personas.managerNoPayroll, movedOut, {
+      expectedVersion: 1,
+      patch: { description: "Tentativa" },
+    });
+    expect(response.statusCode).toBe(409);
+    const { current } = entryStaleSchema.parse(response.json());
+    expect(current.versions.filter((version) => version.restricted).map((v) => v.version)).toEqual([
+      1, 2,
+    ]);
+    expect(response.body).not.toContain(OLD_PAYROLL_TEXT);
+    expect(response.body).not.toContain(OLD_PAYROLL_MESSAGE);
+  });
+
+  it("edição de valor gera versão 2 com canal web, quem, antes e depois, lida pelo GET (RF23.CA03)", async () => {
+    const id = await freshEntry({ amountCents: 10_000 });
+    const response = await patchEntry(personas.manager, id, {
+      expectedVersion: 1,
+      patch: { amountCents: 123_456 },
+    });
+    expect(response.statusCode).toBe(200);
+    const detail = await detailOf(personas.manager, id);
+    const version = detail.versions.at(-1);
+    expect(version).toMatchObject({
+      version: 2,
+      action: "update",
+      channel: "web",
+      changedBy: { id: personas.manager.userId },
+      restricted: false,
+    });
+    expect(version?.changes).toEqual(
+      expect.arrayContaining([{ field: "amountCents", before: 10_000, after: 123_456 }]),
+    );
+    expect(await rowOf(id)).toMatchObject({ amount_cents: "123456", net_cents: "123456" });
+  });
+
+  it("S4: trocar só a descrição mantém as taxas copiadas; trocar a forma de pagamento recopia e recalcula o líquido (RF23.Obs4)", async () => {
+    const credit = uuidv7();
+    const pix = uuidv7();
+    await admin(
+      `insert into payment_methods (id, tenant_id, name, fee_percent_bp, fee_fixed_cents, type)
+       values ($1, $3, 'Crédito S4', 320, 0, 'credit'), ($2, $3, 'Pix S4', 0, 0, 'pix')`,
+      [credit, pix, tenantA],
+    );
+    const id = await freshEntry({ type: "revenue", amountCents: 10_000 });
+    // Taxa copiada de uma configuração antiga: 5% fora da forma atual.
+    await admin(
+      `update entries set fee_percent_bp = 500, fee_cents = 500, net_cents = 9500 where id = $1`,
+      [id],
+    );
+
+    const description = await patchEntry(personas.owner, id, {
+      expectedVersion: 1,
+      patch: { description: "Só a descrição" },
+    });
+    expect(description.statusCode).toBe(200);
+    expect(await rowOf(id)).toMatchObject({
+      fee_percent_bp: 500,
+      fee_cents: "500",
+      net_cents: "9500",
+    });
+
+    const method = await patchEntry(personas.owner, id, {
+      expectedVersion: 2,
+      patch: { paymentMethodId: credit },
+    });
+    expect(method.statusCode).toBe(200);
+    expect(await rowOf(id)).toMatchObject({
+      fee_percent_bp: 320,
+      fee_cents: "320",
+      net_cents: "9680",
+    });
+
+    const pixChange = await patchEntry(personas.owner, id, {
+      expectedVersion: 3,
+      patch: { paymentMethodId: pix },
+    });
+    expect(pixChange.statusCode).toBe(200);
+    expect(await rowOf(id)).toMatchObject({
+      fee_percent_bp: 0,
+      fee_cents: "0",
+      net_cents: "10000",
+    });
+  });
+
+  it("S2: gerente sem VER_FOLHA enviando categoria sensível existente ou inexistente: a mesma resposta 422 UnknownReference e nada gravado", async () => {
+    const id = await freshEntry();
+    const bodies: string[] = [];
+    for (const categoryId of [payrollA, uuidv7()]) {
+      const response = await patchEntry(personas.managerNoPayroll, id, {
+        expectedVersion: 1,
+        patch: { categoryId },
+      });
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({ code: "invalid_entry", reason: "UnknownReference" });
+      bodies.push(response.body);
+    }
+    // Sensível e inexistente são indistinguíveis: não dá para sondar quais ids são folha.
+    expect(bodies[0]).toBe(bodies[1]);
+    expect(await rowOf(id)).toMatchObject({ category_id: categoryA, version: 1 });
+    expect(await versionsOf(id)).toHaveLength(1);
+  });
+
+  it("S2: o dono troca para a categoria sensível", async () => {
+    const id = await freshEntry();
+    const response = await patchEntry(personas.owner, id, {
+      expectedVersion: 1,
+      patch: { categoryId: payrollA },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(await rowOf(id)).toMatchObject({ category_id: payrollA, version: 2 });
+  });
+
+  it("S2: gerente com VER_FOLHA troca para a categoria sensível", async () => {
+    const id = await freshEntry();
+    const response = await patchEntry(personas.manager, id, {
+      expectedVersion: 1,
+      patch: { categoryId: payrollA },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(await rowOf(id)).toMatchObject({ category_id: payrollA, version: 2 });
+  });
+
+  it("S2: editar um lançamento sensível pelo id: 404 para gerente sem VER_FOLHA e para o lançador, nada gravado", async () => {
+    for (const [who, id] of [
+      [personas.managerNoPayroll, e5],
+      [personas.managerNoPayroll, salary],
+      [personas.staff, e6],
+    ] as const) {
+      const response = await patchEntry(who, id, {
+        expectedVersion: 1,
+        patch: { description: "invasão" },
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ code: "not_found" });
+      expect((await rowOf(id)).description).not.toBe("invasão");
+    }
+  });
+
+  it("S2: unidade nova fora do acesso do gerente: 403; unidade antiga fora do acesso: 404", async () => {
+    const id = await freshEntry();
+    const toOutside = await patchEntry(personas.manager, id, {
+      expectedVersion: 1,
+      patch: { unitId: unit3 },
+    });
+    expect(toOutside.statusCode).toBe(403);
+    expect(toOutside.json()).toEqual({ code: "forbidden" });
+    expect((await rowOf(id)).unit_id).toBe(unit1);
+
+    const inOutside = await patchEntry(personas.manager, e4, {
+      expectedVersion: 1,
+      patch: { description: "x" },
+    });
+    expect(inOutside.statusCode).toBe(404);
+  });
+
+  it("lançador edita o próprio e não o de outra pessoa (404, nunca 403)", async () => {
+    const own = await freshEntry({ by: personas.staff });
+    const mine = await patchEntry(personas.staff, own, {
+      expectedVersion: 1,
+      patch: { description: "meu" },
+    });
+    expect(mine.statusCode).toBe(200);
+    const theirs = await patchEntry(personas.staff, e1, {
+      expectedVersion: 1,
+      patch: { description: "alheio" },
+    });
+    expect(theirs.statusCode).toBe(404);
+    expect(theirs.json()).toEqual({ code: "not_found" });
+  });
+
+  it("S3: contador e conta somente leitura recebem 403 e nada é gravado (RF23.CA04)", async () => {
+    const id = await freshEntry();
+    const accountant = await patchEntry(personas.accountant, id, {
+      expectedVersion: 1,
+      patch: { description: "contador" },
+    });
+    expect(accountant.statusCode).toBe(403);
+    expect(accountant.json()).toEqual({ code: "forbidden" });
+    const readOnly = await patchEntry(personas.readOnly, entryC, {
+      expectedVersion: 1,
+      patch: { description: "somente leitura" },
+    });
+    expect(readOnly.statusCode).toBe(403);
+    expect(readOnly.json()).toEqual({ code: "account_read_only" });
+    expect((await rowOf(id)).description).not.toBe("contador");
+    expect((await rowOf(entryC)).description).not.toBe("somente leitura");
+  });
+
+  it("isolamento: o dono da empresa B não edita lançamento da A (404) e o da A não edita o da B", async () => {
+    const id = await freshEntry({ description: "da A" });
+    const fromB = await patchEntry(ownerB, id, { expectedVersion: 1, patch: { description: "x" } });
+    expect(fromB.statusCode).toBe(404);
+    expect(fromB.json()).toEqual({ code: "not_found" });
+    const toB = await patchEntry(personas.owner, entryB, {
+      expectedVersion: 1,
+      patch: { description: "x" },
+    });
+    expect(toB.statusCode).toBe(404);
+    expect((await rowOf(id)).description).toBe("da A");
+    expect((await rowOf(entryB)).description).toBe(SECRET_B);
+  });
+
+  it("lixeira vencida: 404; lixeira restaurável: 422 EntryDeleted", async () => {
+    const gone = await patchEntry(personas.owner, expired, {
+      expectedVersion: 1,
+      patch: { description: "x" },
+    });
+    expect(gone.statusCode).toBe(404);
+    const inTrash = await patchEntry(personas.owner, scripted, {
+      expectedVersion: 2,
+      patch: { description: "x" },
+    });
+    expect(inTrash.statusCode).toBe(422);
+    expect(inTrash.json()).toEqual({ code: "invalid_entry", reason: "EntryDeleted" });
+  });
+
+  describe("erros de domínio e de pedido", () => {
+    it("S7: data de competência hoje + 60 aceita, hoje + 61 recusada com reason", async () => {
+      const id = await freshEntry();
+      const tooFar = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { occurredOn: "2027-01-09" },
+      });
+      expect(tooFar.statusCode).toBe(422);
+      expect(tooFar.json()).toEqual({ code: "invalid_entry", reason: "DateTooFarAhead" });
+      const ok = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { occurredOn: "2027-01-08" },
+      });
+      expect(ok.statusCode).toBe(200);
+    });
+
+    it("S7: hoje é o do fuso da unidade do lançamento, não o de São Paulo", async () => {
+      const tokyo = uuidv7();
+      await admin(
+        "insert into units (id, tenant_id, name, timezone) values ($1, $2, 'Tóquio', 'Asia/Tokyo')",
+        [tokyo, tenantA],
+      );
+      const inTokyo = await freshEntry({ unitId: tokyo });
+      const inSaoPaulo = await freshEntry();
+      // 23h30 UTC: em São Paulo ainda é 09/11 (hoje + 60 = 08/01); em Tóquio já é 10/11 (09/01).
+      h.clock.advance(11.5 * 60 * 60 * 1000);
+      try {
+        const tokyoPatch = await patchEntry(personas.owner, inTokyo, {
+          expectedVersion: 1,
+          patch: { occurredOn: "2027-01-09" },
+        });
+        const saoPauloPatch = await patchEntry(personas.owner, inSaoPaulo, {
+          expectedVersion: 1,
+          patch: { occurredOn: "2027-01-09" },
+        });
+        expect(tokyoPatch.statusCode).toBe(200);
+        expect(saoPauloPatch.statusCode).toBe(422);
+      } finally {
+        h.clock.reset();
+      }
+    });
+
+    it("categoria que exige quantidade sem quantidade: 422 QuantityRequired", async () => {
+      const meat = uuidv7();
+      await admin(
+        `insert into categories (id, tenant_id, name, kind, dre_group, requires_quantity)
+         values ($1, $2, 'Carnes S', 'expense', 'cmv', true)`,
+        [meat, tenantA],
+      );
+      const id = await freshEntry();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { categoryId: meat },
+      });
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({ code: "invalid_entry", reason: "QuantityRequired" });
+    });
+
+    it("cadastro desconhecido ou de outra empresa: 422 UnknownReference", async () => {
+      const id = await freshEntry();
+      for (const patch of [
+        { categoryId: uuidv7() },
+        { categoryId: categoryB },
+        { unitId: unitB },
+        { supplier: { id: uuidv7() } },
+      ]) {
+        const response = await patchEntry(personas.owner, id, { expectedVersion: 1, patch });
+        expect(response.statusCode, JSON.stringify(patch)).toBe(422);
+        expect(response.json().code).toBe("invalid_entry");
+        expect(response.json().reason).toBe("UnknownReference");
+      }
+      expect(await versionsOf(id)).toHaveLength(1);
+    });
+
+    it("sem nada para mudar: 422 NothingToChange, com patch vazio ou igual ao atual", async () => {
+      const id = await freshEntry({ description: "Igual" });
+      for (const body of [
+        { expectedVersion: 1 },
+        { expectedVersion: 1, patch: {} },
+        { expectedVersion: 1, patch: { description: "Igual" } },
+      ]) {
+        const response = await patchEntry(personas.owner, id, body);
+        expect(response.statusCode, JSON.stringify(body)).toBe(422);
+        expect(response.json()).toEqual({ code: "invalid_entry", reason: "NothingToChange" });
+      }
+      expect(await versionsOf(id)).toHaveLength(1);
+    });
+
+    it("corpo inválido: 400 invalid_request, só com o código", async () => {
+      const id = await freshEntry();
+      for (const body of [
+        { patch: { description: "sem versão" } },
+        { expectedVersion: 0, patch: { description: "x" } },
+        { expectedVersion: 1, patch: { amountCents: 12.5 } },
+        { expectedVersion: 1, patch: { tenantId: tenantB } },
+        "texto",
+      ]) {
+        const response = await patchEntry(personas.owner, id, body);
+        expect(response.statusCode, JSON.stringify(body)).toBe(400);
+        expect(response.json()).toEqual({ code: "invalid_request" });
+      }
+      const badId = await patchEntry(personas.owner, "nao-e-uuid", {
+        expectedVersion: 1,
+        patch: { description: "x" },
+      });
+      expect(badId.statusCode).toBe(400);
+    });
+
+    it("sem Origin: 403 origin_forbidden, e sem X-Context: 409 context_changed", async () => {
+      const id = await freshEntry();
+      const body = { expectedVersion: 1, patch: { description: "x" } };
+      const noOrigin = await h.app.inject({
+        method: "PATCH",
+        url: `/api/entries/${id}`,
+        headers: {
+          cookie: `${personas.owner.session}; ${CTX}=${personas.owner.ctx}`,
+          "x-context": personas.owner.ctx as string,
+          "content-type": "application/json",
+        },
+        payload: JSON.stringify(body),
+      });
+      expect(noOrigin.statusCode).toBe(403);
+      expect(noOrigin.json()).toEqual({ code: "origin_forbidden" });
+      const noContext = await patchEntry(personas.owner, id, body, { xContext: null });
+      expect(noContext.statusCode).toBe(409);
+      expect(noContext.json()).toEqual({ code: "context_changed" });
+      expect((await rowOf(id)).version).toBe(1);
+    });
+  });
+
+  describe("marcar como revisado (RF23.R2)", () => {
+    const withFlags = async () => {
+      const id = await freshEntry({ description: "Com sinal" });
+      await admin("update entries set flags = '{category_to_review,old_date}' where id = $1", [id]);
+      return id;
+    };
+
+    it("S9: edição e revisão juntas gravam duas versões, na ordem alteração e revisão, com sinais vazios", async () => {
+      const id = await withFlags();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { description: "Corrigido" },
+        markReviewed: true,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(entryDetailSchema.parse(response.json())).toMatchObject({
+        version: 3,
+        description: "Corrigido",
+        flags: [],
+      });
+      const versions = await versionsOf(id);
+      expect(versions.map((v) => [v.version, v.action, v.channel])).toEqual([
+        [1, "create", "whatsapp"],
+        [2, "update", "web"],
+        [3, "update", "web"],
+      ]);
+      // A alteração ainda leva os sinais; a revisão os tira.
+      expect(versions[1]?.after.description).toBe("Corrigido");
+      expect(versions[1]?.after.flags).toEqual(["category_to_review", "old_date"]);
+      expect(versions[2]?.before?.flags).toEqual(["category_to_review", "old_date"]);
+      expect(versions[2]?.after.flags).toEqual([]);
+      expect((await rowOf(id)).flags).toEqual([]);
+    });
+
+    it("S9: revisar sozinho grava uma versão e limpa os sinais", async () => {
+      const id = await withFlags();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        markReviewed: true,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(entryDetailSchema.parse(response.json())).toMatchObject({ version: 2, flags: [] });
+      expect(await versionsOf(id)).toHaveLength(2);
+    });
+
+    it("S9: revisar lançamento sem sinais e sem edição: 200, sem versão nova", async () => {
+      const id = await freshEntry();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        markReviewed: true,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(entryDetailSchema.parse(response.json())).toMatchObject({ version: 1 });
+      expect(await versionsOf(id)).toHaveLength(1);
+    });
+
+    it("S9: edição igual ao atual com revisão vira só a revisão", async () => {
+      const id = await withFlags();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { description: "Com sinal" },
+        markReviewed: true,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(await versionsOf(id)).toHaveLength(2);
+    });
+
+    it("S9: versão esperada velha com revisão: 409 e os sinais continuam", async () => {
+      const id = await withFlags();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 7,
+        markReviewed: true,
+      });
+      expect(response.statusCode).toBe(409);
+      expect((await rowOf(id)).flags).toEqual(["category_to_review", "old_date"]);
+    });
+  });
+
+  describe("fornecedor (RF12.R7, RF10)", () => {
+    const suppliersNamed = async (name: string) =>
+      (await admin("select id, tenant_id from suppliers where name = $1", [name])).rows;
+
+    it("nome digitado que já existe, sem caixa nem acento, associa o cadastrado e não cria outro", async () => {
+      const known = uuidv7();
+      await admin("insert into suppliers (id, tenant_id, name) values ($1, $2, 'Atacadão S')", [
+        known,
+        tenantA,
+      ]);
+      const id = await freshEntry();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { supplier: { name: "  ATACADAO s " } },
+      });
+      expect(response.statusCode).toBe(200);
+      expect((await rowOf(id)).supplier_id).toBe(known);
+      expect(await suppliersNamed("Atacadão S")).toHaveLength(1);
+      expect(
+        (
+          await admin(
+            "select count(*)::int as n from suppliers where tenant_id = $1 and name ilike 'atacadao s'",
+            [tenantA],
+          )
+        ).rows[0],
+      ).toEqual({ n: 0 });
+    });
+
+    it("nome novo cria o fornecedor na empresa, junto da edição", async () => {
+      const id = await freshEntry();
+      const response = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { supplier: { name: "Padaria Nova S" } },
+      });
+      expect(response.statusCode).toBe(200);
+      const created = await suppliersNamed("Padaria Nova S");
+      expect(created).toHaveLength(1);
+      expect(created[0]?.tenant_id).toBe(tenantA);
+      expect((await rowOf(id)).supplier_id).toBe(created[0]?.id);
+      expect(entryDetailSchema.parse(response.json()).supplier).toEqual({
+        id: created[0]?.id,
+        name: "Padaria Nova S",
+      });
+    });
+
+    it("edição recusada (versão velha ou erro de domínio) não deixa fornecedor criado", async () => {
+      const id = await freshEntry();
+      const stale = await patchEntry(personas.owner, id, {
+        expectedVersion: 5,
+        patch: { supplier: { name: "Fantasma Um S" } },
+      });
+      expect(stale.statusCode).toBe(409);
+      const invalid = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { supplier: { name: "Fantasma Dois S" }, occurredOn: "2030-01-01" },
+      });
+      expect(invalid.statusCode).toBe(422);
+      expect(await suppliersNamed("Fantasma Um S")).toHaveLength(0);
+      expect(await suppliersNamed("Fantasma Dois S")).toHaveLength(0);
+    });
+
+    it("limpar o fornecedor com null e escolher um de outra empresa: 422", async () => {
+      const own = uuidv7();
+      await admin("insert into suppliers (id, tenant_id, name) values ($1, $2, 'Dono do S')", [
+        own,
+        tenantA,
+      ]);
+      const id = await freshEntry();
+      await admin("update entries set supplier_id = $2 where id = $1", [id, own]);
+      const cleared = await patchEntry(personas.owner, id, {
+        expectedVersion: 1,
+        patch: { supplier: null },
+      });
+      expect(cleared.statusCode).toBe(200);
+      expect((await rowOf(id)).supplier_id).toBeNull();
+
+      const foreign = uuidv7();
+      await admin("insert into suppliers (id, tenant_id, name) values ($1, $2, 'Da B')", [
+        foreign,
+        tenantB,
+      ]);
+      const other = await patchEntry(personas.owner, id, {
+        expectedVersion: 2,
+        patch: { supplier: { id: foreign } },
+      });
+      expect(other.statusCode).toBe(422);
+      expect(other.json()).toEqual({ code: "invalid_entry", reason: "UnknownReference" });
+    });
+  });
+
+  it("registro de log da edição: nenhuma linha traz descrição, nome de fornecedor nem contexto (RNF11)", async () => {
+    const id = await freshEntry();
+    h.logLines.length = 0;
+    await patchEntry(personas.owner, id, {
+      expectedVersion: 1,
+      patch: { description: "descricao-secreta-log", supplier: { name: "fornecedor-secreto-log" } },
+    });
+    await patchEntry(personas.owner, id, {
+      expectedVersion: 1,
+      patch: { description: "outra-descricao-secreta" },
+    });
+    await patchEntry(personas.owner, id, {
+      expectedVersion: 2,
+      patch: { occurredOn: "2030-01-01", description: "terceira-secreta" },
+    });
+    expect(h.logLines.length).toBeGreaterThan(0);
+    const logs = h.logLines.join("\n");
+    for (const secret of [
+      "descricao-secreta-log",
+      "fornecedor-secreto-log",
+      "outra-descricao-secreta",
+      "terceira-secreta",
+      personas.owner.ctx as string,
+      personas.owner.session.split("=")[1] as string,
+    ]) {
+      expect(logs, secret).not.toContain(secret);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// Exclusão, restauração e lote (F3b, RF24)
+// ---------------------------------------------------------------------------------------
+
+const deleteEntry = (who: PersonaSession, id: string, body?: unknown) =>
+  call(who, "DELETE", `/api/entries/${id}`, { body });
+const restoreEntryCall = (who: PersonaSession, id: string) =>
+  call(who, "POST", `/api/entries/${id}/restore`);
+const batchPreview = (who: PersonaSession, ids: string[]) =>
+  call(who, "POST", "/api/entries/batch/preview", { body: { ids } });
+const batchDelete = (who: PersonaSession, ids: string[], reason?: string) =>
+  call(who, "POST", "/api/entries/batch/delete", { body: { ids, reason } });
+
+const isDeleted = async (id: string) => (await rowOf(id)).deleted_at !== null;
+
+/** Soma independente, direto no banco, dos valores brutos dos ids. */
+const sumInDb = async (ids: string[]) =>
+  Number(
+    (
+      await admin(
+        "select coalesce(sum(amount_cents), 0)::text as s from entries where id = any($1)",
+        [ids],
+      )
+    ).rows[0]?.s,
+  );
+
+describe("DELETE e restauração de um lançamento (RF24)", () => {
+  it("excluído some da lista e dos totais (CA01), continua no banco com deleted_at (CA03) e o histórico mostra exclusão e restauração com canal web (CA02)", async () => {
+    const id = await freshEntry({ amountCents: 777_700, occurredOn: "2026-11-07" });
+    const before = await totalsOf(personas.owner);
+    expect(await idsOf(personas.owner)).toContain(id);
+
+    const deleted = await deleteEntry(personas.owner, id, { reason: "Lançado em duplicidade" });
+    expect(deleted.statusCode).toBe(200);
+    expect(entryDetailSchema.parse(deleted.json())).toMatchObject({ id, version: 2 });
+    expect(await idsOf(personas.owner)).not.toContain(id);
+    expect((await totalsOf(personas.owner)).expenseCents).toBe(before.expenseCents - 777_700);
+    // Nada é apagado de verdade (RNF04): a linha fica, com autor, motivo e prazo.
+    expect(await rowOf(id)).toMatchObject({
+      delete_reason: "Lançado em duplicidade",
+      deleted_by: personas.owner.userId,
+    });
+    expect((await rowOf(id)).deleted_at).not.toBeNull();
+    expect((await rowOf(id)).restorable_until).not.toBeNull();
+
+    const restored = await restoreEntryCall(personas.manager, id);
+    expect(restored.statusCode).toBe(200);
+    expect(await idsOf(personas.owner)).toContain(id);
+    expect((await totalsOf(personas.owner)).expenseCents).toBe(before.expenseCents);
+    expect(await rowOf(id)).toMatchObject({
+      deleted_at: null,
+      deleted_by: null,
+      delete_reason: null,
+      restorable_until: null,
+      version: 3,
+    });
+
+    const detail = await detailOf(personas.owner, id);
+    expect(detail.versions.map((v) => [v.version, v.action, v.channel])).toEqual([
+      [1, "create", "whatsapp"],
+      [2, "delete", "web"],
+      [3, "restore", "web"],
+    ]);
+    expect(detail.versions[1]?.changedBy.id).toBe(personas.owner.userId);
+    expect(detail.versions[2]?.changedBy.id).toBe(personas.manager.userId);
+  });
+
+  it("sem corpo e com motivo só de espaços: exclui sem motivo", async () => {
+    const a = await freshEntry();
+    const b = await freshEntry();
+    expect((await deleteEntry(personas.owner, a)).statusCode).toBe(200);
+    expect((await deleteEntry(personas.owner, b, { reason: "   " })).statusCode).toBe(200);
+    expect((await rowOf(a)).delete_reason).toBeNull();
+    expect((await rowOf(b)).delete_reason).toBeNull();
+  });
+
+  it("motivo de 200 caracteres passa; de 201 dá 400 invalid_request e nada muda (RF24.R1)", async () => {
+    const id = await freshEntry();
+    const long = await deleteEntry(personas.owner, id, { reason: "a".repeat(201) });
+    expect(long.statusCode).toBe(400);
+    expect(long.json()).toEqual({ code: "invalid_request" });
+    expect(await isDeleted(id)).toBe(false);
+    expect((await deleteEntry(personas.owner, id, { reason: "a".repeat(200) })).statusCode).toBe(
+      200,
+    );
+  });
+
+  it("excluir de novo um excluído: 422 invalid_entry EntryAlreadyDeleted; restaurar um ativo: 422 EntryNotDeleted", async () => {
+    const id = await freshEntry();
+    const notDeleted = await restoreEntryCall(personas.owner, id);
+    expect(notDeleted.statusCode).toBe(422);
+    expect(notDeleted.json()).toEqual({ code: "invalid_entry", reason: "EntryNotDeleted" });
+    await deleteEntry(personas.owner, id);
+    const again = await deleteEntry(personas.owner, id);
+    expect(again.statusCode).toBe(422);
+    expect(again.json()).toEqual({ code: "invalid_entry", reason: "EntryAlreadyDeleted" });
+    expect((await rowOf(id)).version).toBe(2);
+  });
+
+  it("S6: no 30º dia (prazo vence hoje) restaura; no 31º (venceu ontem) dá 404 e nada muda (RF24.R2, CA02)", async () => {
+    const inTime = await freshEntry({
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: TODAY },
+    });
+    const late = await freshEntry({
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: YESTERDAY },
+    });
+    const ok = await restoreEntryCall(personas.owner, inTime);
+    expect(ok.statusCode).toBe(200);
+    expect((await rowOf(inTime)).deleted_at).toBeNull();
+
+    const gone = await restoreEntryCall(personas.owner, late);
+    expect(gone.statusCode).toBe(404);
+    expect(gone.json()).toEqual({ code: "not_found" });
+    expect(await isDeleted(late)).toBe(true);
+    expect((await rowOf(late)).version).toBe(1);
+    // Excluir o que está na lixeira vencida também é 404.
+    expect((await deleteEntry(personas.owner, late)).statusCode).toBe(404);
+  });
+
+  it("S8: lançador exclui e restaura os próprios; o alheio dá 404 e nada muda", async () => {
+    const own = await freshEntry({ by: personas.staff });
+    const foreign = await freshEntry({ by: personas.owner });
+    const foreignTrash = await freshEntry({
+      by: personas.owner,
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: TODAY },
+    });
+
+    expect((await deleteEntry(personas.staff, own)).statusCode).toBe(200);
+    expect((await restoreEntryCall(personas.staff, own)).statusCode).toBe(200);
+
+    const del = await deleteEntry(personas.staff, foreign);
+    expect(del.statusCode).toBe(404);
+    expect(del.json()).toEqual({ code: "not_found" });
+    const res = await restoreEntryCall(personas.staff, foreignTrash);
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({ code: "not_found" });
+    expect(await isDeleted(foreign)).toBe(false);
+    expect(await isDeleted(foreignTrash)).toBe(true);
+  });
+
+  it("gerente sem VER_FOLHA: lançamento da folha (sensível) dá 404 na exclusão e na restauração, e nada muda", async () => {
+    const payroll = await freshEntry({ categoryId: payrollA });
+    const payrollTrash = await freshEntry({
+      categoryId: payrollA,
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: TODAY },
+    });
+    expect((await deleteEntry(personas.managerNoPayroll, payroll)).statusCode).toBe(404);
+    expect((await restoreEntryCall(personas.managerNoPayroll, payrollTrash)).statusCode).toBe(404);
+    expect(await isDeleted(payroll)).toBe(false);
+    expect(await isDeleted(payrollTrash)).toBe(true);
+    // Com VER_FOLHA o mesmo lançamento é tratado normalmente.
+    expect((await deleteEntry(personas.manager, payroll)).statusCode).toBe(200);
+  });
+
+  it("outra empresa e unidade fora do acesso: 404 igual ao de id inexistente", async () => {
+    const outOfUnit = await freshEntry({ unitId: unit3 });
+    for (const id of [entryB, outOfUnit, uuidv7()]) {
+      const del = await deleteEntry(personas.manager, id);
+      expect(del.statusCode, id).toBe(404);
+      expect(del.json()).toEqual({ code: "not_found" });
+      expect((await restoreEntryCall(personas.manager, id)).statusCode, id).toBe(404);
+    }
+    expect(await isDeleted(entryB)).toBe(false);
+    expect(await isDeleted(outOfUnit)).toBe(false);
+  });
+
+  it("S3: contador e conta somente leitura recebem 403 e o lançamento não muda", async () => {
+    const id = await freshEntry();
+    expect((await deleteEntry(personas.accountant, id)).statusCode).toBe(403);
+    expect((await deleteEntry(personas.readOnly, entryC)).statusCode).toBe(403);
+    expect(await isDeleted(id)).toBe(false);
+    expect(await isDeleted(entryC)).toBe(false);
+  });
+});
+
+describe("lote: prévia e exclusão (RF24.Obs3)", () => {
+  const trio = async () => [
+    await freshEntry({ amountCents: 1_111 }),
+    await freshEntry({ amountCents: 2_222, type: "revenue" }),
+    await freshEntry({ amountCents: 3_333, unitId: unit2 }),
+  ];
+
+  it("a prévia devolve quantidade e soma iguais à soma independente do banco e não grava nada", async () => {
+    const ids = await trio();
+    const response = await batchPreview(personas.manager, ids);
+    expect(response.statusCode).toBe(200);
+    const body = batchPreviewSchema.parse(response.json());
+    expect(body).toEqual({ count: 3, totalCents: await sumInDb(ids) });
+    expect(body.totalCents).toBe(6_666);
+    for (const id of ids) expect(await isDeleted(id)).toBe(false);
+  });
+
+  it("a exclusão apaga todos de uma vez, devolve a mesma quantidade e soma, e gera uma versão delete web por lançamento", async () => {
+    const ids = await trio();
+    const total = await sumInDb(ids);
+    const response = await batchDelete(personas.owner, ids, "Limpeza");
+    expect(response.statusCode).toBe(200);
+    expect(batchPreviewSchema.parse(response.json())).toEqual({ count: 3, totalCents: total });
+    for (const id of ids) {
+      expect(await rowOf(id)).toMatchObject({ delete_reason: "Limpeza", version: 2 });
+      expect((await rowOf(id)).deleted_at).not.toBeNull();
+      expect((await versionsOf(id)).map((v) => [v.action, v.channel])).toEqual([
+        ["create", "whatsapp"],
+        ["delete", "web"],
+      ]);
+    }
+    expect(await idsOf(personas.owner)).not.toEqual(expect.arrayContaining(ids));
+  });
+
+  it("S5: um id de outra empresa, de unidade fora do acesso ou inexistente: 404 e nada é excluído", async () => {
+    const outOfUnit = await freshEntry({ unitId: unit3 });
+    for (const bad of [entryB, outOfUnit, uuidv7()]) {
+      const ids = await trio();
+      for (const run of [batchPreview, (w: PersonaSession, i: string[]) => batchDelete(w, i)]) {
+        const response = await run(personas.manager, [...ids, bad]);
+        expect(response.statusCode, bad).toBe(404);
+        expect(response.json()).toEqual({ code: "not_found" });
+      }
+      for (const id of ids) expect(await isDeleted(id)).toBe(false);
+    }
+    expect(await isDeleted(entryB)).toBe(false);
+    expect(await isDeleted(outOfUnit)).toBe(false);
+  });
+
+  it("S5: um sensível invisível ao gerente sem VER_FOLHA: 404, nada excluído, e o 404 não revela o motivo", async () => {
+    const ids = await trio();
+    const payroll = await freshEntry({ categoryId: payrollA });
+    const response = await batchDelete(personas.managerNoPayroll, [...ids, payroll]);
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ code: "not_found" });
+    const preview = await batchPreview(personas.managerNoPayroll, [...ids, payroll]);
+    expect(preview.statusCode).toBe(404);
+    for (const id of [...ids, payroll]) expect(await isDeleted(id)).toBe(false);
+    // Com VER_FOLHA o mesmo lote passa.
+    expect((await batchDelete(personas.manager, [...ids, payroll])).statusCode).toBe(200);
+  });
+
+  it("S5: um já excluído (mesmo na lixeira restaurável): 404 e nada é excluído", async () => {
+    const ids = await trio();
+    const trashed = await freshEntry({
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: TODAY },
+    });
+    const response = await batchDelete(personas.owner, [...ids, trashed]);
+    expect(response.statusCode).toBe(404);
+    for (const id of ids) expect(await isDeleted(id)).toBe(false);
+    expect((await rowOf(trashed)).version).toBe(1);
+  });
+
+  it("ids repetidos (também em maiúsculas), vazios ou mais de 100: 400 invalid_request", async () => {
+    const [a] = await trio();
+    const dup = await batchDelete(personas.owner, [a as string, (a as string).toUpperCase()]);
+    expect(dup.statusCode).toBe(400);
+    expect(dup.json()).toEqual({ code: "invalid_request" });
+    expect((await batchDelete(personas.owner, [])).statusCode).toBe(400);
+    const many = Array.from({ length: 101 }, () => uuidv7());
+    expect((await batchPreview(personas.owner, many)).statusCode).toBe(400);
+    expect(await isDeleted(a as string)).toBe(false);
+  });
+
+  it("S8: lançador no lote, mesmo só com os próprios: 403 e nada muda", async () => {
+    const own = await freshEntry({ by: personas.staff });
+    for (const run of [batchPreview, (w: PersonaSession, i: string[]) => batchDelete(w, i)]) {
+      const response = await run(personas.staff, [own]);
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ code: "forbidden" });
+    }
+    expect(await isDeleted(own)).toBe(false);
+  });
+
+  it("S3: contador e conta somente leitura: 403 e nada muda", async () => {
+    const id = await freshEntry();
+    expect((await batchDelete(personas.accountant, [id])).statusCode).toBe(403);
+    expect((await batchPreview(personas.accountant, [id])).statusCode).toBe(403);
+    expect((await batchDelete(personas.readOnly, [entryC])).statusCode).toBe(403);
+    expect(await isDeleted(id)).toBe(false);
+    expect(await isDeleted(entryC)).toBe(false);
+  });
+});
+
+describe("registro de log da exclusão e do lote (RNF11)", () => {
+  it("nenhuma linha traz motivo, descrição nem contexto", async () => {
+    const id = await freshEntry({ description: "descricao-secreta-exclusao" });
+    const other = await freshEntry({ description: "descricao-secreta-lote" });
+    h.logLines.length = 0;
+    await deleteEntry(personas.owner, id, { reason: "motivo-secreto-log" });
+    await batchDelete(personas.owner, [other, entryB], "motivo-secreto-lote");
+    await restoreEntryCall(personas.owner, id);
+    await deleteEntry(personas.owner, id, { reason: "x".repeat(201) });
+    const logs = h.logLines.join("\n");
+    for (const secret of [
+      "descricao-secreta-exclusao",
+      "descricao-secreta-lote",
+      "motivo-secreto-log",
+      "motivo-secreto-lote",
+      personas.owner.ctx as string,
+      personas.owner.session.split("=")[1] as string,
+    ]) {
+      expect(logs, secret).not.toContain(secret);
+    }
+  });
+});
+
+describe("Origin nas escritas de exclusão, restauração e lote (RNF01.R10)", () => {
+  it("sem Origin: 403 origin_forbidden em DELETE e nos POSTs, e nada muda", async () => {
+    const id = await freshEntry();
+    const headers = {
+      cookie: `${personas.owner.session}; ${CTX}=${personas.owner.ctx}`,
+      "x-context": personas.owner.ctx as string,
+      "content-type": "application/json",
+    };
+    const requests: Array<["DELETE" | "POST", string, unknown]> = [
+      ["DELETE", `/api/entries/${id}`, {}],
+      ["POST", `/api/entries/${id}/restore`, {}],
+      ["POST", "/api/entries/batch/preview", { ids: [id] }],
+      ["POST", "/api/entries/batch/delete", { ids: [id] }],
+    ];
+    for (const [method, url, body] of requests) {
+      const response = await h.app.inject({ method, url, headers, payload: JSON.stringify(body) });
+      expect(response.statusCode, url).toBe(403);
+      expect(response.json()).toEqual({ code: "origin_forbidden" });
+    }
+    expect(await isDeleted(id)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// GET /api/trash (F3b, RF24)
+// ---------------------------------------------------------------------------------------
+
+const TRASH_PERIOD = "deletedFrom=2000-01-01&deletedTo=2100-12-31";
+
+async function trashOf(who: PersonaSession, query = ""): Promise<TrashResponse> {
+  const response = await get(who, `/api/trash?${TRASH_PERIOD}${query}`);
+  expect(response.statusCode).toBe(200);
+  return conforming(trashResponseSchema.parse(response.json()), response.json());
+}
+
+const trashIds = async (who: PersonaSession, query = "") =>
+  (await trashOf(who, query)).items.map((item) => item.id);
+
+/** Lançamento da empresa A já na lixeira, com prazo que vence hoje (30º dia). */
+const inTrash = (over: Partial<Parameters<typeof freshEntry>[0]> = {}) =>
+  freshEntry({
+    deleted: { by: personas.owner.userId, reason: "Motivo interno", restorableUntil: TODAY },
+    ...over,
+  });
+
+describe("GET /api/trash: lixeira (RF24.R2)", () => {
+  it("contador: 403 forbidden, só o código, sem dado", async () => {
+    const id = await inTrash();
+    const response = await get(personas.accountant, `/api/trash?${TRASH_PERIOD}`);
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: "forbidden" });
+    expect(response.body).not.toContain(id);
+  });
+
+  it("S6: prazo que vence hoje (30º dia) aparece; o que venceu ontem (31º) não", async () => {
+    const day30 = await inTrash();
+    const day31 = await inTrash({
+      deleted: { by: personas.owner.userId, reason: null, restorableUntil: YESTERDAY },
+    });
+    const page = await trashOf(personas.owner);
+    const ids = page.items.map((item) => item.id);
+    expect(ids).toContain(day30);
+    expect(ids).not.toContain(day31);
+    expect(page.items.find((item) => item.id === day30)).toMatchObject({
+      canRestore: true,
+      deleted: {
+        by: { id: personas.owner.userId },
+        reason: "Motivo interno",
+        restorableUntil: TODAY,
+      },
+    });
+    // O mesmo critério da restauração: o que a lixeira não mostra, restaurar recusa.
+    expect((await restoreEntryCall(personas.owner, day31)).statusCode).toBe(404);
+  });
+
+  it("lançador vê só os próprios excluídos, e o filtro de quem excluiu é ignorado para ele", async () => {
+    const own = await inTrash({ by: personas.staff });
+    const foreign = await inTrash({ by: personas.owner });
+    const mine = await trashIds(personas.staff);
+    expect(mine).toContain(own);
+    expect(mine).not.toContain(foreign);
+    const filtered = await trashIds(personas.staff, `&deletedBy=${personas.manager.userId}`);
+    expect(filtered).toContain(own);
+    expect(filtered).not.toContain(foreign);
+    expect((await trashOf(personas.staff)).items.every((item) => item.canRestore)).toBe(true);
+  });
+
+  it("gerente sem VER_FOLHA não vê a folha excluída; gerente com VER_FOLHA e dono veem", async () => {
+    const payroll = await inTrash({ categoryId: payrollA, description: PAYROLL_TEXT });
+    const plain = await inTrash();
+    const blind = await get(personas.managerNoPayroll, `/api/trash?${TRASH_PERIOD}`);
+    expect(blind.body).not.toContain(payroll);
+    expect(blind.body).not.toContain(PAYROLL_TEXT);
+    expect(blind.body).toContain(plain);
+    for (const who of [personas.owner, personas.manager]) {
+      expect(await trashIds(who)).toEqual(expect.arrayContaining([payroll, plain]));
+    }
+  });
+
+  it("outra empresa e unidade fora do acesso ficam invisíveis; tenantId na query é ignorado", async () => {
+    const other = await addEntry({
+      tenantId: tenantB,
+      unitId: unitB,
+      createdBy: ownerB.userId,
+      amountCents: 1_234,
+      categoryId: categoryB,
+      deleted: { by: ownerB.userId, reason: SECRET_B, restorableUntil: TODAY },
+    });
+    const outOfUnit = await inTrash({ unitId: unit3 });
+    const response = await get(personas.manager, `/api/trash?${TRASH_PERIOD}&tenantId=${tenantB}`);
+    expect(response.statusCode).toBe(200);
+    for (const secret of [other, SECRET_B, outOfUnit]) {
+      expect(response.body).not.toContain(secret);
+    }
+    expect(await trashIds(ownerB)).toEqual([other]);
+    expect(await trashIds(personas.owner)).not.toContain(other);
+  });
+
+  it("filtros: período da exclusão, unidade e quem excluiu; unidade fora do acesso dá 403", async () => {
+    const early = await inTrash({
+      deleted: { by: personas.manager.userId, reason: null, restorableUntil: TODAY },
+    });
+    const late = await inTrash({ unitId: unit2 });
+    await admin("update entries set deleted_at = $2 where id = $1", [
+      early,
+      "2026-11-05T15:00:00Z",
+    ]);
+    await admin("update entries set deleted_at = $2 where id = $1", [late, "2026-11-08T15:00:00Z"]);
+    const mine = new Set([early, late]);
+    const idsOf2 = async (query: string) => {
+      const response = await get(personas.owner, `/api/trash?${query}`);
+      expect(response.statusCode, query).toBe(200);
+      return (response.json() as TrashResponse).items
+        .map((item) => item.id)
+        .filter((id) => mine.has(id));
+    };
+    expect(await idsOf2("deletedFrom=2026-11-05&deletedTo=2026-11-05")).toEqual([early]);
+    expect(await idsOf2("deletedFrom=2026-11-06&deletedTo=2026-11-09")).toEqual([late]);
+    expect(await idsOf2(`${TRASH_PERIOD}&unitIds=${unit2}`)).toEqual([late]);
+    expect(await idsOf2(`${TRASH_PERIOD}&deletedBy=${personas.manager.userId}`)).toEqual([early]);
+    const denied = await get(personas.manager, `/api/trash?${TRASH_PERIOD}&unitIds=${unit3}`);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toEqual({ code: "forbidden" });
+  });
+
+  it("paginação por cursor: sem repetir nem pular; cursor adulterado dá 400", async () => {
+    const created = [await inTrash(), await inTrash(), await inTrash()];
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let guard = 0; guard < 100; guard++) {
+      const page: TrashResponse = await trashOf(
+        personas.owner,
+        `&limit=2${cursor === null ? "" : `&cursor=${cursor}`}`,
+      );
+      expect(page.items.length).toBeLessThanOrEqual(2);
+      seen.push(...page.items.map((item) => item.id));
+      cursor = page.nextCursor;
+      if (cursor === null) break;
+    }
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen).toEqual(expect.arrayContaining(created));
+    const bad = await get(personas.owner, `/api/trash?${TRASH_PERIOD}&cursor=xxxx`);
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json()).toEqual({ code: "invalid_request" });
+  });
+
+  it("pedido inválido: 400 invalid_request só com o código", async () => {
+    for (const query of [
+      "",
+      "deletedFrom=2026-11-09&deletedTo=2026-11-01",
+      `${TRASH_PERIOD}&limit=101`,
+    ]) {
+      const response = await get(personas.owner, `/api/trash?${query}`);
+      expect(response.statusCode, query).toBe(400);
+      expect(response.json()).toEqual({ code: "invalid_request" });
+    }
+  });
+
+  it("conta somente leitura lê a lixeira, sem ação de restaurar", async () => {
+    const row = (await admin("select * from entries where id = $1", [entryC])).rows[0] as {
+      tenant_id: string;
+      unit_id: string;
+      category_id: string;
+    };
+    const id = await addEntry({
+      tenantId: row.tenant_id,
+      unitId: row.unit_id,
+      createdBy: personas.readOnly.userId,
+      amountCents: 500,
+      categoryId: row.category_id,
+      deleted: { by: personas.readOnly.userId, reason: null, restorableUntil: TODAY },
+    });
+    const page = await trashOf(personas.readOnly);
+    expect(page.items.find((item) => item.id === id)).toMatchObject({ canRestore: false });
   });
 });

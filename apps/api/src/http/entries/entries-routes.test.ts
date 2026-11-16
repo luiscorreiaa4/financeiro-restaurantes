@@ -1,4 +1,4 @@
-import type { Actor, PanelMembership } from "@app/core";
+import type { Actor, EntryStore, PanelMembership } from "@app/core";
 import { entryItemSchema } from "@app/core/contracts";
 import type { Database, EntryRow, PanelAccessStore } from "@app/db";
 import Fastify from "fastify";
@@ -75,6 +75,15 @@ function build(
     listPanelMemberships: async () => setup.memberships ?? [membership()],
   };
   const { db, state } = fakeDb(setup.rows, setup.fail);
+  // A edição só chega ao cadastro e à gravação depois do banco: nestes testes, nunca.
+  const store = new Proxy(
+    {},
+    {
+      get: () => async () => {
+        throw new Error("o store não devia ser chamado");
+      },
+    },
+  ) as EntryStore;
   const app = Fastify(
     setup.logStream ? { logger: { level: "error", stream: setup.logStream } } : {},
   );
@@ -86,6 +95,8 @@ function build(
       appDb: db,
       secure: false,
       clock: { now: () => new Date("2026-11-13T12:00:00Z"), today: () => "2026-11-13" },
+      store,
+      newId: () => "0198a000-0000-7000-8000-0000000000f1",
     },
   });
   return { app, state };
@@ -273,6 +284,68 @@ describe("GET /api/entries/:id e /api/entries/:id/source: sem banco", () => {
   });
 });
 
+describe("PATCH /api/entries/:id: pedido recusado antes do banco (RF23)", () => {
+  const ENTRY_ID = "0198a000-0000-7000-8000-0000000000e1";
+  const patch = (
+    app: ReturnType<typeof build>["app"],
+    id: string,
+    body: unknown,
+    xContext: string | null = CTX,
+  ) =>
+    app.inject({
+      method: "PATCH",
+      url: `/api/entries/${id}`,
+      headers: {
+        cookie: `fr_ctx=${CTX}`,
+        "content-type": "application/json",
+        ...(xContext === null ? {} : { "x-context": xContext }),
+      },
+      payload: JSON.stringify(body),
+    });
+  const valid = { expectedVersion: 1, patch: { description: "Novo" } };
+
+  it("id que não é UUID e corpo inválido: 400 invalid_request, sem consultar o banco", async () => {
+    const cases: Array<[string, unknown]> = [
+      ["abc", valid],
+      [ENTRY_ID, { patch: { description: "sem versão" } }],
+      [ENTRY_ID, { expectedVersion: 1, patch: { tenantId: TENANT } }],
+      [ENTRY_ID, { expectedVersion: 1.5, patch: { description: "x" } }],
+      [ENTRY_ID, "texto"],
+    ];
+    for (const [id, body] of cases) {
+      const { app, state } = build();
+      const response = await patch(app, id, body);
+      expect(response.statusCode, JSON.stringify(body)).toBe(400);
+      expect(response.json()).toEqual({ code: "invalid_request" });
+      expect(state.calls).toBe(0);
+    }
+  });
+
+  it("sem X-Context: 409 context_changed, sem consultar o banco", async () => {
+    const { app, state } = build();
+    const response = await patch(app, ENTRY_ID, valid, null);
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ code: "context_changed" });
+    expect(state.calls).toBe(0);
+  });
+
+  it("contador: 403 forbidden, sem consultar o banco (RF23.CA04)", async () => {
+    const { app, state } = build({ memberships: [membership({ role: "accountant" })] });
+    const response = await patch(app, ENTRY_ID, valid);
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: "forbidden" });
+    expect(state.calls).toBe(0);
+  });
+
+  it("conta somente leitura: 403 account_read_only, sem consultar o banco", async () => {
+    const { app, state } = build({ memberships: [membership({ accountStatus: "read_only" })] });
+    const response = await patch(app, ENTRY_ID, valid);
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: "account_read_only" });
+    expect(state.calls).toBe(0);
+  });
+});
+
 describe("requireEntryAction", () => {
   function guarded(role: PanelMembership["role"]) {
     const app = Fastify();
@@ -431,3 +504,107 @@ describe("toItem", () => {
     expect(toItem(unresolved, actor(), USER, true).canEdit).toBe(true);
   });
 });
+
+describe("exclusão, restauração e lote: pedido recusado antes do banco (RF24)", () => {
+  const ENTRY_ID = "0198a000-0000-7000-8000-0000000000e1";
+  const send = (
+    app: ReturnType<typeof build>["app"],
+    method: "DELETE" | "POST",
+    url: string,
+    body?: unknown,
+  ) =>
+    app.inject({
+      method,
+      url,
+      headers: {
+        cookie: `fr_ctx=${CTX}`,
+        "x-context": CTX,
+        ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      },
+      ...(body !== undefined ? { payload: JSON.stringify(body) } : {}),
+    });
+
+  it("motivo de 201 caracteres, id que não é UUID e corpo inválido: 400 sem consultar o banco", async () => {
+    const cases: Array<[string, unknown]> = [
+      [`/api/entries/${ENTRY_ID}`, { reason: "a".repeat(201) }],
+      ["/api/entries/abc", { reason: "x" }],
+      [`/api/entries/${ENTRY_ID}`, "texto"],
+    ];
+    for (const [url, body] of cases) {
+      const { app, state } = build();
+      const response = await send(app, "DELETE", url, body);
+      expect(response.statusCode, url).toBe(400);
+      expect(response.json()).toEqual({ code: "invalid_request" });
+      expect(state.calls).toBe(0);
+    }
+    const { app, state } = build();
+    const restore = await send(app, "POST", "/api/entries/abc/restore");
+    expect(restore.statusCode).toBe(400);
+    expect(state.calls).toBe(0);
+  });
+
+  it("lote com corpo inválido (sem ids, 101 ids, repetidos, motivo longo): 400 sem consultar o banco", async () => {
+    const id = (n: number) => `0198a000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+    const cases: unknown[] = [
+      {},
+      { ids: [] },
+      { ids: Array.from({ length: 101 }, (_, n) => id(n)) },
+      { ids: [ID_1, ID_1] },
+      { ids: [ID_1], reason: "a".repeat(201) },
+      { ids: ["nao-e-uuid"] },
+    ];
+    for (const path of ["preview", "delete"]) {
+      for (const body of cases) {
+        const { app, state } = build();
+        const response = await send(app, "POST", `/api/entries/batch/${path}`, body);
+        expect(response.statusCode, `${path} ${JSON.stringify(body).slice(0, 40)}`).toBe(400);
+        expect(response.json()).toEqual({ code: "invalid_request" });
+        expect(state.calls).toBe(0);
+      }
+    }
+  });
+
+  it("lançador no lote: 403 forbidden, sem consultar o banco (S8)", async () => {
+    for (const path of ["preview", "delete"]) {
+      const { app, state } = build({ memberships: [membership({ role: "staff" })] });
+      const response = await send(app, "POST", `/api/entries/batch/${path}`, { ids: [ID_1] });
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ code: "forbidden" });
+      expect(state.calls).toBe(0);
+    }
+  });
+
+  it("contador: 403 em exclusão, restauração e lote, sem consultar o banco (S3)", async () => {
+    const requests: Array<["DELETE" | "POST", string, unknown]> = [
+      ["DELETE", `/api/entries/${ENTRY_ID}`, { reason: "x" }],
+      ["POST", `/api/entries/${ENTRY_ID}/restore`, undefined],
+      ["POST", "/api/entries/batch/preview", { ids: [ID_1] }],
+      ["POST", "/api/entries/batch/delete", { ids: [ID_1] }],
+    ];
+    for (const [method, url, body] of requests) {
+      const { app, state } = build({ memberships: [membership({ role: "accountant" })] });
+      const response = await send(app, method, url, body);
+      expect(response.statusCode, url).toBe(403);
+      expect(response.json()).toEqual({ code: "forbidden" });
+      expect(state.calls).toBe(0);
+    }
+  });
+
+  it("conta somente leitura: 403 account_read_only em toda escrita, sem consultar o banco (S3)", async () => {
+    const requests: Array<["DELETE" | "POST", string, unknown]> = [
+      ["DELETE", `/api/entries/${ENTRY_ID}`, { reason: "x" }],
+      ["POST", `/api/entries/${ENTRY_ID}/restore`, undefined],
+      ["POST", "/api/entries/batch/preview", { ids: [ID_1] }],
+      ["POST", "/api/entries/batch/delete", { ids: [ID_1] }],
+    ];
+    for (const [method, url, body] of requests) {
+      const { app, state } = build({ memberships: [membership({ accountStatus: "read_only" })] });
+      const response = await send(app, method, url, body);
+      expect(response.statusCode, url).toBe(403);
+      expect(response.json()).toEqual({ code: "account_read_only" });
+      expect(state.calls).toBe(0);
+    }
+  });
+});
+
+const ID_1 = "0198a000-0000-7000-8000-0000000000e1";

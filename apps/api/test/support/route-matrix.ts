@@ -53,6 +53,13 @@ const READ_BY_ALL: RouteCase["expected"] = {
   staffNoPanel: 401,
 };
 
+/**
+ * Escrita no próprio lançamento com versão esperada que não existe: quem pode editar chega ao
+ * 409 (versão velha) sem gravar nada, para a tabela inteira rodar sem alterar o cenário; quem
+ * não pode editar é barrado antes, com o status da sua recusa.
+ */
+const STALE_EDIT_BODY = { expectedVersion: 999, patch: { description: "Matriz" } };
+
 export const ROUTE_MATRIX: readonly RouteCase[] = [
   {
     name: "GET /api/entries",
@@ -83,5 +90,97 @@ export const ROUTE_MATRIX: readonly RouteCase[] = [
     method: "GET",
     url: (f, persona) => `/api/entries/${f.entryIds[persona]}/source`,
     expected: READ_BY_ALL,
+  },
+  {
+    name: "PATCH /api/entries/:id",
+    method: "PATCH",
+    url: (f, persona) => `/api/entries/${f.entryIds[persona]}`,
+    body: () => STALE_EDIT_BODY,
+    expected: {
+      owner: 409,
+      manager: 409,
+      managerNoPayroll: 409,
+      staff: 409,
+      // Contador não edita (RF23.CA04); conta somente leitura não grava (RF37).
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
+  },
+  {
+    name: "DELETE /api/entries/:id",
+    method: "DELETE",
+    url: (f, persona) => `/api/entries/${f.entryIds[persona]}`,
+    // Motivo de 201 caracteres: quem pode excluir chega ao 400 sem apagar nada do cenário.
+    body: () => ({ reason: "a".repeat(201) }),
+    expected: {
+      owner: 400,
+      manager: 400,
+      managerNoPayroll: 400,
+      staff: 400,
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
+  },
+  {
+    name: "POST /api/entries/:id/restore",
+    method: "POST",
+    url: (f, persona) => `/api/entries/${f.entryIds[persona]}/restore`,
+    // Lançamento ativo: quem pode restaurar chega ao 422 (EntryNotDeleted) sem gravar nada.
+    expected: {
+      owner: 422,
+      manager: 422,
+      managerNoPayroll: 422,
+      staff: 422,
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
+  },
+  {
+    name: "GET /api/trash",
+    method: "GET",
+    url: () => "/api/trash?deletedFrom=2026-01-01&deletedTo=2026-12-31",
+    // Quem não restaura não tem lixeira: o contador recebe 403 (RF24.R2). A conta somente
+    // leitura continua lendo, sem ação oferecida.
+    expected: { ...READ_BY_ALL, accountant: 403 },
+  },
+  {
+    name: "POST /api/entries/batch/preview",
+    method: "POST",
+    url: () => "/api/entries/batch/preview",
+    body: (f) => ({ ids: [f.entryIds.owner] }),
+    // Só dono e gerente (RF24.Obs3); a prévia não grava e responde 200.
+    expected: {
+      owner: 200,
+      manager: 200,
+      managerNoPayroll: 200,
+      staff: 403,
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
+  },
+  {
+    name: "POST /api/entries/batch/delete",
+    method: "POST",
+    url: () => "/api/entries/batch/delete",
+    // Ids repetidos: quem pode excluir em lote chega ao 400 sem apagar nada do cenário.
+    body: (f) => ({ ids: [f.entryIds.owner, f.entryIds.owner] }),
+    expected: {
+      owner: 400,
+      manager: 400,
+      managerNoPayroll: 400,
+      staff: 403,
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
   },
 ];

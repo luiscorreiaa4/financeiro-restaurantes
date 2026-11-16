@@ -2,15 +2,30 @@ import {
   type Action,
   type Actor,
   accountAllows,
+  type ChangeContext,
   type Clock,
   can,
   diffVersion,
+  type Entry,
+  type EntryChange,
   type EntryScope,
+  type EntryStore,
+  editEntry,
   entryActions,
   entryScopeFor,
+  findSupplier,
+  markEntryReviewed,
+  type PanelPatch,
   parseVersionSnapshot,
+  preparePanelEdit,
+  type Result,
+  restoreEntry,
+  softDeleteEntry,
 } from "@app/core";
 import {
+  type BatchPreview,
+  batchBodySchema,
+  batchPreviewSchema,
   type EntryDetail,
   type EntryItem,
   type EntryListQuery,
@@ -19,9 +34,15 @@ import {
   type EntrySource,
   type EntryTotals,
   type EntryVersion,
+  entryDeleteBodySchema,
   entryDetailSchema,
   entryListQuerySchema,
   entrySourceSchema,
+  entryStaleSchema,
+  entryUpdateBodySchema,
+  type TrashResponse,
+  trashQuerySchema,
+  trashResponseSchema,
 } from "@app/core/contracts";
 import {
   type EntryNames,
@@ -45,10 +66,17 @@ import {
   type PanelRequestContext,
   requirePanelContext,
   requireTenantRoute,
+  requireWritable,
 } from "../panel/panel-context";
 
 /** O relógio dá o "hoje" do detalhe e da lixeira (RF24.R2); as rotas de lista não o usam. */
-export type EntriesRoutesDeps = PanelDeps & { readonly clock: Clock };
+export type EntriesRoutesDeps = PanelDeps & {
+  readonly clock: Clock;
+  /** Cadastro e gravação da edição (F3b): o mesmo `EntryStore` do canal, pelo papel `app`. */
+  readonly store: EntryStore;
+  /** UUID v7 do fornecedor criado na edição. */
+  readonly newId: () => string;
+};
 
 interface Caller {
   readonly panel: PanelRequestContext;
@@ -143,6 +171,11 @@ export function requireEntryAction(action: Action): preHandlerAsyncHookHandler {
       return forbidden(reply);
     }
   };
+}
+
+/** Erro de domínio da edição: o `reason` é o código, para a tela apontar o campo (1.7). */
+function invalidEntry(reply: FastifyReply, reason: string) {
+  return reply.code(422).send({ code: "invalid_entry", reason });
 }
 
 function forbidden(reply: FastifyReply) {
@@ -302,11 +335,16 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     return body;
   });
 
-  app.get("/api/entries/:id", { preHandler: guards }, async (request, reply) => {
-    const id = entryIdOf(request);
-    if (id === null) return invalidRequest(reply);
-    const scope = accessScopeOf(request);
-    if (scope === null) return forbidden(reply);
+  /**
+   * Detalhe do lançamento para o ator, ou `null` se ele não o enxerga. Serve o GET, a resposta
+   * da edição e o `current` do 409: todos passam pelo mesmo recorte e pelo mesmo filtro das
+   * versões restritas.
+   */
+  async function readDetail(
+    request: FastifyRequest,
+    scope: EntryScope,
+    id: string,
+  ): Promise<EntryDetail | null> {
     const { panel, userId } = callerOf(request);
     // Hoje como data de negócio: decide se a lixeira ainda é restaurável (RF24.R2).
     const today = deps.clock.today();
@@ -320,7 +358,7 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
         names: await entryReader.names(tx),
       };
     });
-    if (found === null) return notFound(reply);
+    if (found === null) return null;
 
     const writable = accountAllows(panel.accountStatus, panel.actor.role).write;
     const body: EntryDetail = {
@@ -331,6 +369,16 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     };
     // O contrato é a última barreira: versão restrita com campos não sai (vira 500).
     return entryDetailSchema.parse(body);
+  }
+
+  app.get("/api/entries/:id", { preHandler: guards }, async (request, reply) => {
+    const id = entryIdOf(request);
+    if (id === null) return invalidRequest(reply);
+    const scope = accessScopeOf(request);
+    if (scope === null) return forbidden(reply);
+    const detail = await readDetail(request, scope, id);
+    if (detail === null) return notFound(reply);
+    return detail;
   });
 
   app.get("/api/entries/:id/source", { preHandler: guards }, async (request, reply) => {
@@ -372,4 +420,362 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     };
     return entrySourceSchema.parse(body);
   });
+
+  /**
+   * Edição (RF23): `{ expectedVersion, patch, markReviewed }`. Ordem: corpo, lançamento no
+   * recorte (404), `can` no estado antigo (403), versão esperada (409 com o detalhe atual),
+   * `can` no estado novo (403: categoria sensível ou unidade fora do alcance), fornecedor,
+   * regras do domínio (422) e gravação guardada pela versão (`false` também é 409).
+   * O `can` do estado antigo vem antes da versão para quem não pode editar nunca receber o
+   * detalhe pelo 409.
+   */
+  app.patch(
+    "/api/entries/:id",
+    {
+      preHandler: [
+        requirePanelContext(deps),
+        requireTenantRoute(),
+        requireEntryAction("entry:edit"),
+        requireWritable(),
+      ],
+    },
+    async (request, reply) => {
+      const id = entryIdOf(request);
+      if (id === null) return invalidRequest(reply);
+      const parsed = entryUpdateBodySchema.safeParse(request.body);
+      let body: z.output<typeof entryUpdateBodySchema>;
+      if (parsed.success) {
+        body = parsed.data;
+      } else if (parsed.error.issues.every((issue) => issue.message === "nothing_to_change")) {
+        // Só a regra "algo para mudar" falhou: o resto do corpo é válido. O 422 sai depois de
+        // o lançamento passar pelo recorte e pelas permissões, como qualquer outra edição.
+        const { expectedVersion } = request.body as { expectedVersion: number };
+        body = { expectedVersion, patch: {}, markReviewed: false };
+      } else {
+        return invalidRequest(reply);
+      }
+
+      const scope = accessScopeOf(request);
+      if (scope === null) return forbidden(reply);
+      const { panel, userId } = callerOf(request);
+      const loaded = await withTenant(deps.appDb, panel.tenantId, (tx) =>
+        entryReader.load(tx, scope, [id], deps.clock.today()),
+      );
+      const found = loaded[0];
+      if (found === undefined) return notFound(reply);
+      const { entry, categoryIsSensitive } = found;
+      const isOwnEntry = entry.createdBy === userId;
+      if (
+        !can(panel.actor, "entry:edit", {
+          unitId: entry.unitId,
+          isOwnEntry,
+          categoryIsSensitive,
+        })
+      ) {
+        return forbidden(reply);
+      }
+
+      const stale = async () => {
+        const current = await readDetail(request, scope, id);
+        if (current === null) return notFound(reply);
+        return reply.code(409).send(entryStaleSchema.parse({ code: "entry_stale", current }));
+      };
+      if (entry.version !== body.expectedVersion) return stale();
+
+      const { patch } = body;
+      const catalog = await deps.store.loadCatalog(panel.tenantId);
+      // O estado novo também tem de estar ao alcance (1.6). Categoria enviada que o catálogo não
+      // traz conta como sensível (falha fechado). Quem não vê sensíveis recebe, para sensível e
+      // para inexistente, o mesmo 422 UnknownReference: o 403 deixaria sondar quais ids são folha.
+      let newSensitive = categoryIsSensitive;
+      if (patch.categoryId !== undefined) {
+        const newCategory = catalog.categories.find((category) => category.id === patch.categoryId);
+        newSensitive = newCategory === undefined || newCategory.isSensitive !== false;
+        if (newSensitive && !scope.includeSensitive) return invalidEntry(reply, "UnknownReference");
+      }
+      const newUnitId = patch.unitId ?? entry.unitId;
+      if (
+        !can(panel.actor, "entry:edit", {
+          unitId: newUnitId,
+          isOwnEntry,
+          categoryIsSensitive: newSensitive,
+        })
+      ) {
+        return forbidden(reply);
+      }
+
+      // Fornecedor: existente, limpo, ou nome digitado, que associa o cadastrado (nome ou
+      // apelido) ou cria um novo junto da gravação (RF12.R7, RF10).
+      const { supplier, ...rest } = patch;
+      const panelPatch: { -readonly [K in keyof PanelPatch]: PanelPatch[K] } = { ...rest };
+      const newSuppliers: Array<{ id: string; name: string }> = [];
+      let editCatalog = catalog;
+      if (supplier !== undefined) {
+        if (supplier === null) {
+          panelPatch.supplier = null;
+        } else if ("id" in supplier) {
+          panelPatch.supplier = { id: supplier.id };
+        } else {
+          const known = findSupplier(catalog, supplier.name);
+          if (known !== null) {
+            panelPatch.supplier = { id: known.id };
+          } else {
+            const created = { id: deps.newId(), name: supplier.name };
+            newSuppliers.push(created);
+            panelPatch.supplier = { id: created.id };
+            editCatalog = {
+              ...catalog,
+              suppliers: [...catalog.suppliers, { ...created, aliases: [] }],
+            };
+          }
+        }
+      }
+
+      const context = { actorId: userId, channel: "web" as const, at: deps.clock.now() };
+      const changes: EntryChange[] = [];
+      let current = entry;
+      const hasPatch = Object.values(patch).some((value) => value !== undefined);
+      if (hasPatch) {
+        // "Hoje" no fuso da unidade em que o lançamento fica (RF23.R1).
+        const timezone = catalog.units.find((unit) => unit.id === newUnitId)?.timezone;
+        const prepared = preparePanelEdit({
+          entry,
+          patch: panelPatch,
+          catalog: editCatalog,
+          today: deps.clock.today(timezone),
+        });
+        if (!prepared.ok) return invalidEntry(reply, prepared.error.code);
+        const edited = editEntry(entry, prepared.value, context);
+        if (edited.ok) {
+          changes.push(edited.value);
+          current = edited.value.entry;
+        } else if (!(edited.error.code === "NothingToChange" && body.markReviewed)) {
+          return invalidEntry(reply, edited.error.code);
+        }
+      }
+      if (body.markReviewed) {
+        // Sobre o resultado da edição: duas versões consecutivas na mesma gravação (S9).
+        const reviewed = markEntryReviewed(current, context);
+        if (reviewed.ok) {
+          changes.push(reviewed.value);
+        } else if (reviewed.error.code !== "NothingToChange") {
+          return invalidEntry(reply, reviewed.error.code);
+        }
+      } else if (changes.length === 0) {
+        return invalidEntry(reply, "NothingToChange");
+      }
+
+      // Revisar lançamento sem sinais e sem edição não grava versão: devolve o detalhe atual.
+      if (changes.length > 0) {
+        const applied = await deps.store.applyChanges(panel.tenantId, changes, { newSuppliers });
+        if (!applied) return stale();
+      }
+      const detail = await readDetail(request, scope, id);
+      if (detail === null) throw new Error("lançamento editado não encontrado");
+      return detail;
+    },
+  );
+
+  // -------------------------------------------------------------------------------------
+  // Exclusão, restauração e lote (RF24). As rotas `/batch/*` vêm antes das de `:id`.
+  // -------------------------------------------------------------------------------------
+
+  /** Escrita de lançamento: mesmos guards da edição, com a ação pedida. */
+  const writeGuards = (action: Action) => [
+    requirePanelContext(deps),
+    requireTenantRoute(),
+    requireEntryAction(action),
+    requireWritable(),
+  ];
+
+  /**
+   * Lote só para dono e gerente (RF24.Obs3). O `can` do lançador vale para os próprios, e o
+   * lote é de outro nível: ele recebe 403 antes de qualquer leitura.
+   */
+  function canBatch(request: FastifyRequest): boolean {
+    const { role } = callerOf(request).panel.actor;
+    return role === "owner" || role === "manager";
+  }
+
+  /**
+   * Tudo ou nada: o lote só segue se `load` devolveu TODOS os ids, nenhum já excluído e com
+   * `can("entry:delete")` válido para cada um. Qualquer falha é um 404 só (sem dizer qual id nem
+   * por quê). Devolve a quantidade e a soma do banco para os ids lidos.
+   */
+  async function loadBatch(request: FastifyRequest, reply: FastifyReply) {
+    if (!canBatch(request)) {
+      forbidden(reply);
+      return null;
+    }
+    const parsed = batchBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      invalidRequest(reply);
+      return null;
+    }
+    const scope = accessScopeOf(request);
+    if (scope === null) {
+      forbidden(reply);
+      return null;
+    }
+    const { panel, userId } = callerOf(request);
+    const today = deps.clock.today();
+    const ids = parsed.data.ids;
+    const loaded = await withTenant(deps.appDb, panel.tenantId, async (tx) => {
+      const found = await entryReader.load(tx, scope, ids, today);
+      if (found.length !== ids.length) return null;
+      const allowed = found.every(
+        ({ entry, categoryIsSensitive }) =>
+          entry.deletedAt === null &&
+          can(panel.actor, "entry:delete", {
+            unitId: entry.unitId,
+            isOwnEntry: entry.createdBy === userId,
+            categoryIsSensitive,
+          }),
+      );
+      if (!allowed) return null;
+      const total = await entryReader.sum(
+        tx,
+        scope,
+        found.map(({ entry }) => entry.id),
+        today,
+      );
+      return { found, total };
+    });
+    if (loaded === null) {
+      notFound(reply);
+      return null;
+    }
+    return { ...loaded, reason: parsed.data.reason, panel, userId };
+  }
+
+  app.post(
+    "/api/entries/batch/preview",
+    { preHandler: writeGuards("entry:delete") },
+    async (request, reply) => {
+      const batch = await loadBatch(request, reply);
+      if (batch === null) return reply;
+      const body: BatchPreview = batchPreviewSchema.parse(batch.total);
+      return body;
+    },
+  );
+
+  app.post(
+    "/api/entries/batch/delete",
+    { preHandler: writeGuards("entry:delete") },
+    async (request, reply) => {
+      const batch = await loadBatch(request, reply);
+      if (batch === null) return reply;
+      const context = { actorId: batch.userId, channel: "web" as const, at: deps.clock.now() };
+      const changes: EntryChange[] = [];
+      for (const { entry } of batch.found) {
+        const deleted = softDeleteEntry(entry, context, { reason: batch.reason });
+        if (!deleted.ok) return invalidEntry(reply, deleted.error.code);
+        changes.push(deleted.value);
+      }
+      // Uma gravação só: se algum lançamento mudou no meio, nenhum é excluído.
+      const applied = await deps.store.applyChanges(batch.panel.tenantId, changes);
+      if (!applied) return reply.code(409).send({ code: "entry_stale" });
+      const body: BatchPreview = batchPreviewSchema.parse(batch.total);
+      return body;
+    },
+  );
+
+  /**
+   * Exclusão e restauração de um lançamento: corpo, lançamento no recorte (404, inclusive
+   * lixeira vencida), `can` com o lançamento carregado (403), regra do domínio (422) e gravação
+   * guardada pela versão lida (409 com o detalhe atual). Responde o detalhe novo.
+   */
+  async function mutateOne(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    action: "entry:delete" | "entry:restore",
+    run: (entry: Entry, context: ChangeContext) => Result<EntryChange, { code: string }>,
+  ) {
+    const id = entryIdOf(request);
+    if (id === null) return invalidRequest(reply);
+    const scope = accessScopeOf(request);
+    if (scope === null) return forbidden(reply);
+    const { panel, userId } = callerOf(request);
+    const loaded = await withTenant(deps.appDb, panel.tenantId, (tx) =>
+      entryReader.load(tx, scope, [id], deps.clock.today()),
+    );
+    const found = loaded[0];
+    if (found === undefined) return notFound(reply);
+    const { entry, categoryIsSensitive } = found;
+    if (
+      !can(panel.actor, action, {
+        unitId: entry.unitId,
+        isOwnEntry: entry.createdBy === userId,
+        categoryIsSensitive,
+      })
+    ) {
+      return forbidden(reply);
+    }
+    const context = { actorId: userId, channel: "web" as const, at: deps.clock.now() };
+    const result = run(entry, context);
+    if (!result.ok) return invalidEntry(reply, result.error.code);
+    const applied = await deps.store.applyChanges(panel.tenantId, [result.value]);
+    const detail = await readDetail(request, scope, id);
+    if (detail === null) return notFound(reply);
+    if (!applied) {
+      return reply.code(409).send(entryStaleSchema.parse({ code: "entry_stale", current: detail }));
+    }
+    return detail;
+  }
+
+  app.delete(
+    "/api/entries/:id",
+    { preHandler: writeGuards("entry:delete") },
+    async (request, reply) => {
+      // Sem corpo é válido: o motivo é opcional (RF24.R1).
+      const parsed = entryDeleteBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) return invalidRequest(reply);
+      return mutateOne(request, reply, "entry:delete", (entry, context) =>
+        softDeleteEntry(entry, context, { reason: parsed.data.reason }),
+      );
+    },
+  );
+
+  /**
+   * Lixeira (RF24.R2): excluídos ainda restauráveis, no recorte de `entryScopeFor`. Quem não
+   * restaura (contador) não tem lixeira: 403 pelo guard. "Hoje" é o mesmo relógio da
+   * restauração, então o que aparece aqui é o que `restore` aceita. O filtro de quem excluiu
+   * não vale para o lançador, que só vê os próprios (como "lançado por" na lista).
+   */
+  app.get(
+    "/api/trash",
+    {
+      preHandler: [
+        requirePanelContext(deps),
+        requireTenantRoute(),
+        requireEntryAction("entry:restore"),
+      ],
+    },
+    async (request, reply) => {
+      const parsed = trashQuerySchema.safeParse(request.query);
+      if (!parsed.success) return invalidRequest(reply);
+      const scope = scopeOf(request, parsed.data.unitIds);
+      if (scope === null) return forbidden(reply);
+      const query =
+        scope.ownerUserId === null ? parsed.data : { ...parsed.data, deletedBy: undefined };
+      const { panel, userId } = callerOf(request);
+      const page = await withTenant(deps.appDb, panel.tenantId, (tx) =>
+        entryReader.trash(tx, scope, query, deps.clock.today()),
+      );
+      const writable = accountAllows(panel.accountStatus, panel.actor.role).write;
+      const body: TrashResponse = {
+        items: page.rows.map((row) => toItem(row, panel.actor, userId, writable)),
+        nextCursor: page.nextCursor,
+      };
+      // O contrato é a última barreira da saída (nada além do que ele declara).
+      return trashResponseSchema.parse(body);
+    },
+  );
+
+  app.post(
+    "/api/entries/:id/restore",
+    { preHandler: writeGuards("entry:restore") },
+    async (request, reply) =>
+      mutateOne(request, reply, "entry:restore", (entry, context) => restoreEntry(entry, context)),
+  );
 };

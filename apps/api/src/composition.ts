@@ -224,8 +224,9 @@ function composeAuth(env: Env): {
       service: createProfileService({ store, gateway, email, background, clock, onAuditFailure }),
     },
     panel,
-    // Lançamentos (F3a): os mesmos guards e o mesmo banco do painel, mais o relógio.
-    entries: { ...panel, clock },
+    // Lançamentos (F3a, F3b): os mesmos guards e o mesmo banco do painel, mais o relógio, o
+    // cadastro e a gravação da edição (o mesmo `EntryStore` do canal, pelo papel `app`).
+    entries: { ...panel, clock, store: createEntryStore(appDb), newId: uuidv7 },
     async close() {
       await background.drain();
       await Promise.all([pool.end(), appPool.end()]);
