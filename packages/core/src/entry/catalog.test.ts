@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type CatalogSnapshot, type CatalogUnit, findUnit, pickUnit } from "./catalog";
+import {
+  type CatalogSnapshot,
+  type CatalogUnit,
+  findSupplier,
+  findUnit,
+  pickUnit,
+} from "./catalog";
 
 const unit = (overrides: Partial<CatalogUnit> & Pick<CatalogUnit, "id" | "name">): CatalogUnit => ({
   aliases: [],
@@ -105,5 +111,19 @@ describe("pickUnit (DE-25)", () => {
 
   it("sem nenhuma unidade de acesso devolve nulo", () => {
     expect(pickUnit({ ...base, accessibleIds: [] })).toBeNull();
+  });
+});
+
+describe("findSupplier (RF12.R7)", () => {
+  const supplier = { id: "f1", name: "Atacadão", aliases: ["atacadao sp"] };
+  const withSuppliers = { ...catalog([]), suppliers: [supplier] };
+
+  it("acha o fornecedor pelo nome ou pelo apelido, sem caixa nem acento", () => {
+    expect(findSupplier(withSuppliers, "  ATACADAO ")).toBe(supplier);
+    expect(findSupplier(withSuppliers, "Atacadao SP")).toBe(supplier);
+  });
+
+  it("sem casamento devolve nulo", () => {
+    expect(findSupplier(withSuppliers, "Padaria")).toBeNull();
   });
 });

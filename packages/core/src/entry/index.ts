@@ -6,6 +6,7 @@ export * from "./entry";
 export * from "./extraction";
 export * from "./group-receipt";
 export * from "./interpret";
+export * from "./panel-edit";
 export * from "./quantity";
 export * from "./resolve-amount";
 export * from "./version-diff";

@@ -4,6 +4,7 @@ import {
   type CatalogSnapshot,
   findPaymentMethod,
   findSalesChannel,
+  findSupplier,
   normalizeName,
   resolveFeeRule,
 } from "./catalog";
@@ -127,14 +128,10 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
     return { channel: fallback, review: true };
   };
 
-  const findSupplier = (hint: string | null): string | null => {
+  const resolveSupplier = (hint: string | null): string | null => {
     if (hint === null || hint.trim() === "") return null;
     const key = normalizeName(hint);
-    const known = catalog.suppliers.find(
-      (supplier) =>
-        normalizeName(supplier.name) === key ||
-        supplier.aliases.some((alias) => normalizeName(alias) === key),
-    );
+    const known = findSupplier(catalog, hint);
     if (known) return known.id;
     const created = supplierIds.get(key);
     if (created) return created;
@@ -154,7 +151,7 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
         ? findInvestmentCategory(extracted.category_hint)
         : null;
     const category = investment ?? findCategory(extracted.category_hint, extracted.type);
-    const supplierId = findSupplier(extracted.supplier_hint);
+    const supplierId = resolveSupplier(extracted.supplier_hint);
     const paymentMethod = findPayment(extracted.payment_method_hint);
     const revenueChannel =
       extracted.type === "revenue" ? resolveRevenueChannel(extracted.sales_channel_hint) : null;

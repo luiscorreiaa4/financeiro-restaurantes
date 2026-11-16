@@ -6,6 +6,12 @@ export interface CatalogCategory {
   readonly id: string;
   readonly name: string;
   readonly kind: "revenue" | "expense" | "investment" | "deduction";
+  /** Categoria exige quantidade e unidade de medida (RF12.R4). Ausente = não exige. */
+  readonly requiresQuantity?: boolean;
+  /** Ausente = ativa. */
+  readonly status?: CatalogStatus;
+  /** Categoria sensível (folha, RF06.R3). Ausente conta como sensível: na dúvida, falha fechado. */
+  readonly isSensitive?: boolean;
 }
 export interface CatalogSupplier {
   readonly id: string;
@@ -37,6 +43,8 @@ export interface CatalogUnit {
   readonly status: CatalogStatus;
   /** Canal usado quando a receita chega sem canal (RF04.R6, DD-08). */
   readonly defaultSalesChannelId: string | null;
+  /** Fuso da unidade (IANA). Ausente = fuso padrão. */
+  readonly timezone?: string;
 }
 
 export interface CatalogSnapshot {
@@ -54,6 +62,14 @@ export function normalizeName(value: string): string {
 
 const matches = (name: string, aliases: readonly string[], key: string) =>
   normalizeName(name) === key || aliases.some((alias) => normalizeName(alias) === key);
+
+/** Fornecedor citado pelo nome ou apelido, sem caixa nem acento (RF12.R7); nulo se não existe. */
+export function findSupplier(catalog: CatalogSnapshot, hint: string): CatalogSupplier | null {
+  const key = normalizeName(hint);
+  return (
+    catalog.suppliers.find((supplier) => matches(supplier.name, supplier.aliases, key)) ?? null
+  );
+}
 
 /**
  * Forma de pagamento citada na mensagem: pelo nome ou apelido, só entre as ativas (RF08.R5).

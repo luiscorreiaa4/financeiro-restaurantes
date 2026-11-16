@@ -26,6 +26,12 @@ export type DomainError =
   | { readonly code: "EntryAlreadyDeleted" }
   | { readonly code: "EntryNotDeleted" }
   | { readonly code: "NothingToChange" }
+  | { readonly code: "DateTooFarAhead"; readonly maxDate: string }
+  | { readonly code: "QuantityRequired" }
+  | {
+      readonly code: "UnknownReference";
+      readonly field: "category" | "supplier" | "payment_method" | "sales_channel" | "unit";
+    }
   | { readonly code: "PermissionDenied"; readonly role: string; readonly action: string }
   | {
       readonly code: "InvalidPermission";
