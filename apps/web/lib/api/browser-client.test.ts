@@ -43,3 +43,13 @@ describe("tratamento global de erro no navegador", () => {
     expect(n.reload).not.toHaveBeenCalled();
   });
 });
+
+describe("conflito de edição (entry_stale)", () => {
+  it("409 entry_stale em mutação não recarrega nem troca a mensagem (a tela trata)", () => {
+    const n = nav();
+    const e = new ApiError("409", 409, { code: "entry_stale", current: {} });
+    handleBrowserApiError(e, "mutation", n);
+    expect(n.reload).not.toHaveBeenCalled();
+    expect(e.message).toBe("409");
+  });
+});

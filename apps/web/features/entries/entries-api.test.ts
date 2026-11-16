@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError, createApiClient } from "@/lib/api/client";
-import { entriesApi } from "./entries-api";
+import { entriesApi, isEntryStale } from "./entries-api";
+import { detailFixture } from "./entries-test-helpers";
 
 const ENTRY_ID = "0193a1b2-0000-7000-8000-000000000001";
 const UNIT = "0193a1b2-0000-7000-8000-00000000000a";
@@ -100,5 +101,101 @@ describe("cliente das rotas de lançamentos", () => {
     await expect(api.totals({ from: "2026-10-01", to: "2026-10-31" })).rejects.toBeInstanceOf(
       ApiError,
     );
+  });
+});
+
+describe("cliente de escrita de lançamentos", () => {
+  const detail = detailFixture({ id: ENTRY_ID });
+
+  function call(index: number, fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>) {
+    const [url, init] = fetchImpl.mock.calls[index] ?? [];
+    return { url: String(url), init: init as RequestInit | undefined };
+  }
+
+  function writeSetup(...responses: Response[]) {
+    const fetchImpl = vi.fn<typeof fetch>();
+    for (const response of responses) fetchImpl.mockResolvedValueOnce(response);
+    const api = entriesApi(createApiClient({ baseUrl: "", fetch: fetchImpl }));
+    return { api, fetchImpl };
+  }
+
+  it("update envia PATCH com a versão esperada e o que mudou", async () => {
+    const { api, fetchImpl } = writeSetup(jsonResponse(200, detail));
+    await api.update(ENTRY_ID, {
+      expectedVersion: 1,
+      patch: { description: "Gás" },
+      markReviewed: false,
+    });
+    const { url, init } = call(0, fetchImpl);
+    expect(url).toBe(`/api/entries/${ENTRY_ID}`);
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      expectedVersion: 1,
+      patch: { description: "Gás" },
+      markReviewed: false,
+    });
+  });
+
+  it("remove envia DELETE com o motivo; restore e lote chamam as rotas certas", async () => {
+    const { api, fetchImpl } = writeSetup(
+      jsonResponse(200, detail),
+      jsonResponse(200, detail),
+      jsonResponse(200, { count: 2, totalCents: 90000 }),
+      jsonResponse(200, { count: 2, totalCents: 90000 }),
+    );
+    await api.remove(ENTRY_ID, "duplicado");
+    await api.restore(ENTRY_ID);
+    expect(await api.batchPreview([ENTRY_ID, UNIT])).toEqual({ count: 2, totalCents: 90000 });
+    expect(await api.batchDelete([ENTRY_ID, UNIT], "erro")).toEqual({
+      count: 2,
+      totalCents: 90000,
+    });
+    expect(call(0, fetchImpl).url).toBe(`/api/entries/${ENTRY_ID}`);
+    expect(call(0, fetchImpl).init?.method).toBe("DELETE");
+    expect(JSON.parse(String(call(0, fetchImpl).init?.body))).toEqual({ reason: "duplicado" });
+    expect(call(1, fetchImpl).url).toBe(`/api/entries/${ENTRY_ID}/restore`);
+    expect(call(1, fetchImpl).init?.method).toBe("POST");
+    expect(call(2, fetchImpl).url).toBe("/api/entries/batch/preview");
+    expect(JSON.parse(String(call(2, fetchImpl).init?.body))).toEqual({ ids: [ENTRY_ID, UNIT] });
+    expect(call(3, fetchImpl).url).toBe("/api/entries/batch/delete");
+    expect(JSON.parse(String(call(3, fetchImpl).init?.body))).toEqual({
+      ids: [ENTRY_ID, UNIT],
+      reason: "erro",
+    });
+  });
+
+  it("trash leva período, unidade, autor e cursor na query", async () => {
+    const { api, fetchImpl } = writeSetup(jsonResponse(200, { items: [], nextCursor: null }));
+    await api.trash({
+      deletedFrom: "2026-10-01",
+      deletedTo: "2026-10-31",
+      unitIds: [UNIT],
+      deletedBy: ENTRY_ID,
+      cursor: "abc",
+    });
+    expect(call(0, fetchImpl).url).toBe(
+      `/api/trash?deletedFrom=2026-10-01&deletedTo=2026-10-31&unitIds=${UNIT}&deletedBy=${ENTRY_ID}&cursor=abc`,
+    );
+  });
+
+  it("isEntryStale devolve o detalhe atual só no 409 entry_stale", async () => {
+    const { api } = writeSetup(
+      jsonResponse(409, { code: "entry_stale", current: detail }),
+      jsonResponse(409, { code: "context_changed" }),
+    );
+    const stale = await api
+      .update(ENTRY_ID, { expectedVersion: 1, patch: { description: "x" }, markReviewed: false })
+      .catch((e: unknown) => e);
+    expect(isEntryStale(stale)?.id).toBe(ENTRY_ID);
+    const other = await api
+      .update(ENTRY_ID, { expectedVersion: 1, patch: { description: "x" }, markReviewed: false })
+      .catch((e: unknown) => e);
+    expect(isEntryStale(other)).toBeNull();
+    expect(isEntryStale(new Error("x"))).toBeNull();
+  });
+
+  it("resposta de escrita fora do contrato vira ApiError", async () => {
+    const { api } = writeSetup(jsonResponse(200, { count: 1.5, totalCents: 10 }));
+    await expect(api.batchPreview([ENTRY_ID])).rejects.toBeInstanceOf(ApiError);
   });
 });

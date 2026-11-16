@@ -3,8 +3,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { tenantKey } from "@/lib/query/keys";
 import type { EntriesApi } from "./entries-api";
-import { EntriesProvider, useEntries, useEntryDetail, useEntryTotals } from "./use-entries";
+import { detailFixture } from "./entries-test-helpers";
+import {
+  EntriesProvider,
+  useEntries,
+  useEntryDetail,
+  useEntryTotals,
+  useRemoveEntry,
+  useUpdateEntry,
+} from "./use-entries";
 
 const TENANT = "0193a1b2-0000-7000-8000-0000000000aa";
 const UNIT = "0193a1b2-0000-7000-8000-0000000000bb";
@@ -31,6 +40,12 @@ function fakeApi(overrides: Partial<EntriesApi> = {}): EntriesApi {
     options: unused,
     detail: unused,
     source: unused,
+    update: unused,
+    remove: unused,
+    restore: unused,
+    batchPreview: unused,
+    batchDelete: unused,
+    trash: unused,
     ...overrides,
   };
 }
@@ -90,5 +105,42 @@ describe("hooks de lançamentos", () => {
     const { wrapper } = setup(fakeApi({ detail }));
     renderHook(() => useEntryDetail(null), { wrapper });
     expect(detail).not.toHaveBeenCalled();
+  });
+});
+
+describe("mutações de lançamentos", () => {
+  it("editar invalida as consultas de lançamentos da empresa e unidade ativas", async () => {
+    const detail = detailFixture({ id: "0193a1b2-0000-7000-8000-000000000001" });
+    const update = vi.fn().mockResolvedValue(detail);
+    const { client, wrapper } = setup(fakeApi({ update }));
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useUpdateEntry(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: detail.id,
+        body: { expectedVersion: 1, patch: { description: "x" }, markReviewed: false },
+      });
+    });
+    expect(update).toHaveBeenCalledWith(detail.id, {
+      expectedVersion: 1,
+      patch: { description: "x" },
+      markReviewed: false,
+    });
+    expect(spy).toHaveBeenCalledWith({
+      queryKey: tenantKey({ tenantId: TENANT, unitId: UNIT }, "entries"),
+    });
+  });
+
+  it("excluir também invalida e leva o motivo", async () => {
+    const detail = detailFixture({ id: "0193a1b2-0000-7000-8000-000000000001" });
+    const remove = vi.fn().mockResolvedValue(detail);
+    const { client, wrapper } = setup(fakeApi({ remove }));
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useRemoveEntry(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ id: detail.id, reason: "duplicado" });
+    });
+    expect(remove).toHaveBeenCalledWith(detail.id, "duplicado");
+    expect(spy).toHaveBeenCalled();
   });
 });

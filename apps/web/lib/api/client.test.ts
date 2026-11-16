@@ -167,3 +167,34 @@ describe("cliente da API: PATCH", () => {
     expect(seen[0]?.status).toBe(401);
   });
 });
+
+describe("cliente da API: DELETE com corpo", () => {
+  it("delete envia o corpo em JSON, o método DELETE e o X-Context", async () => {
+    let called: { url: string; init?: RequestInit } | undefined;
+    const api = createApiClient({
+      baseUrl: "http://api.local",
+      contextHeader: () => "t1.all",
+      fetch: async (url, init) => {
+        called = { url: String(url), init };
+        return jsonResponse({ ok: true });
+      },
+    });
+
+    await api.delete("/api/entries/1", { reason: "duplicado" }, healthSchema);
+
+    expect(called?.url).toBe("http://api.local/api/entries/1");
+    expect(called?.init?.method).toBe("DELETE");
+    expect(called?.init?.body).toBe(JSON.stringify({ reason: "duplicado" }));
+    const headers = called?.init?.headers as Headers;
+    expect(headers.get("x-context")).toBe("t1.all");
+    expect(headers.get("content-type")).toBe("application/json");
+  });
+
+  it("delete com resposta fora do contrato vira ApiError", async () => {
+    const api = createApiClient({
+      baseUrl: "http://api.local",
+      fetch: async () => jsonResponse({ ok: "sim" }),
+    });
+    await expect(api.delete("/api/entries/1", {}, healthSchema)).rejects.toBeInstanceOf(ApiError);
+  });
+});

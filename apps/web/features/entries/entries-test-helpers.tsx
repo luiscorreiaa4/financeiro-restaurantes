@@ -84,17 +84,26 @@ export function fakeEntriesApi(overrides: Partial<EntriesApi> = {}): EntriesApi 
     options: () => Promise.resolve(OPTIONS),
     detail: missing,
     source: missing,
+    update: missing,
+    remove: missing,
+    restore: missing,
+    batchPreview: missing,
+    batchDelete: missing,
+    trash: () => Promise.resolve({ items: [], nextCursor: null }),
     ...overrides,
   };
 }
 
 export function renderWithEntries(ui: ReactNode, api: EntriesApi = fakeEntriesApi()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const wrap = (node: ReactNode) => (
     <QueryClientProvider client={client}>
       <EntriesProvider ctx={{ tenantId: TENANT, unitId: UNIT }} api={api}>
-        {ui}
+        {node}
       </EntriesProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const result = render(wrap(ui));
+  // `rerender` mantém os provedores, para o teste trocar só a tela (ex.: nova URL).
+  return { ...result, rerender: (next: ReactNode) => result.rerender(wrap(next)) };
 }

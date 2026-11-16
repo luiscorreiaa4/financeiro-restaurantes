@@ -17,6 +17,8 @@ export type ApiClient = {
   get<T>(path: string, schema: z.ZodType<T>): Promise<T>;
   post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
   patch<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
+  /** DELETE com corpo JSON (motivo da exclusão, RF24). */
+  delete<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T>;
 };
 
 export type ApiClientOptions = {
@@ -71,7 +73,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     }
   }
 
-  function withBody(method: "POST" | "PATCH"): RequestInit {
+  function withBody(method: "POST" | "PATCH" | "DELETE"): RequestInit {
     return { method, headers: { "content-type": "application/json" } };
   }
 
@@ -79,6 +81,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     get: (path, schema) => request(path, {}, schema),
     post: (path, body, schema) =>
       request(path, { ...withBody("POST"), body: JSON.stringify(body) }, schema),
+    delete: (path, body, schema) =>
+      request(path, { ...withBody("DELETE"), body: JSON.stringify(body) }, schema),
     patch: (path, body, schema) =>
       request(path, { ...withBody("PATCH"), body: JSON.stringify(body) }, schema),
   };
