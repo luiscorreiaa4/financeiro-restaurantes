@@ -255,6 +255,22 @@ function scopeConditions(scope: EntryScope, sensitivity: Sensitivity): SQL[] {
 }
 
 /**
+ * Condições do aviso de valores restritos (RF22.Obs7, DD-39): só período e recorte (unidade e
+ * sensível). Busca, tipo, categoria, valor, fornecedor e autor ficam de fora de propósito: com
+ * eles, filtrar e olhar o aviso revelaria dado de folha a quem não pode vê-lo.
+ */
+function restrictedNoticeConditions(scope: EntryScope, query: EntryListQuery): SQL {
+  return sql.join(
+    [
+      sql`e.deleted_at is null`,
+      sql`e.occurred_on between ${query.from}::date and ${query.to}::date`,
+      ...scopeConditions(scope, "restricted"),
+    ],
+    sql` and `,
+  );
+}
+
+/**
  * Condições comuns à lista e aos totais: recorte e filtros do RF22. Fora daqui só entram o
  * cursor e a ordenação.
  */
@@ -593,7 +609,8 @@ export const entryReader = {
 
   /**
    * Totais do filtro, somados pelo banco sobre o valor bruto (RF22.Obs2). Não somam os
-   * sensíveis que o ator não vê; `hasRestricted` só diz que eles existem (RF22.Obs7).
+   * sensíveis que o ator não vê; `hasRestricted` só diz que eles existem no período e nas
+   * unidades consultados, sem olhar os demais filtros (RF22.Obs7, DD-39).
    * `cursor`, `limit`, `sort` e `dir` não entram.
    */
   async totals(tx: Transaction, scope: EntryScope, query: EntryListQuery): Promise<EntryTotalsRow> {
@@ -610,7 +627,7 @@ export const entryReader = {
     let hasRestricted = false;
     if (!scope.includeSensitive && scope.ownerUserId === null) {
       const restricted = await tx.execute(sql`
-        select 1 ${FROM} where ${conditions(scope, query, "restricted")} limit 1
+        select 1 ${FROM} where ${restrictedNoticeConditions(scope, query)} limit 1
       `);
       hasRestricted = restricted.rows.length > 0;
     }
@@ -970,8 +987,8 @@ export const entryReader = {
   },
 
   /**
-   * Opções dos filtros da lista. Categorias sensíveis só para quem as vê; membros só para
-   * quem vê lançamento dos outros (vazio para o lançador). Não filtra cadastro inativo: o
+   * Opções dos filtros da lista. Categorias sensíveis só para quem as vê; autores ("lançado
+   * por") só os que têm lançamento no recorte, e nenhum para o lançador. Não filtra cadastro inativo: o
    * filtro precisa achar lançamento antigo.
    *
    * `units` devolve as unidades de `scope.unitIds`: passe o recorte com as unidades de
@@ -1003,11 +1020,21 @@ export const entryReader = {
     const members =
       scope.ownerUserId !== null
         ? []
-        : (
+        : // Só quem tem lançamento dentro do recorte de quem consulta (unidades de acesso,
+          // sem folha para quem não a vê): não lista contador sem lançamento, colega de
+          // outra unidade nem autor que só lançou folha (F3-4, DD-39).
+          (
             await tx.execute<RawName>(sql`
               select mu.id, mu.name
-                from memberships m
-                join users mu on mu.id = m.user_id
+                from users mu
+               where exists (
+                 select 1
+                   from entries e
+                   left join categories c on c.id = e.category_id
+                  where e.created_by = mu.id
+                    and e.deleted_at is null
+                    and ${sql.join([sql`true`, ...scopeConditions(scope, "visible")], sql` and `)}
+               )
                order by mu.name, mu.id
             `)
           ).rows;

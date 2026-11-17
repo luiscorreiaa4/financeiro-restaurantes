@@ -788,13 +788,20 @@ describe("recorte de visibilidade (RF06.R3, RF06.R5, RF22.R2, RF22.R3)", () => {
     });
   });
 
-  it("o aviso de restritos só aparece quando há sensível dentro dos filtros, da unidade e do período", async () => {
+  it("o aviso de restritos olha só período e unidade: busca e demais filtros não o mudam (F3-3, DD-39)", async () => {
     expect((await totals(a.tenantId, managerNoPayroll, queryFor(MAIN))).hasRestricted).toBe(true);
-    // Só receitas: a folha é despesa.
-    expect(
-      (await totals(a.tenantId, managerNoPayroll, queryFor(MAIN, { type: "revenue" })))
-        .hasRestricted,
-    ).toBe(false);
+    // Filtrar não revela nada: com ou sem acerto no dado de folha, a resposta é a mesma.
+    const noMatch = [
+      { type: "revenue" as const },
+      { q: "texto-que-nao-existe" },
+      { createdBy: staff.ownerUserId ?? undefined },
+      { supplierId: "00000000-0000-4000-8000-000000000000" },
+    ];
+    for (const filter of noMatch) {
+      expect(
+        (await totals(a.tenantId, managerNoPayroll, queryFor(MAIN, filter))).hasRestricted,
+      ).toBe(true);
+    }
     // Outra unidade: a folha está na Matriz.
     const branchManager: EntryScope = { ...managerNoPayroll, unitIds: [unit2] };
     expect((await totals(a.tenantId, branchManager, queryFor(MAIN))).hasRestricted).toBe(false);
@@ -1528,7 +1535,7 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
       { id: unit2, name: "Filial", active: true, defaultSalesChannelId: null, timezone: TZ },
       { id: a.unitId, name: "Matriz", active: true, defaultSalesChannelId: null, timezone: TZ },
     ]);
-    expect(result.members.map((member) => member.name)).toEqual(["Dono", "Gerente", "Lançadora"]);
+    expect(result.members.map((member) => member.name)).toEqual(["Dono", "Lançadora"]);
     expect(result.members).toContainEqual({ id: staffId, name: "Lançadora" });
   });
 
@@ -1537,7 +1544,81 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
     expect(result.categories.map((category) => category.id)).not.toContain(payrollCategoryId);
     expect(result.categories.map((category) => category.id)).toContain(a.categoryId);
     expect(JSON.stringify(result)).not.toContain("Folha");
-    expect(result.members).toHaveLength(3);
+    expect(result.members).toHaveLength(2);
+  });
+
+  it('"lançado por" lista só autores com lançamento no recorte (F3-4, DD-39)', async () => {
+    const c = await createTenant(db.admin, "Autores do filtro");
+    const addAuthor = async (name: string, role: string) => {
+      const id = uuidv7();
+      await db.admin.query("insert into users (id, name, email) values ($1, $2, $3)", [
+        id,
+        name,
+        `${id}@ex.com`,
+      ]);
+      await db.admin.query(
+        "insert into memberships (id, tenant_id, user_id, role) values ($1, $2, $3, $4)",
+        [uuidv7(), c.tenantId, id, role],
+      );
+      return id;
+    };
+    const payrollOnly = await addAuthor("Só folha", "manager");
+    const otherUnit = await addAuthor("Outra unidade", "staff");
+    await addAuthor("Contadora sem lançamento", "accountant");
+    const regular = await addAuthor("Com lançamento", "staff");
+    const unit = uuidv7();
+    await db.admin.query("insert into units (id, tenant_id, name) values ($1, $2, 'Outra')", [
+      unit,
+      c.tenantId,
+    ]);
+    const payroll = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group, is_sensitive)
+       values ($1, $2, 'Folha C', 'expense', 'outras', true)`,
+      [payroll, c.tenantId],
+    );
+    await insertEntry({
+      tenant: c,
+      occurredOn: "2026-04-10",
+      amountCents: 100,
+      createdBy: regular,
+    });
+    await insertEntry({
+      tenant: c,
+      occurredOn: "2026-04-10",
+      amountCents: 100,
+      createdBy: payrollOnly,
+      categoryId: payroll,
+    });
+    await insertEntry({
+      tenant: c,
+      occurredOn: "2026-04-10",
+      amountCents: 100,
+      createdBy: otherUnit,
+      unitId: unit,
+    });
+
+    const names = async (scope: EntryScope) =>
+      (await options(c.tenantId, scope)).members.map((member) => member.name);
+    const all = { unitIds: "all" as const, ownerUserId: null };
+    // O "Dono" vem do lançamento que a fixture `createTenant` já cria na unidade principal.
+    // Vê todo autor que lançou, nunca quem não lançou nada.
+    expect(await names({ ...all, includeSensitive: true })).toEqual([
+      "Com lançamento",
+      "Dono",
+      "Outra unidade",
+      "Só folha",
+    ]);
+    // Gerente sem VER_FOLHA: sem o autor que só lançou folha.
+    expect(await names({ ...all, includeSensitive: false })).toEqual([
+      "Com lançamento",
+      "Dono",
+      "Outra unidade",
+    ]);
+    // Só a unidade de acesso: sem o autor de outra unidade.
+    expect(
+      await names({ unitIds: [c.unitId], ownerUserId: null, includeSensitive: false }),
+    ).toEqual(["Com lançamento", "Dono"]);
   });
 
   it("as unidades são só as do recorte, e recorte sem unidade não recebe nenhuma", async () => {
