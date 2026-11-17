@@ -43,7 +43,8 @@ function formatValue(field: EntryChange["field"], value: EntryChange["before"]):
 
 /**
  * Aba Histórico (RF25.R4): quem, quando, por qual canal, qual ação e o antes e depois de cada
- * campo. Versão `restricted` vem sem campos e é mostrada sem conteúdo.
+ * campo. Versão `restricted` vem sem campos e é mostrada sem conteúdo. Versão sem autor
+ * (`changedBy` nulo: feita pela gestão e vista pelo lançador, DD-40) aparece como "Gestão".
  */
 export function EntryHistory({ versions }: { versions: EntryVersion[] }) {
   if (versions.length === 0) {
@@ -57,7 +58,7 @@ export function EntryHistory({ versions }: { versions: EntryVersion[] }) {
             {ACTION_LABELS[version.action]} · {CHANNEL_LABELS[version.channel]}
           </p>
           <p className="text-xs text-muted-foreground">
-            {version.changedBy.name} · {formatInstant(version.changedAt)}
+            {version.changedBy?.name ?? "Gestão"} · {formatInstant(version.changedAt)}
           </p>
           {version.restricted ? (
             <p className="mt-2 text-sm">Alteração com informação restrita</p>

@@ -5,7 +5,7 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import type { CheckSession } from "../../modules/auth/check-session";
 import { decoratePanelRequest, requirePanelContext } from "../panel/panel-context";
-import { entriesRoutes, requireEntryAction, toItem } from "./entries-routes";
+import { entriesRoutes, requireEntryAction, toItem, toVersions } from "./entries-routes";
 
 const TENANT = "0198a000-0000-7000-8000-000000000001";
 const UNIT_A = "0198a000-0000-7000-8000-0000000000a1";
@@ -114,6 +114,92 @@ const get = (app: ReturnType<typeof build>["app"], url: string, xContext: string
 
 const cursorOf = (payload: unknown) =>
   Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+
+describe("toVersions: histórico para quem não vê tudo (F3-5, DD-39)", () => {
+  const CATEGORY_PAYROLL = "0198a000-0000-7000-8000-0000000000e1";
+  const CATEGORY_PLAIN = "0198a000-0000-7000-8000-0000000000e2";
+  const names = {
+    categories: new Map([
+      [CATEGORY_PAYROLL, { name: "Folha", isSensitive: true }],
+      [CATEGORY_PLAIN, { name: "Insumos", isSensitive: false }],
+    ]),
+    suppliers: new Map<string, string>(),
+    paymentMethods: new Map<string, string>(),
+    salesChannels: new Map<string, string>(),
+    units: new Map([
+      [UNIT_A, "Matriz"],
+      [UNIT_B, "Filial secreta"],
+    ]),
+  };
+  const row = (version: number, before: unknown, after: unknown) => ({
+    version,
+    action: version === 1 ? "create" : "update",
+    channel: "web",
+    changedBy: { id: USER, name: "Ana" },
+    changedAt: "2026-11-01T10:00:00.000Z",
+    before,
+    after,
+  });
+  const OWNER_VIEW = { role: "owner", userId: USER } as const;
+  const payroll = { categoryId: CATEGORY_PAYROLL, amountCents: 310_000 };
+  const plain = (amountCents: number, unitId?: string) => ({
+    categoryId: CATEGORY_PLAIN,
+    amountCents,
+    ...(unitId === undefined ? {} : { unitId }),
+  });
+
+  it("versão depois da folha também sai restrita para quem não vê folha", () => {
+    const rows = [
+      row(1, null, payroll),
+      row(2, payroll, plain(310_000)),
+      row(3, plain(310_000), plain(45_000)),
+    ];
+    const hidden = toVersions(rows, names, false, "all", OWNER_VIEW);
+    expect(hidden.map((v) => v.restricted)).toEqual([true, true, true]);
+    expect(JSON.stringify(hidden)).not.toContain("310000");
+    const full = toVersions(rows, names, true, "all", OWNER_VIEW);
+    expect(full.map((v) => v.restricted)).toEqual([false, false, false]);
+  });
+
+  it("lançamento que nunca esteve na folha mantém o diff completo", () => {
+    const rows = [row(1, null, plain(100)), row(2, plain(100), plain(200))];
+    const versions = toVersions(rows, names, false, "all", OWNER_VIEW);
+    expect(versions.map((v) => v.restricted)).toEqual([false, false]);
+    expect(versions[1]?.changes).toContainEqual({ field: "amountCents", before: 100, after: 200 });
+  });
+
+  it('unidade fora do acesso aparece como "Outra unidade", sem o nome', () => {
+    const rows = [row(1, null, plain(100, UNIT_B)), row(2, plain(100, UNIT_B), plain(100, UNIT_A))];
+    const versions = toVersions(rows, names, true, [UNIT_A], OWNER_VIEW);
+    expect(versions[1]?.changes).toContainEqual({
+      field: "unit",
+      before: "Outra unidade",
+      after: "Matriz",
+    });
+    expect(JSON.stringify(versions)).not.toContain("Filial secreta");
+    // Quem tem todas as unidades vê os nomes.
+    expect(JSON.stringify(toVersions(rows, names, true, "all", OWNER_VIEW))).toContain(
+      "Filial secreta",
+    );
+  });
+
+  it("lançador não vê o nome de quem fez a versão, só o próprio (DD-40)", () => {
+    const rows = [
+      row(1, null, plain(100)),
+      { ...row(2, plain(100), plain(200)), changedBy: { id: OTHER_USER, name: "Gerente Bia" } },
+    ];
+    const staff = toVersions(rows, names, false, "all", { role: "staff", userId: USER });
+    expect(staff.map((v) => v.changedBy)).toEqual([{ id: USER, name: "Ana" }, null]);
+    expect(JSON.stringify(staff)).not.toContain("Gerente Bia");
+    // O lançador que não fez nenhuma versão não vê nome nenhum.
+    const other = toVersions(rows, names, false, "all", { role: "staff", userId: OTHER_USER });
+    expect(other.map((v) => v.changedBy)).toEqual([null, { id: OTHER_USER, name: "Gerente Bia" }]);
+    for (const role of ["owner", "manager", "accountant"] as const) {
+      const full = toVersions(rows, names, true, "all", { role, userId: USER });
+      expect(full.map((v) => v.changedBy?.name)).toEqual(["Ana", "Gerente Bia"]);
+    }
+  });
+});
 
 describe("GET /api/entries e /api/entries/totals: pedido inválido", () => {
   const invalid = [

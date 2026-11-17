@@ -110,6 +110,23 @@ describe("lixeira de lançamentos (RF24)", () => {
     );
   });
 
+  it('exclusão da gestão, vista pelo lançador, sai sem nome: "Excluído pela gestão" (DD-39)', async () => {
+    show([
+      trashed({
+        deleted: {
+          at: "2026-11-10T15:30:00.000Z",
+          by: null,
+          reason: "lançado duas vezes",
+          restorableUntil: "2026-12-10",
+        },
+      }),
+    ]);
+    const table = await screen.findByRole("table");
+    const row = within(table).getByRole("row", { name: /Gás duplicado/ });
+    expect(row).toHaveTextContent("Gestão");
+    expect(row).toHaveTextContent("lançado duas vezes");
+  });
+
   it("o período da URL vale; inválido volta ao padrão", async () => {
     nav.search = "deletedFrom=2026-11-10&deletedTo=2026-11-12";
     const trash = vi.fn().mockResolvedValue({ items: [], nextCursor: null });

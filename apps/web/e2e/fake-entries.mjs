@@ -449,14 +449,26 @@ function versionsOf(e) {
   ];
 }
 
+// O lançador não vê o nome de quem é da gestão: `deleted.by` (DD-39) e o autor das versões
+// (DD-40) saem nulos quando não foi ele; a tela mostra "Gestão". Dono, gerente e contador veem.
+const hiddenFor = (company, person) =>
+  company.role === "staff" && person !== null && person.id !== MEMBER.lancador.id;
+
+function deletedFor(e, company) {
+  if (e.deleted === null || !hiddenFor(company, e.deleted.by)) return e.deleted;
+  return { ...e.deleted, by: null };
+}
+
 function detailOf(e, company) {
   return {
     ...itemOf(e, company),
     feePercentBp: e.feePercentBp,
     feeFixedCents: e.feeFixedCents,
     updatedAt: e.updatedAt,
-    deleted: e.deleted,
-    versions: e.history,
+    deleted: deletedFor(e, company),
+    versions: e.history.map((v) =>
+      hiddenFor(company, v.changedBy) ? { ...v, changedBy: null } : v,
+    ),
   };
 }
 
@@ -891,7 +903,7 @@ function trash(url, company, unitId) {
       if (a.deleted.at !== b.deleted.at) return a.deleted.at < b.deleted.at ? 1 : -1;
       return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
     });
-  const items = found.map((e) => ({ ...itemOf(e, company), deleted: e.deleted }));
+  const items = found.map((e) => ({ ...itemOf(e, company), deleted: deletedFor(e, company) }));
   return ok({ items, nextCursor: null });
 }
 

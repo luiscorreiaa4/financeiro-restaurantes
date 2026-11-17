@@ -193,6 +193,8 @@ export const trashQuerySchema = z
     if (!isValidDate(query.deletedFrom) || !isValidDate(query.deletedTo)) return;
     if (query.deletedFrom > query.deletedTo) {
       ctx.addIssue({ code: "custom", path: ["deletedTo"], message: "period_inverted" });
+    } else if (!periodWithinLimit(query.deletedFrom, query.deletedTo)) {
+      ctx.addIssue({ code: "custom", path: ["deletedTo"], message: "period_too_long" });
     }
   });
 
@@ -278,7 +280,8 @@ export const entryVersionSchema = z
     version: z.int().min(1),
     action: z.enum(VERSION_ACTIONS),
     channel: originChannelSchema,
-    changedBy: refSchema,
+    /** Nulo para o lançador quando a versão é de outra pessoa: aparece como "Gestão" (DD-40). */
+    changedBy: refSchema.nullable(),
     changedAt: timestampSchema,
     /** Antes ou depois em categoria sensível que o ator não vê: vem sem campos. */
     restricted: z.boolean(),
@@ -297,7 +300,8 @@ export const entryVersionSchema = z
 
 const entryDeletedSchema = z.object({
   at: timestampSchema,
-  by: refSchema,
+  /** Nulo para o lançador quando a exclusão foi da gestão: ele vê o motivo, não o nome (DD-39). */
+  by: refSchema.nullable(),
   reason: z.string().nullable(),
   restorableUntil: businessDateSchema,
 });

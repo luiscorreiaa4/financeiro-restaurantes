@@ -126,6 +126,19 @@ describe("formulário de edição do lançamento", () => {
     expect(onReload).toHaveBeenCalledWith(current);
   });
 
+  it("conflito causado pela gestão, visto pelo lançador, diz que foi a gestão, sem nome (DD-40)", async () => {
+    const current = detailFixture({ version: 2, versions: [lastVersion({ changedBy: null })] });
+    const update = vi
+      .fn()
+      .mockRejectedValue(new ApiError("409", 409, { code: "entry_stale", current }));
+    const { user } = show(detailFixture(), { update });
+    await user.type(screen.getByLabelText("Descrição"), " x");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(
+      await screen.findByText("Este lançamento foi alterado pela gestão às 09:30. Recarregar?"),
+    ).toBeInTheDocument();
+  });
+
   it("409 de troca de empresa mostra a mensagem e não perde o que foi digitado", async () => {
     const update = vi.fn().mockRejectedValue(
       new ApiError("A empresa foi trocada em outra aba. Recarregue para continuar.", 409, {

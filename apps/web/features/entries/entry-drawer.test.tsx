@@ -213,6 +213,26 @@ describe("drawer do lançamento (RF25)", () => {
     expect(updated).toHaveTextContent("Ultragaz");
   });
 
+  it('versão sem autor (feita pela gestão, vista pelo lançador) mostra "Gestão" (DD-40)', async () => {
+    const { user } = show({
+      detail: () =>
+        Promise.resolve(
+          detailFixture({
+            version: 2,
+            versions: [
+              versionFixture(),
+              versionFixture({ version: 2, action: "delete", channel: "web", changedBy: null }),
+            ],
+          }),
+        ),
+    });
+    const panel = await openTab(user, "Histórico");
+    const [created, deleted] = within(panel).getAllByRole("listitem");
+    expect(created).toHaveTextContent("Ana");
+    expect(deleted).toHaveTextContent("Exclusão");
+    expect(deleted).toHaveTextContent("Gestão");
+  });
+
   it("versão restrita aparece sem conteúdo", async () => {
     const { user } = show({
       detail: () =>

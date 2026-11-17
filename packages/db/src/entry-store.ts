@@ -424,6 +424,20 @@ export function createEntryStore(db: Database): EntryStore {
                 eq(entries.tenantId, tenantId),
                 eq(entries.id, entry.id),
                 eq(entries.version, entry.version - 1),
+                // Quem não vê folha: a categoria atual e a nova têm de ser comprovadamente não
+                // sensíveis agora; categoria sem cadastro conta como sensível (F3b-3).
+                extra?.forbidSensitive
+                  ? and(
+                      sql`(${entries.categoryId} is null or exists (select 1 from ${categories} where ${categories.id} = ${entries.categoryId} and ${categories.isSensitive} = false))`,
+                      entry.categoryId === null
+                        ? sql`true`
+                        : sql`exists (select 1 from ${categories} where ${categories.id} = ${entry.categoryId}::uuid and ${categories.isSensitive} = false)`,
+                    )
+                  : undefined,
+                // Prazo da lixeira conferido na gravação (RF24.R2).
+                extra?.restorableOn === undefined
+                  ? undefined
+                  : sql`${entries.restorableUntil} >= ${extra.restorableOn}::date`,
               ),
             )
             .returning({ id: entries.id });

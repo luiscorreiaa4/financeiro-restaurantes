@@ -167,6 +167,22 @@ export function toItem<Row extends EntryRow>(
 }
 
 /**
+ * O lançador vê que o lançamento foi excluído pela gestão e o motivo, mas não o nome de quem
+ * excluiu (RF24.Obs4, DD-39). Quando ele mesmo excluiu, o nome dele continua. Dono, gerente e
+ * contador veem sempre.
+ */
+export function hideDeleter<Item extends { deleted: { by: { id: string } | null } | null }>(
+  item: Item,
+  actor: Actor,
+  userId: string,
+): Item {
+  if (actor.role !== "staff" || item.deleted === null || item.deleted.by?.id === userId) {
+    return item;
+  }
+  return { ...item, deleted: { ...item.deleted, by: null } };
+}
+
+/**
  * Guard de permissão das rotas de lançamentos: use no lugar de `requirePermission(action)`
  * em toda rota de `/api/entries` (leitura agora; edição, exclusão e restauração no F3b).
  *
@@ -243,9 +259,10 @@ export function toVersion(
   row: EntryVersionRow,
   names: EntryNames,
   includeSensitive: boolean,
+  afterPayroll = false,
 ): EntryVersion {
   const diff = diffOf(row, names);
-  const restricted = diff.sensitive && !includeSensitive;
+  const restricted = (diff.sensitive || afterPayroll) && !includeSensitive;
   return {
     version: row.version,
     action: row.action as EntryVersion["action"],
@@ -256,6 +273,46 @@ export function toVersion(
     changes: restricted ? [] : [...diff.changes],
   };
 }
+
+/**
+ * Histórico completo para o ator (F3-5, DD-39), em ordem de versão. Duas regras além da
+ * versão restrita de `toVersion`: (1) depois que o lançamento passou pela folha, as versões
+ * seguintes também saem restritas para quem não vê folha, porque o "antes" de um campo que
+ * não mudou na reclassificação (o valor do salário) ainda é dado de folha; (2) unidade fora
+ * do acesso de quem vê aparece como "Outra unidade", sem o nome; (3) o lançador não vê o
+ * nome de quem fez uma versão que não é dele: `changedBy` sai nulo e a tela mostra "Gestão"
+ * (RF25.Obs4, DD-40), no mesmo espírito de `hideDeleter`. Dono, gerente e contador veem sempre.
+ */
+export function toVersions(
+  rows: readonly EntryVersionRow[],
+  names: EntryNames,
+  includeSensitive: boolean,
+  unitIds: readonly string[] | "all",
+  viewer: { readonly role: Actor["role"]; readonly userId: string },
+): EntryVersion[] {
+  const visibleNames: EntryNames =
+    unitIds === "all"
+      ? names
+      : {
+          ...names,
+          units: new Map(
+            [...names.units].map(([id, name]) => [
+              id,
+              unitIds.includes(id) ? name : OTHER_UNIT_NAME,
+            ]),
+          ),
+        };
+  let passedThroughPayroll = false;
+  return rows.map((row) => {
+    const version = toVersion(row, visibleNames, includeSensitive, passedThroughPayroll);
+    if (diffOf(row, names).sensitive) passedThroughPayroll = true;
+    const hideAuthor = viewer.role === "staff" && row.changedBy.id !== viewer.userId;
+    return hideAuthor ? { ...version, changedBy: null } : version;
+  });
+}
+
+/** Texto no lugar do nome de uma unidade fora do acesso de quem vê o histórico. */
+const OTHER_UNIT_NAME = "Outra unidade";
 
 /**
  * Lançamentos do painel (F3a, RF22, RF25): lista, totais, opções de filtro, detalhe com
@@ -353,6 +410,34 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
   });
 
   /**
+   * `entryReader.find` com a regra da lixeira: lançamento excluído só abre para quem pode
+   * restaurá-lo, o mesmo critério da lista da lixeira; o contador não o abre pelo endereço
+   * (F3-5, DD-39). Serve o detalhe e a origem. Hoje, como data de negócio, decide se a lixeira
+   * ainda é restaurável (RF24.R2).
+   */
+  async function findViewable(
+    tx: Transaction,
+    request: FastifyRequest,
+    scope: EntryScope,
+    id: string,
+  ) {
+    const { panel, userId } = callerOf(request);
+    const row = await entryReader.find(tx, scope, id, deps.clock.today());
+    if (row === null) return null;
+    if (
+      row.deleted !== null &&
+      !can(panel.actor, "entry:restore", {
+        unitId: row.unit.id,
+        isOwnEntry: row.createdById === userId,
+        categoryIsSensitive: row.categoryIsSensitive,
+      })
+    ) {
+      return null;
+    }
+    return row;
+  }
+
+  /**
    * Detalhe do lançamento para o ator, ou `null` se ele não o enxerga. Serve o GET, a resposta
    * da edição e o `current` do 409: todos passam pelo mesmo recorte e pelo mesmo filtro das
    * versões restritas.
@@ -364,16 +449,18 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     id: string,
   ): Promise<EntryDetail | null> {
     const { panel, userId } = callerOf(request);
-    // Hoje como data de negócio: decide se a lixeira ainda é restaurável (RF24.R2).
-    const row = await entryReader.find(tx, scope, id, deps.clock.today());
     // Histórico e nomes não têm recorte: só depois de o lançamento passar pelo `find`.
+    const row = await findViewable(tx, request, scope, id);
     if (row === null) return null;
     const versions = await entryReader.versions(tx, row.id);
     const names = await entryReader.names(tx);
     const writable = accountAllows(panel.accountStatus, panel.actor.role).write;
     const body: EntryDetail = {
-      ...toItem(row, panel.actor, userId, writable),
-      versions: versions.map((version) => toVersion(version, names, scope.includeSensitive)),
+      ...hideDeleter(toItem(row, panel.actor, userId, writable), panel.actor, userId),
+      versions: toVersions(versions, names, scope.includeSensitive, scope.unitIds, {
+        role: panel.actor.role,
+        userId,
+      }),
     };
     // O contrato é a última barreira: versão restrita com campos não sai (vira 500).
     return entryDetailSchema.parse(body);
@@ -404,10 +491,9 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     const scope = accessScopeOf(request);
     if (scope === null) return forbidden(reply);
     const { panel } = callerOf(request);
-    const today = deps.clock.today();
     const found = await withTenant(deps.appDb, panel.tenantId, async (tx) => {
       // A origem e o histórico não têm recorte: só depois de o lançamento passar pelo `find`.
-      const row = await entryReader.find(tx, scope, id, today);
+      const row = await findViewable(tx, request, scope, id);
       if (row === null) return null;
       const source = await entryReader.source(tx, row.id);
       if (source === null) return null;
@@ -737,7 +823,11 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       if (changes.length > 0) {
         let applied: boolean;
         try {
-          applied = await deps.store.applyChanges(panel.tenantId, changes, { newSuppliers });
+          applied = await deps.store.applyChanges(panel.tenantId, changes, {
+            newSuppliers,
+            // Sensível conferido de novo na gravação (F3b-3, DD-39).
+            forbidSensitive: !scope.includeSensitive,
+          });
         } catch (error) {
           // F3b-1: outra requisição criou o mesmo fornecedor novo no meio do caminho. Nada foi
           // gravado; repetir o envio associa o cadastro que já existe.
@@ -821,7 +911,13 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       notFound(reply);
       return null;
     }
-    return { ...loaded, reason: parsed.data.reason, panel, userId };
+    return {
+      ...loaded,
+      reason: parsed.data.reason,
+      panel,
+      userId,
+      forbidSensitive: !scope.includeSensitive,
+    };
   }
 
   app.post(
@@ -849,7 +945,9 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
         changes.push(deleted.value);
       }
       // Uma gravação só: se algum lançamento mudou no meio, nenhum é excluído.
-      const applied = await deps.store.applyChanges(batch.panel.tenantId, changes);
+      const applied = await deps.store.applyChanges(batch.panel.tenantId, changes, {
+        forbidSensitive: batch.forbidSensitive,
+      });
       if (!applied) return reply.code(409).send({ code: "entry_stale" });
       const body: BatchPreview = batchPreviewSchema.parse(batch.total);
       return body;
@@ -890,7 +988,11 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     const context = { actorId: userId, channel: "web" as const, at: deps.clock.now() };
     const result = run(entry, context);
     if (!result.ok) return invalidEntry(reply, result.error.code);
-    const applied = await deps.store.applyChanges(panel.tenantId, [result.value]);
+    const applied = await deps.store.applyChanges(panel.tenantId, [result.value], {
+      // Sensível e prazo da lixeira conferidos de novo na gravação (F3b-3, DD-39).
+      forbidSensitive: !scope.includeSensitive,
+      ...(action === "entry:restore" ? { restorableOn: deps.clock.today() } : {}),
+    });
     const detail = await readDetail(request, scope, id);
     if (detail === null) return notFound(reply);
     if (!applied) {
@@ -940,7 +1042,9 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       );
       const writable = accountAllows(panel.accountStatus, panel.actor.role).write;
       const body: TrashResponse = {
-        items: page.rows.map((row) => toItem(row, panel.actor, userId, writable)),
+        items: page.rows.map((row) =>
+          hideDeleter(toItem(row, panel.actor, userId, writable), panel.actor, userId),
+        ),
         nextCursor: page.nextCursor,
       };
       // O contrato é a última barreira da saída (nada além do que ele declara).

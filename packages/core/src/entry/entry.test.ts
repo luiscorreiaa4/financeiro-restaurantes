@@ -227,6 +227,19 @@ describe("edição com versão", () => {
 });
 
 describe("soft delete (desfazer)", () => {
+  it("o prazo da lixeira conta 30 dias do fuso de São Paulo, não de UTC (F3b-4, DD-39)", () => {
+    const restorable = (at: Date) => {
+      const result = softDeleteEntry(created(), whatsapp(at));
+      return result.ok ? result.value.entry.restorableUntil : null;
+    };
+    // 23h30 em São Paulo ainda é 27/10 (já é 28/10 em UTC): 27/10 + 30 dias = 26/11.
+    expect(restorable(new Date("2026-10-28T02:30:00Z"))).toBe("2026-11-26");
+    // Ao meio-dia o dia é o mesmo nos dois fusos.
+    expect(restorable(new Date("2026-10-27T15:00:00Z"))).toBe("2026-11-26");
+    // Passagem de ano e de mês curto.
+    expect(restorable(new Date("2026-12-15T12:00:00Z"))).toBe("2027-01-14");
+  });
+
   it("marca deletedAt, mantém o lançamento e registra a versão", () => {
     const original = created();
     const result = softDeleteEntry(original, whatsapp(t2));

@@ -641,3 +641,83 @@ describe("EntryStore: lixeira com rastro e restauração (RF24, RF25.R4)", () =>
     ]);
   });
 });
+
+describe("EntryStore: guarda dentro do UPDATE (F3b-3, DD-39)", () => {
+  async function registered(f: TenantFixture) {
+    const inboundId = await inbound(f);
+    const original = newEntry(f, inboundId);
+    await store().register({
+      tenantId: f.tenantId,
+      userId: f.userId,
+      inboundMessageId: inboundId,
+      entries: [{ position: 0, change: original }],
+      newSuppliers: [],
+      usage: [],
+    });
+    return original;
+  }
+  const context = (at = new Date()) => ({ actorId: "", channel: "web" as const, at });
+  const markSensitive = (categoryId: string) =>
+    db.admin.query("update categories set is_sensitive = true where id = $1", [categoryId]);
+
+  it("categoria que virou sensível depois da leitura recusa a edição de quem não vê folha", async () => {
+    const f = await createTenant(db.admin, "Corrida de sensível");
+    const original = await registered(f);
+    const edited = editEntry(
+      original.entry,
+      { description: "Tentativa" },
+      { ...context(), actorId: f.userId },
+    );
+    if (!edited.ok) throw new Error("edição falhou");
+    await markSensitive(f.categoryId);
+
+    expect(await store().applyChanges(f.tenantId, [edited.value], { forbidSensitive: true })).toBe(
+      false,
+    );
+    const row = await db.admin.query("select description, version from entries where id = $1", [
+      original.entry.id,
+    ]);
+    expect(row.rows[0]).toEqual({ description: "Gás", version: 1 });
+    // Sem a guarda (canal e quem vê folha) a gravação segue como antes.
+    expect(await store().applyChanges(f.tenantId, [edited.value])).toBe(true);
+  });
+
+  it("mover para uma categoria que é sensível no momento da gravação também é recusado", async () => {
+    const f = await createTenant(db.admin, "Corrida de destino");
+    const original = await registered(f);
+    const payroll = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group, is_sensitive)
+       values ($1, $2, 'Folha', 'expense', 'outras', true)`,
+      [payroll, f.tenantId],
+    );
+    const edited = editEntry(
+      original.entry,
+      { categoryId: payroll },
+      { ...context(), actorId: f.userId },
+    );
+    if (!edited.ok) throw new Error("edição falhou");
+    expect(await store().applyChanges(f.tenantId, [edited.value], { forbidSensitive: true })).toBe(
+      false,
+    );
+  });
+
+  it("restauração depois do prazo da lixeira é recusada na gravação", async () => {
+    const f = await createTenant(db.admin, "Corrida do prazo");
+    const original = await registered(f);
+    const at = new Date("2026-10-01T15:00:00Z");
+    const deleted = softDeleteEntry(original.entry, { actorId: f.userId, channel: "web", at });
+    if (!deleted.ok) throw new Error("exclusão falhou");
+    expect(await store().applyChanges(f.tenantId, [deleted.value])).toBe(true);
+    const restored = restoreEntry(deleted.value.entry, { actorId: f.userId, channel: "web", at });
+    if (!restored.ok) throw new Error("restauração falhou");
+
+    // Prazo até 31/10: no dia 01/11 já venceu; no 31/10 ainda vale.
+    expect(
+      await store().applyChanges(f.tenantId, [restored.value], { restorableOn: "2026-11-01" }),
+    ).toBe(false);
+    expect(
+      await store().applyChanges(f.tenantId, [restored.value], { restorableOn: "2026-10-31" }),
+    ).toBe(true);
+  });
+});

@@ -422,6 +422,11 @@ describe("respostas de leitura de lançamentos", () => {
     ]);
   });
 
+  it("versão de outra pessoa vem sem autor para o lançador (DD-40)", () => {
+    const anonymous = { ...version, changedBy: null };
+    expect(entryVersionSchema.parse(anonymous)).toEqual(anonymous);
+  });
+
   it("versão restrita vem sem campos", () => {
     const restricted = { ...version, restricted: true, changes: [] };
     expect(entryVersionSchema.parse(restricted)).toEqual(restricted);
@@ -622,6 +627,13 @@ describe("exclusão, lote e lixeira (RF24)", () => {
     expect(
       trashQuerySchema.safeParse({ deletedFrom: "2026-11-13", deletedTo: "2026-10-15" }).success,
     ).toBe(false);
+  });
+
+  it("consulta da lixeira recusa período de exclusão maior que 24 meses (F3b-2)", () => {
+    const query = (deletedFrom: string, deletedTo: string) =>
+      trashQuerySchema.safeParse({ deletedFrom, deletedTo }).success;
+    expect(query("2024-11-13", "2026-11-13")).toBe(true);
+    expect(query("2024-11-12", "2026-11-13")).toBe(false);
   });
 
   it("consulta da lixeira lê unidade única, quem excluiu e limite da query string", () => {

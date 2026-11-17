@@ -17,7 +17,7 @@ import {
 } from "@app/core/contracts";
 import { createDatabase, createEntryStore, uuidv7 } from "@app/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthHarness, startAuthHarness } from "./support/auth-harness";
+import { type AuthHarness, START, startAuthHarness } from "./support/auth-harness";
 import { type MatrixFixture, PERSONAS, type Persona, ROUTE_MATRIX } from "./support/route-matrix";
 
 const PASSWORD = "senhaForte1";
@@ -216,7 +216,7 @@ async function addEntry(e: {
        amount_cents, net_cents, category_id, created_by, sales_channel_id, inbound_message_id,
        version, deleted_at, deleted_by, delete_reason, restorable_until, position)
      values ($1, $2, $3, $4, $5, $5, $6, $7, $7, $8, $9, $10, $11, $12,
-       case when $13::uuid is null then null else now() end, $13, $14,
+       case when $13::uuid is null then null else $17::timestamptz end, $13, $14,
        $15::date, $16)`,
     [
       id,
@@ -235,6 +235,9 @@ async function addEntry(e: {
       e.deleted?.reason ?? null,
       e.deleted?.restorableUntil ?? null,
       e.position ?? 0,
+      // A exclusão acontece "agora" no relógio falso do harness, como faz a rota (`context.at`),
+      // e não no `now()` real do banco: o período da lixeira fica fixo (TRASH_PERIOD).
+      START.toISOString(),
     ],
   );
   // O `after` é o lançamento como o domínio grava em `entry_versions`.
@@ -1204,8 +1207,8 @@ describe("GET /api/entries/:id: detalhe e histórico (RF25)", () => {
     expect((await detailOf(personas.owner, e4)).unit.id).toBe(unit3);
   });
 
-  it("contador abre tudo e não recebe ação nenhuma", async () => {
-    for (const id of [e1, e5, scripted]) {
+  it("contador abre os lançamentos ativos e não recebe ação nenhuma", async () => {
+    for (const id of [e1, e5]) {
       expect(await detailOf(personas.accountant, id)).toMatchObject({
         canEdit: false,
         canDelete: false,
@@ -1242,6 +1245,12 @@ describe("GET /api/entries/:id: detalhe e histórico (RF25)", () => {
     await expectNotFound(personas.accountant, expired);
   });
 
+  it("contador não abre pelo endereço um lançamento da lixeira, que ele nem lista (F3-5, DD-39)", async () => {
+    await expectNotFound(personas.accountant, scripted);
+    // Quem pode restaurar continua abrindo.
+    expect((await detailOf(personas.owner, scripted)).deleted).not.toBeNull();
+  });
+
   it("texto com marcação volta intacto, como string, na descrição, no motivo e no histórico", async () => {
     const detail = await detailOf(personas.owner, scripted);
     expect(detail.description).toBe(SCRIPT);
@@ -1264,20 +1273,17 @@ describe("R6: histórico de lançamento que já esteve na folha", () => {
       [1, "create", true],
       // O antes da versão 2 ainda é a folha.
       [2, "update", true],
-      [3, "update", false],
+      // Depois de passar pela folha, as versões seguintes também saem sem campo: o "antes" do
+      // valor ainda é o salário (F3-5, DD-39).
+      [3, "update", true],
     ]);
-    expect(detail.versions[0]?.changes).toEqual([]);
-    expect(detail.versions[1]?.changes).toEqual([]);
-    expect(detail.versions[2]?.changes).toEqual([
-      { field: "amountCents", before: 310_000, after: 45_000 },
-      { field: "netCents", before: 310_000, after: 45_000 },
-    ]);
+    for (const version of detail.versions) expect(version.changes).toEqual([]);
     // Nada da folha antiga sai: nem o texto, nem o nome, nem o id da categoria.
     for (const secret of [OLD_PAYROLL_TEXT, "Folha de pagamento", payrollA]) {
       expect(response.body, secret).not.toContain(secret);
     }
     // Quem alterou e quando continuam visíveis.
-    expect(detail.versions[1]?.changedBy.id).toBe(personas.owner.userId);
+    expect(detail.versions[1]?.changedBy?.id).toBe(personas.owner.userId);
   });
 
   it("quem vê folha recebe o diff completo, com o nome da categoria antiga", async () => {
@@ -1577,11 +1583,14 @@ describe("registro de log do detalhe e da origem (RNF11)", () => {
       OLD_PAYROLL_TEXT,
       PAYROLL_TEXT,
       "Folha de pagamento",
-      "310000",
       "@ex.com",
     ]) {
       expect(logs, secret).not.toContain(secret);
     }
+    // O valor só como número inteiro: o `responseTime` do Fastify tem ruído de float (por
+    // exemplo 0.0213 vira 0.021299999999996544) e às vezes contém "310000" no meio dos
+    // dígitos, o que fazia o teste falhar por acaso (~2% das rodadas).
+    expect(logs).not.toMatch(/(?<![\d.])310000(?!\d)/);
   });
 });
 
@@ -1691,7 +1700,7 @@ describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
     expect(response.statusCode).toBe(409);
     const { current } = entryStaleSchema.parse(response.json());
     expect(current.versions.filter((version) => version.restricted).map((v) => v.version)).toEqual([
-      1, 2,
+      1, 2, 3,
     ]);
     expect(response.body).not.toContain(OLD_PAYROLL_TEXT);
     expect(response.body).not.toContain(OLD_PAYROLL_MESSAGE);
@@ -2307,8 +2316,41 @@ describe("DELETE e restauração de um lançamento (RF24)", () => {
       [2, "delete", "web"],
       [3, "restore", "web"],
     ]);
-    expect(detail.versions[1]?.changedBy.id).toBe(personas.owner.userId);
-    expect(detail.versions[2]?.changedBy.id).toBe(personas.manager.userId);
+    expect(detail.versions[1]?.changedBy?.id).toBe(personas.owner.userId);
+    expect(detail.versions[2]?.changedBy?.id).toBe(personas.manager.userId);
+  });
+
+  it("histórico do lançador: vê o próprio nome e não o de quem editou ou excluiu pela gestão (RF25.Obs4, DD-40)", async () => {
+    const id = await freshEntry({ by: personas.staff });
+    const edited = await patchEntry(personas.manager, id, {
+      expectedVersion: 1,
+      patch: { amountCents: 12_300 },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect((await deleteEntry(personas.owner, id, { reason: "Duplicado" })).statusCode).toBe(200);
+
+    const response = await get(personas.staff, `/api/entries/${id}`);
+    expect(response.statusCode).toBe(200);
+    const mine = conforming(entryDetailSchema.parse(response.json()), response.json());
+    expect(mine.versions.map((v) => [v.action, v.changedBy?.id ?? null])).toEqual([
+      ["create", personas.staff.userId],
+      ["update", null],
+      ["delete", null],
+    ]);
+    // Nem o id de quem fez as versões da gestão sai, em lugar nenhum da resposta.
+    for (const other of [personas.manager.userId, personas.owner.userId]) {
+      expect(response.body).not.toContain(other);
+    }
+
+    // Dono e gerente veem sempre quem fez cada versão.
+    for (const who of [personas.owner, personas.manager]) {
+      const full = await detailOf(who, id);
+      expect(full.versions.map((v) => v.changedBy?.id)).toEqual([
+        personas.staff.userId,
+        personas.manager.userId,
+        personas.owner.userId,
+      ]);
+    }
   });
 
   it("sem corpo e com motivo só de espaços: exclui sem motivo", async () => {
@@ -2573,7 +2615,9 @@ describe("Origin nas escritas de exclusão, restauração e lote (RNF01.R10)", (
 // GET /api/trash (F3b, RF24)
 // ---------------------------------------------------------------------------------------
 
-const TRASH_PERIOD = "deletedFrom=2000-01-01&deletedTo=2100-12-31";
+// As exclusões deste arquivo acontecem no relógio falso (09/11/2026), pela rota ou por
+// `addEntry`; o mês inteiro cobre todas, sem depender da data real (máximo de 24 meses, F3b-2).
+const TRASH_PERIOD = "deletedFrom=2026-11-01&deletedTo=2026-11-30";
 
 async function trashOf(who: PersonaSession, query = ""): Promise<TrashResponse> {
   const response = await get(who, `/api/trash?${TRASH_PERIOD}${query}`);
@@ -2631,6 +2675,32 @@ describe("GET /api/trash: lixeira (RF24.R2)", () => {
     expect(filtered).toContain(own);
     expect(filtered).not.toContain(foreign);
     expect((await trashOf(personas.staff)).items.every((item) => item.canRestore)).toBe(true);
+  });
+
+  it("lançador não vê o nome de quem excluiu o lançamento dele; dono, gerente e o próprio autor da exclusão veem (F3b-4, DD-39)", async () => {
+    const byOwner = await inTrash({ by: personas.staff });
+    const byStaff = await inTrash({
+      by: personas.staff,
+      deleted: { by: personas.staff.userId, reason: "Errei", restorableUntil: TODAY },
+    });
+    const staffPage = await trashOf(personas.staff);
+    const find = (page: TrashResponse, id: string) => page.items.find((item) => item.id === id);
+    // Excluído pela gestão: sem nome nem id, mas com o motivo.
+    expect(find(staffPage, byOwner)?.deleted).toMatchObject({
+      by: null,
+      reason: "Motivo interno",
+    });
+    expect(JSON.stringify(find(staffPage, byOwner))).not.toContain(personas.owner.userId);
+    // Quando o próprio lançador excluiu, o nome dele continua aparecendo.
+    expect(find(staffPage, byStaff)?.deleted.by).toMatchObject({ id: personas.staff.userId });
+    // Detalhe do lançador segue a mesma regra.
+    expect((await detailOf(personas.staff, byOwner)).deleted?.by).toBeNull();
+    // Dono e gerente veem quem excluiu.
+    for (const who of [personas.owner, personas.manager]) {
+      expect(find(await trashOf(who), byOwner)?.deleted.by).toMatchObject({
+        id: personas.owner.userId,
+      });
+    }
   });
 
   it("gerente sem VER_FOLHA não vê a folha excluída; gerente com VER_FOLHA e dono veem", async () => {

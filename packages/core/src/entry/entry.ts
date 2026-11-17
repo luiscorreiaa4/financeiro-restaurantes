@@ -261,9 +261,22 @@ export function restoreEntry(
   return ok({ entry: next, version: toVersion("restore", entry, next, context) });
 }
 
-/** Data (UTC) de `days` dias depois de `at`, como data de negócio. */
+/** Fuso que define "hoje" para o prazo da lixeira (o fuso da unidade é a F3-5, DD-39). */
+const TRASH_TIME_ZONE = "America/Sao_Paulo";
+
+/**
+ * Data de `days` dias depois do dia de `at` no fuso de São Paulo, como data de negócio. A
+ * soma é feita sobre a data (UTC puro), sem horário de verão no meio.
+ */
 function addDays(at: Date, days: number): BusinessDate {
-  const date = new Date(at.getTime() + days * 86_400_000);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TRASH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(at);
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 

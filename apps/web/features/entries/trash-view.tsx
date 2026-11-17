@@ -241,7 +241,7 @@ export function TrashView({ today }: { today: string }) {
                     <TableCell>{item.unit.name}</TableCell>
                     <TableCell>{item.createdBy.name}</TableCell>
                     <TableCell>
-                      {item.deleted.by.name}
+                      {item.deleted.by?.name ?? "Gestão"}
                       <span className="block text-xs text-muted-foreground">
                         {formatInstant(item.deleted.at)}
                       </span>
@@ -271,7 +271,10 @@ export function TrashView({ today }: { today: string }) {
                   {formatBusinessDate(item.occurredOn)} · {item.unit.name} · {item.createdBy.name}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Excluído por {item.deleted.by.name} em {formatInstant(item.deleted.at)}
+                  {item.deleted.by
+                    ? `Excluído por ${item.deleted.by.name}`
+                    : "Excluído pela gestão"}{" "}
+                  em {formatInstant(item.deleted.at)}
                 </span>
                 {item.deleted.reason && (
                   <span className="break-words text-sm">{item.deleted.reason}</span>
