@@ -97,7 +97,7 @@ describe("casca da aplicação", () => {
 });
 
 describe("casca: menu filtrado por permissão", () => {
-  it("lançador com painel vê só Início, Lançamentos e Criar outra empresa", () => {
+  it("lançador com painel vê só Lançamentos e Criar outra empresa", () => {
     renderShell(
       meFixture({
         context: {
@@ -112,7 +112,7 @@ describe("casca: menu filtrado por permissão", () => {
     const labels = within(nav)
       .getAllByRole("link")
       .map((link) => link.textContent);
-    expect(labels).toEqual(["Início", "Lançamentos", "Criar outra empresa"]);
+    expect(labels).toEqual(["Lançamentos", "Criar outra empresa"]);
   });
 
   it("contador vê Configurações (catalog:view) e não vê Usuários nem ações de escrita", () => {

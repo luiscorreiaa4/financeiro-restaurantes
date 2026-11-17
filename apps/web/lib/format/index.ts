@@ -14,6 +14,18 @@ export function formatCents(cents: number): string {
   return cents < 0 ? `-${formatBRL(amount.value)}` : formatBRL(amount.value);
 }
 
+/**
+ * Percentual em décimos de ponto percentual (`123` é "12,3%", DD-41) com uma casa. Só formata
+ * o que o servidor calculou: não arredonda nem converte. `null` (sem denominador) vira "—".
+ */
+export function formatPermille(value: number | null): string {
+  if (value === null) return "—";
+  if (!Number.isSafeInteger(value)) throw new RangeError(`Percentual inválido: ${value}`);
+  const abs = Math.abs(value);
+  const text = `${Math.trunc(abs / 10)},${abs % 10}%`;
+  return value < 0 ? `-${text}` : text;
+}
+
 const BUSINESS_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const brDate = new Intl.DateTimeFormat("pt-BR", {
