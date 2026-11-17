@@ -164,7 +164,7 @@ Entre como dono e abra `/lancamentos`: o botão **Novo lançamento** aparece no 
 - O filtro "Lançado por" lista todos os vínculos da empresa (F3-4).
 - Campo que não mudou numa reclassificação continua visível nas versões seguintes; o detalhe abre lançamento na lixeira pelo endereço; as opções de filtro não escondem cadastro inativo (F3-5).
 - "Hoje" (data futura, prazo da lixeira, período padrão) usa o fuso de São Paulo no prazo da lixeira; a data futura da edição usa o fuso da unidade. O prazo de restauração soma dias em UTC (F3b-4).
-- Duas edições simultâneas com o mesmo fornecedor novo podem criar dois cadastros (F3b-1); `quantity` e o período da lixeira não têm teto (F3b-2); a categoria de destino é conferida fora da transação de gravação (F3b-3).
-- O teto de valor do lançamento é o inteiro seguro do JavaScript em centavos (F3c-3): o painel e o canal aceitam números absurdos; falta um teto de negócio.
+- O período da lixeira não tem limite (F3b-2); na edição, dois envios simultâneos com o mesmo fornecedor novo fazem o segundo receber um aviso para tentar de novo (409 `supplier_conflict`); a categoria de destino é conferida fora da transação de gravação (F3b-3).
+- O teto de valor do lançamento é R$ 100.000.000,00 (DD-38): o campo de valor não deixa digitar acima, e a API recusa um centavo a mais. Confira também que dois envios simultâneos com o mesmo fornecedor novo não criam dois cadastros.
 - `possible_duplicate` no painel compara com os lançamentos das unidades de acesso, inclusive dos colegas, para o lançador também (decisão 10 do grill da F3c); o sinal revela que um colega lançou algo igual nas últimas 24 h.
 - Unidade inexistente responde 422 e unidade existente fora do acesso responde 403 (D8 da F3c); o id é um UUID v7 que ninguém adivinha.
