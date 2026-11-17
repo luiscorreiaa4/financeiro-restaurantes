@@ -5,6 +5,7 @@ import {
   type ChangeContext,
   type Clock,
   can,
+  createEntry,
   diffVersion,
   type Entry,
   type EntryChange,
@@ -12,13 +13,17 @@ import {
   type EntryStore,
   editEntry,
   entryActions,
+  entryErrorField,
   entryScopeFor,
-  findSupplier,
   markEntryReviewed,
+  type PanelCreateInput,
   type PanelPatch,
   parseVersionSnapshot,
+  preparePanelCreate,
   preparePanelEdit,
+  RECENT_WINDOW_MS,
   type Result,
+  resolveSupplierChoice,
   restoreEntry,
   softDeleteEntry,
 } from "@app/core";
@@ -27,6 +32,7 @@ import {
   batchBodySchema,
   batchPreviewSchema,
   type EntryDetail,
+  type EntryFieldName,
   type EntryItem,
   type EntryListQuery,
   type EntryListResponse,
@@ -34,8 +40,11 @@ import {
   type EntrySource,
   type EntryTotals,
   type EntryVersion,
+  entryAlreadySubmittedSchema,
+  entryCreateBodySchema,
   entryDeleteBodySchema,
   entryDetailSchema,
+  entryInvalidSchema,
   entryListQuerySchema,
   entrySourceSchema,
   entryStaleSchema,
@@ -49,7 +58,12 @@ import {
   type EntryRow,
   type EntryVersionRow,
   entryReader,
+  findByClientRequest,
   InvalidCursorError,
+  insertPanelEntry,
+  isUniqueViolation,
+  loadCatalogIn,
+  type Transaction,
   withTenant,
 } from "@app/db";
 import type {
@@ -174,8 +188,10 @@ export function requireEntryAction(action: Action): preHandlerAsyncHookHandler {
 }
 
 /** Erro de domínio da edição: o `reason` é o código, para a tela apontar o campo (1.7). */
-function invalidEntry(reply: FastifyReply, reason: string) {
-  return reply.code(422).send({ code: "invalid_entry", reason });
+function invalidEntry(reply: FastifyReply, reason: string, field?: EntryFieldName) {
+  return reply
+    .code(422)
+    .send(entryInvalidSchema.parse({ code: "invalid_entry", reason, ...(field ? { field } : {}) }));
 }
 
 function forbidden(reply: FastifyReply) {
@@ -340,35 +356,35 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
    * da edição e o `current` do 409: todos passam pelo mesmo recorte e pelo mesmo filtro das
    * versões restritas.
    */
-  async function readDetail(
+  async function detailIn(
+    tx: Transaction,
     request: FastifyRequest,
     scope: EntryScope,
     id: string,
   ): Promise<EntryDetail | null> {
     const { panel, userId } = callerOf(request);
     // Hoje como data de negócio: decide se a lixeira ainda é restaurável (RF24.R2).
-    const today = deps.clock.today();
-    const found = await withTenant(deps.appDb, panel.tenantId, async (tx) => {
-      const row = await entryReader.find(tx, scope, id, today);
-      // Histórico e nomes não têm recorte: só depois de o lançamento passar pelo `find`.
-      if (row === null) return null;
-      return {
-        row,
-        versions: await entryReader.versions(tx, row.id),
-        names: await entryReader.names(tx),
-      };
-    });
-    if (found === null) return null;
-
+    const row = await entryReader.find(tx, scope, id, deps.clock.today());
+    // Histórico e nomes não têm recorte: só depois de o lançamento passar pelo `find`.
+    if (row === null) return null;
+    const versions = await entryReader.versions(tx, row.id);
+    const names = await entryReader.names(tx);
     const writable = accountAllows(panel.accountStatus, panel.actor.role).write;
     const body: EntryDetail = {
-      ...toItem(found.row, panel.actor, userId, writable),
-      versions: found.versions.map((version) =>
-        toVersion(version, found.names, scope.includeSensitive),
-      ),
+      ...toItem(row, panel.actor, userId, writable),
+      versions: versions.map((version) => toVersion(version, names, scope.includeSensitive)),
     };
     // O contrato é a última barreira: versão restrita com campos não sai (vira 500).
     return entryDetailSchema.parse(body);
+  }
+
+  async function readDetail(
+    request: FastifyRequest,
+    scope: EntryScope,
+    id: string,
+  ): Promise<EntryDetail | null> {
+    const { panel } = callerOf(request);
+    return withTenant(deps.appDb, panel.tenantId, (tx) => detailIn(tx, request, scope, id));
   }
 
   app.get("/api/entries/:id", { preHandler: guards }, async (request, reply) => {
@@ -420,6 +436,156 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
     };
     return entrySourceSchema.parse(body);
   });
+
+  /**
+   * Lançamento manual (RF26, desenho 1.8): tudo em UM `withTenant`. Ordem: repetição da chave,
+   * catálogo, unidade (422 ausente, 403 fora do acesso), categoria sensível ou inexistente (422
+   * indistinguível, D1), regras do domínio, `can`, gravação e releitura com o recorte do ator.
+   * O 23505 da chave desfaz a transação inteira; a releitura roda em transação nova, fora dela.
+   */
+  type CreateOutcome =
+    | { kind: "detail"; status: 200 | 201; detail: EntryDetail }
+    | { kind: "already_submitted" }
+    | { kind: "forbidden" }
+    | { kind: "invalid"; reason: string; field?: EntryFieldName };
+
+  app.post(
+    "/api/entries",
+    {
+      preHandler: [
+        requirePanelContext(deps),
+        requireTenantRoute(),
+        requireEntryAction("entry:create"),
+        requireWritable(),
+      ],
+    },
+    async (request, reply) => {
+      const parsed = entryCreateBodySchema.safeParse(request.body);
+      if (!parsed.success) return invalidRequest(reply);
+      const body = parsed.data;
+      const scope = accessScopeOf(request);
+      if (scope === null) return forbidden(reply);
+      const { panel, userId } = callerOf(request);
+
+      /** Repetição: o lançamento da chave, se o ator ainda o enxerga; senão 409 sem dado. */
+      const replay = async (tx: Transaction): Promise<CreateOutcome | null> => {
+        const existing = await findByClientRequest(tx, userId, body.clientRequestId);
+        if (existing === null) return null;
+        const detail = await detailIn(tx, request, scope, existing);
+        return detail === null
+          ? { kind: "already_submitted" }
+          : { kind: "detail", status: 200, detail };
+      };
+
+      const create = (tx: Transaction): Promise<CreateOutcome> =>
+        (async (): Promise<CreateOutcome> => {
+          const replayed = await replay(tx);
+          if (replayed !== null) return replayed;
+
+          const catalog = await loadCatalogIn(tx, panel.tenantId);
+          const unit = catalog.units.find((item) => item.id === body.unitId);
+          if (unit === undefined) {
+            return { kind: "invalid", reason: "UnknownReference", field: "unitId" };
+          }
+          const inAccess = panel.actor.units === "all" || panel.actor.units.includes(unit.id);
+          if (!inAccess) return { kind: "forbidden" };
+
+          // Sensível que o ator não vê e inexistente respondem igual (D1); na dúvida, é sensível.
+          const category = catalog.categories.find((item) => item.id === body.categoryId);
+          const categoryIsSensitive = category === undefined || category.isSensitive !== false;
+          if (categoryIsSensitive && !scope.includeSensitive) {
+            return { kind: "invalid", reason: "UnknownReference", field: "categoryId" };
+          }
+
+          const now = deps.clock.now();
+          const today = deps.clock.today(unit.timezone);
+          const recent = await entryReader.recent(
+            tx,
+            scope,
+            new Date(now.getTime() - RECENT_WINDOW_MS),
+          );
+          const choice = resolveSupplierChoice(catalog, body.supplier ?? null, deps.newId);
+          const input: PanelCreateInput = {
+            type: body.type,
+            occurredOn: body.occurredOn,
+            ...(body.paidOn !== undefined ? { paidOn: body.paidOn } : {}),
+            description: body.description,
+            amountCents: body.amountCents,
+            categoryId: body.categoryId,
+            unitId: body.unitId,
+            supplier: choice.supplierId === null ? null : { id: choice.supplierId },
+            paymentMethodId: body.paymentMethodId ?? null,
+            salesChannelId: body.salesChannelId ?? null,
+            orders: body.orders ?? null,
+            quantity: body.quantity ?? null,
+            quantityUnit: body.quantityUnit ?? null,
+          };
+          const catalogWithNew =
+            choice.newSupplier === undefined
+              ? catalog
+              : {
+                  ...catalog,
+                  suppliers: [...catalog.suppliers, { ...choice.newSupplier, aliases: [] }],
+                };
+          const prepared = preparePanelCreate({ input, catalog: catalogWithNew, today, recent });
+          if (!prepared.ok) {
+            return {
+              kind: "invalid",
+              reason: prepared.error.code,
+              field: entryErrorField(prepared.error),
+            };
+          }
+          if (!can(panel.actor, "entry:create", { unitId: unit.id, categoryIsSensitive })) {
+            return { kind: "forbidden" };
+          }
+          const created = createEntry(prepared.value, {
+            id: deps.newId(),
+            tenantId: panel.tenantId,
+            actorId: userId,
+            channel: "web",
+            at: now,
+          });
+          if (!created.ok) {
+            return {
+              kind: "invalid",
+              reason: created.error.code,
+              field: entryErrorField(created.error),
+            };
+          }
+          await insertPanelEntry(tx, panel.tenantId, created.value, {
+            clientRequestId: body.clientRequestId,
+            newSuppliers: choice.newSupplier === undefined ? [] : [choice.newSupplier],
+          });
+          const detail = await detailIn(tx, request, scope, created.value.entry.id);
+          // Gravou e o próprio ator não enxerga: não deveria acontecer; falha fechado sem dado.
+          if (detail === null) throw new Error("lançamento criado fora do recorte");
+          return { kind: "detail", status: 201, detail };
+        })();
+
+      let outcome: CreateOutcome;
+      try {
+        outcome = await withTenant(deps.appDb, panel.tenantId, create);
+      } catch (error) {
+        if (!isUniqueViolation(error, "entries_client_request_unique")) throw error;
+        // Corrida com a mesma chave: a transação inteira foi desfeita; só relê.
+        const replayed = await withTenant(deps.appDb, panel.tenantId, replay);
+        outcome = replayed ?? { kind: "already_submitted" };
+      }
+
+      switch (outcome.kind) {
+        case "forbidden":
+          return forbidden(reply);
+        case "invalid":
+          return invalidEntry(reply, outcome.reason, outcome.field);
+        case "already_submitted":
+          return reply
+            .code(409)
+            .send(entryAlreadySubmittedSchema.parse({ code: "already_submitted" }));
+        case "detail":
+          return reply.code(outcome.status).send(outcome.detail);
+      }
+    },
+  );
 
   /**
    * Edição (RF23): `{ expectedVersion, patch, markReviewed }`. Ordem: corpo, lançamento no
@@ -491,7 +657,8 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       if (patch.categoryId !== undefined) {
         const newCategory = catalog.categories.find((category) => category.id === patch.categoryId);
         newSensitive = newCategory === undefined || newCategory.isSensitive !== false;
-        if (newSensitive && !scope.includeSensitive) return invalidEntry(reply, "UnknownReference");
+        if (newSensitive && !scope.includeSensitive)
+          return invalidEntry(reply, "UnknownReference", "categoryId");
       }
       const newUnitId = patch.unitId ?? entry.unitId;
       if (
@@ -511,23 +678,14 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       const newSuppliers: Array<{ id: string; name: string }> = [];
       let editCatalog = catalog;
       if (supplier !== undefined) {
-        if (supplier === null) {
-          panelPatch.supplier = null;
-        } else if ("id" in supplier) {
-          panelPatch.supplier = { id: supplier.id };
-        } else {
-          const known = findSupplier(catalog, supplier.name);
-          if (known !== null) {
-            panelPatch.supplier = { id: known.id };
-          } else {
-            const created = { id: deps.newId(), name: supplier.name };
-            newSuppliers.push(created);
-            panelPatch.supplier = { id: created.id };
-            editCatalog = {
-              ...catalog,
-              suppliers: [...catalog.suppliers, { ...created, aliases: [] }],
-            };
-          }
+        const choice = resolveSupplierChoice(catalog, supplier, deps.newId);
+        panelPatch.supplier = choice.supplierId === null ? null : { id: choice.supplierId };
+        if (choice.newSupplier !== undefined) {
+          newSuppliers.push(choice.newSupplier);
+          editCatalog = {
+            ...catalog,
+            suppliers: [...catalog.suppliers, { ...choice.newSupplier, aliases: [] }],
+          };
         }
       }
 
@@ -544,13 +702,15 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
           catalog: editCatalog,
           today: deps.clock.today(timezone),
         });
-        if (!prepared.ok) return invalidEntry(reply, prepared.error.code);
+        if (!prepared.ok) {
+          return invalidEntry(reply, prepared.error.code, entryErrorField(prepared.error));
+        }
         const edited = editEntry(entry, prepared.value, context);
         if (edited.ok) {
           changes.push(edited.value);
           current = edited.value.entry;
         } else if (!(edited.error.code === "NothingToChange" && body.markReviewed)) {
-          return invalidEntry(reply, edited.error.code);
+          return invalidEntry(reply, edited.error.code, entryErrorField(edited.error));
         }
       }
       if (body.markReviewed) {
@@ -559,7 +719,7 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
         if (reviewed.ok) {
           changes.push(reviewed.value);
         } else if (reviewed.error.code !== "NothingToChange") {
-          return invalidEntry(reply, reviewed.error.code);
+          return invalidEntry(reply, reviewed.error.code, entryErrorField(reviewed.error));
         }
       } else if (changes.length === 0) {
         return invalidEntry(reply, "NothingToChange");

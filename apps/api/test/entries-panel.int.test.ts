@@ -1055,7 +1055,9 @@ describe("R9: isolamento entre empresas (RNF02)", () => {
     expect(await idsOf(ownerB)).toEqual([entryB]);
     expect(await totalsOf(ownerB)).toMatchObject({ revenueCents: 999_999, count: 1 });
     const options = await optionsOf(ownerB);
-    expect(options.units).toEqual([{ id: unitB, name: "Unidade da B" }]);
+    expect(options.units.map((unit) => ({ id: unit.id, name: unit.name }))).toEqual([
+      { id: unitB, name: "Unidade da B" },
+    ]);
     expect(options.categories.map((category) => category.id)).not.toContain(categoryA);
     expect(options.members.map((member) => member.id)).toEqual([ownerB.userId]);
   });
@@ -1065,7 +1067,7 @@ describe("GET /api/entries/options", () => {
   it("gerente com duas unidades de acesso e o seletor numa delas recebe as duas, e não a terceira", async () => {
     for (const who of [personas.manager, personas.managerNoPayroll]) {
       const options = await optionsOf(who);
-      expect(options.units).toEqual([
+      expect(options.units.map((unit) => ({ id: unit.id, name: unit.name }))).toEqual([
         { id: unit1, name: "Unidade 1" },
         { id: unit2, name: "Unidade 2" },
       ]);
@@ -1087,7 +1089,9 @@ describe("GET /api/entries/options", () => {
 
   it("lançador recebe só a sua unidade e nenhum membro", async () => {
     const options = await optionsOf(personas.staff);
-    expect(options.units).toEqual([{ id: unit1, name: "Unidade 1" }]);
+    expect(options.units.map((unit) => ({ id: unit.id, name: unit.name }))).toEqual([
+      { id: unit1, name: "Unidade 1" },
+    ]);
     expect(options.members).toEqual([]);
   });
 
@@ -1773,7 +1777,11 @@ describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
         patch: { categoryId },
       });
       expect(response.statusCode).toBe(422);
-      expect(response.json()).toEqual({ code: "invalid_entry", reason: "UnknownReference" });
+      expect(response.json()).toEqual({
+        code: "invalid_entry",
+        reason: "UnknownReference",
+        field: "categoryId",
+      });
       bodies.push(response.body);
     }
     // Sensível e inexistente são indistinguíveis: não dá para sondar quais ids são folha.
@@ -1904,7 +1912,11 @@ describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
         patch: { occurredOn: "2027-01-09" },
       });
       expect(tooFar.statusCode).toBe(422);
-      expect(tooFar.json()).toEqual({ code: "invalid_entry", reason: "DateTooFarAhead" });
+      expect(tooFar.json()).toEqual({
+        code: "invalid_entry",
+        reason: "DateTooFarAhead",
+        field: "occurredOn",
+      });
       const ok = await patchEntry(personas.owner, id, {
         expectedVersion: 1,
         patch: { occurredOn: "2027-01-08" },
@@ -1951,7 +1963,11 @@ describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
         patch: { categoryId: meat },
       });
       expect(response.statusCode).toBe(422);
-      expect(response.json()).toEqual({ code: "invalid_entry", reason: "QuantityRequired" });
+      expect(response.json()).toEqual({
+        code: "invalid_entry",
+        reason: "QuantityRequired",
+        field: "quantity",
+      });
     });
 
     it("cadastro desconhecido ou de outra empresa: 422 UnknownReference", async () => {
@@ -2190,7 +2206,11 @@ describe("PATCH /api/entries/:id: edição com versão esperada (RF23)", () => {
         patch: { supplier: { id: foreign } },
       });
       expect(other.statusCode).toBe(422);
-      expect(other.json()).toEqual({ code: "invalid_entry", reason: "UnknownReference" });
+      expect(other.json()).toEqual({
+        code: "invalid_entry",
+        reason: "UnknownReference",
+        field: "supplier",
+      });
     });
   });
 

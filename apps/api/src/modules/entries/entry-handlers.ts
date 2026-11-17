@@ -27,6 +27,7 @@ import {
   pickUnit,
   planCorrection,
   type QrCodeReader,
+  RECENT_WINDOW_MS,
   type ReplyTarget,
   senderToActor,
   softDeleteEntry,
@@ -71,8 +72,6 @@ import {
 
 /** A pergunta de volta vale por 24 horas; depois nada é gravado (RF15.R3). */
 export const PENDING_QUESTION_TTL_MS = 24 * 60 * 60 * 1000;
-/** Janela do "desfazer" sozinho (RF18.R1) e da busca por duplicidade (RF12.R13). */
-export const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** Evita um prompt gigante em restaurante com milhares de fornecedores. */
 const MAX_CONTEXT_SUPPLIERS = 200;
 

@@ -60,6 +60,20 @@ const READ_BY_ALL: RouteCase["expected"] = {
  */
 const STALE_EDIT_BODY = { expectedVersion: 999, patch: { description: "Matriz" } };
 
+/**
+ * Criação: categoria que não existe leva quem pode lançar ao 422 (UnknownReference) sem gravar
+ * nada no cenário; chave nova a cada chamada (RF26.R3).
+ */
+const missingCategoryCreateBody = () => ({
+  clientRequestId: crypto.randomUUID(),
+  type: "expense",
+  occurredOn: "2026-11-05",
+  description: "Matriz",
+  amountCents: 100,
+  categoryId: crypto.randomUUID(),
+  unitId: crypto.randomUUID(),
+});
+
 export const ROUTE_MATRIX: readonly RouteCase[] = [
   {
     name: "GET /api/entries",
@@ -90,6 +104,23 @@ export const ROUTE_MATRIX: readonly RouteCase[] = [
     method: "GET",
     url: (f, persona) => `/api/entries/${f.entryIds[persona]}/source`,
     expected: READ_BY_ALL,
+  },
+  {
+    name: "POST /api/entries",
+    method: "POST",
+    url: () => "/api/entries",
+    body: missingCategoryCreateBody,
+    expected: {
+      owner: 422,
+      manager: 422,
+      managerNoPayroll: 422,
+      staff: 422,
+      // Contador não lança; conta somente leitura não grava (RF37).
+      accountant: 403,
+      restricted: 401,
+      readOnly: 403,
+      staffNoPanel: 401,
+    },
   },
   {
     name: "PATCH /api/entries/:id",
