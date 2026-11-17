@@ -145,7 +145,10 @@ export function EntryDrawer({ entryId, onClose }: { entryId: string | null; onCl
             </TabsContent>
             {/* A origem só é buscada quando a aba abre (o painel inativo não é montado). */}
             <TabsContent value="source">
-              <EntrySource entryId={entryId} />
+              <EntrySource
+                entryId={entryId}
+                created={{ by: detail.data.createdBy.name, at: detail.data.createdAt }}
+              />
             </TabsContent>
             <TabsContent value="history">
               <EntryHistory versions={detail.data.versions} />

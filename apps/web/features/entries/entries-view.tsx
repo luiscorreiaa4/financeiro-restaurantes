@@ -29,11 +29,14 @@ export function EntriesView({
   today,
   role,
   canSeeTrash = false,
+  canCreate = false,
 }: {
   today: string;
   role: string;
   /** Quem pode restaurar (RF24) ganha o botão da lixeira. */
   canSeeTrash?: boolean;
+  /** Quem pode lançar (`entry:create`) e tem conta gravável ganha "Novo lançamento" (RF26, RF37). */
+  canCreate?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -82,14 +85,21 @@ export function EntriesView({
     <section className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Lançamentos</h1>
-        {canSeeTrash && (
-          <Link
-            href="/lancamentos/lixeira"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Lixeira
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate && (
+            <Link href="/lancamentos/novo" className={buttonVariants({ size: "sm" })}>
+              Novo lançamento
+            </Link>
+          )}
+          {canSeeTrash && (
+            <Link
+              href="/lancamentos/lixeira"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Lixeira
+            </Link>
+          )}
+        </div>
       </div>
       <FiltersBar
         // Refaz o campo de busca quando a URL muda por fora (botão voltar, "Limpar filtros").
@@ -117,9 +127,14 @@ export function EntriesView({
           </Button>
         </div>
       ) : items.length === 0 ? (
-        <p className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
-          {EMPTY_MESSAGE}
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-lg border p-6 text-center text-sm text-muted-foreground">
+          <p>{EMPTY_MESSAGE}</p>
+          {canCreate && (
+            <Link href="/lancamentos/novo" className={buttonVariants({ size: "sm" })}>
+              Novo lançamento
+            </Link>
+          )}
+        </div>
       ) : (
         <>
           {canBatch && selected.size > 0 && (

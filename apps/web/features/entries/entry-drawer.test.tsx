@@ -150,6 +150,28 @@ describe("drawer do lançamento (RF25)", () => {
     expect(panel).toHaveTextContent("Este lançamento não veio de uma mensagem.");
   });
 
+  it("lançamento criado no painel diz quem lançou e quando, sem mensagem de origem (RF25.Obs3)", async () => {
+    const { user } = show({
+      detail: () =>
+        Promise.resolve(
+          detailFixture({
+            originChannel: "web",
+            createdBy: { id: "0193a1b2-0000-7000-8000-0000000000dd", name: "Ana" },
+            createdAt: "2026-11-03T12:00:00.000Z",
+          }),
+        ),
+      source: () =>
+        Promise.resolve(
+          sourceFixture({ channel: "web", kind: "none", text: null, sentBy: null, sentAt: null }),
+        ),
+    });
+    const panel = await openTab(user, "Origem");
+    expect(
+      await within(panel).findByText("Lançado manualmente no painel por Ana em 03/11/2026 09:00"),
+    ).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent("Este lançamento não veio de uma mensagem.");
+  });
+
   it("o histórico mostra quem, canal, ação e o antes e depois de cada campo (RF25.R4)", async () => {
     const { user } = show({
       detail: () =>

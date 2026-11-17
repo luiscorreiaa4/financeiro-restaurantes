@@ -249,6 +249,27 @@ describe("formulário de edição do lançamento", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 
+  it("unidade de medida antiga, fora da lista fechada, continua escolhida e não vai no envio (R6)", async () => {
+    const update = vi.fn().mockResolvedValue(detailFixture());
+    const { user } = show(detailFixture({ quantity: 2, quantityUnit: "kg" }), { update });
+    expect(screen.getByLabelText("Unidade de medida")).toHaveValue("kg");
+    const field = screen.getByLabelText("Descrição");
+    await user.clear(field);
+    await user.type(field, "Gás novo");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[1].patch).toEqual({ description: "Gás novo" });
+  });
+
+  it("a unidade de medida se escolhe numa lista fechada (RF12.R4)", async () => {
+    const update = vi.fn().mockResolvedValue(detailFixture());
+    const { user } = show(detailFixture({ quantity: 2, quantityUnit: "KG" }), { update });
+    await user.selectOptions(screen.getByLabelText("Unidade de medida"), "CX");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(update.mock.calls[0]?.[1].patch).toEqual({ quantityUnit: "CX" });
+  });
+
   it("a unidade e a categoria atuais vêm selecionadas", () => {
     show();
     expect(screen.getByLabelText("Categoria")).toHaveValue(CATEGORY);

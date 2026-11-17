@@ -1,3 +1,4 @@
+import { toQuantityUnit } from "@app/core";
 import type { EntryDetail, EntryOptions, EntryPatch } from "@app/core/contracts";
 import type { SupplierChoice } from "./supplier-field";
 
@@ -85,7 +86,8 @@ export function buildPatch(values: EntryFormValues, entry: EntryDetail): EntryPa
       values.quantity.trim() === "" ? null : Number(values.quantity.replace(",", "."));
   }
   if (values.quantityUnit !== (entry.quantityUnit ?? "")) {
-    patch.quantityUnit = values.quantityUnit.trim() === "" ? null : values.quantityUnit.trim();
+    // Ponte até a C9 trocar o campo por uma lista fechada (RF12.R4): texto fora da lista vira nulo.
+    patch.quantityUnit = toQuantityUnit(values.quantityUnit);
   }
   return patch as EntryPatch;
 }

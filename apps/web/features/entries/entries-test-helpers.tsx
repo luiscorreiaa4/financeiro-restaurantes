@@ -85,6 +85,7 @@ export function fakeEntriesApi(overrides: Partial<EntriesApi> = {}): EntriesApi 
     detail: missing,
     source: missing,
     update: missing,
+    create: missing,
     remove: missing,
     restore: missing,
     batchPreview: missing,

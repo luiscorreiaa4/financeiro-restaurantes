@@ -11,7 +11,7 @@ import {
   itemFixture,
   renderWithEntries,
 } from "./entries-test-helpers";
-import { EntriesView } from "./entries-view";
+import { EMPTY_MESSAGE, EntriesView } from "./entries-view";
 
 const nav = vi.hoisted(() => ({ search: "", push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -333,5 +333,33 @@ describe("botão da lixeira (RF24)", () => {
     renderWithEntries(<EntriesView today={TODAY} role={role} />);
     await screen.findByRole("heading", { name: "Lançamentos" });
     expect(screen.queryByRole("link", { name: "Lixeira" })).toBeNull();
+  });
+});
+
+describe("botão de novo lançamento (RF26)", () => {
+  it("quem pode lançar vê o link para o formulário, no topo e no estado vazio", async () => {
+    const role = "owner";
+    renderWithEntries(<EntriesView today={TODAY} role={role} canCreate />);
+    expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: "Novo lançamento" });
+    expect(links).toHaveLength(2);
+    for (const link of links) expect(link).toHaveAttribute("href", "/lancamentos/novo");
+  });
+
+  it("sem permissão ou com a conta somente leitura não há botão", async () => {
+    const role = "accountant";
+    renderWithEntries(<EntriesView today={TODAY} role={role} />);
+    await screen.findByText(EMPTY_MESSAGE);
+    expect(screen.queryByRole("link", { name: "Novo lançamento" })).toBeNull();
+  });
+
+  it("com lançamentos na lista há só o botão do topo", async () => {
+    const role = "owner";
+    renderWithEntries(
+      <EntriesView today={TODAY} role={role} canCreate />,
+      fakeEntriesApi({ list: () => Promise.resolve({ items: [itemFixture()], nextCursor: null }) }),
+    );
+    await screen.findByRole("heading", { name: "Lançamentos" });
+    expect(screen.getAllByRole("link", { name: "Novo lançamento" })).toHaveLength(1);
   });
 });

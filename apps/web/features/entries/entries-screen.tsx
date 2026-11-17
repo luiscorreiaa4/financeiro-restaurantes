@@ -1,5 +1,6 @@
 "use client";
 
+import { accountAllows } from "@app/core";
 import { Suspense, useMemo } from "react";
 import { browserApi } from "@/lib/api/browser-client";
 import { contextHeaderOf, type FullMe } from "@/lib/api/me-contract";
@@ -21,6 +22,10 @@ export function EntriesScreen({ me, today }: { me: FullMe; today: string }) {
           today={today}
           role={me.context.role}
           canSeeTrash={me.context.allowedActions.includes("entry:restore")}
+          canCreate={
+            me.context.allowedActions.includes("entry:create") &&
+            accountAllows(me.context.accountStatus, me.context.role).write
+          }
         />
       </Suspense>
     </EntriesProvider>

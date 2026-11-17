@@ -1,6 +1,7 @@
 import {
   type BatchPreview,
   batchPreviewSchema,
+  type EntryCreateBody,
   type EntryDetail,
   type EntryListQueryInput,
   type EntryListResponse,
@@ -9,6 +10,7 @@ import {
   type EntryStale,
   type EntryTotals,
   type EntryUpdateBodyInput,
+  entryAlreadySubmittedSchema,
   entryDetailSchema,
   entryListResponseSchema,
   entryOptionsSchema,
@@ -28,6 +30,8 @@ export type EntriesApi = {
   options(): Promise<EntryOptions>;
   detail(id: string): Promise<EntryDetail>;
   source(id: string): Promise<EntrySource>;
+  /** Criação pelo painel (RF26): `clientRequestId` torna o reenvio idempotente (200 com o mesmo lançamento). */
+  create(body: EntryCreateBody): Promise<EntryDetail>;
   /** Edição com versão esperada (RF23): 409 `entry_stale` traz o detalhe atual (`isEntryStale`). */
   update(id: string, body: EntryUpdateBodyInput): Promise<EntryDetail>;
   remove(id: string, reason?: string): Promise<EntryDetail>;
@@ -65,6 +69,15 @@ export function isEntryStale(e: unknown): EntryDetail | null {
   return parsed.success ? (parsed.data satisfies EntryStale).current : null;
 }
 
+/** 409 da criação: a tentativa já foi gravada, mas o ator não enxerga mais o lançamento. */
+export function isAlreadySubmitted(e: unknown): boolean {
+  return (
+    e instanceof ApiError &&
+    e.status === 409 &&
+    entryAlreadySubmittedSchema.safeParse(e.body).success
+  );
+}
+
 /** Leitura de lançamentos (`/api/entries*`). Toda resposta é validada contra o contrato. */
 export function entriesApi(client: ApiClient): EntriesApi {
   return {
@@ -74,6 +87,7 @@ export function entriesApi(client: ApiClient): EntriesApi {
     options: () => client.get("/api/entries/options", entryOptionsSchema),
     detail: (id) => client.get(`/api/entries/${encodeURIComponent(id)}`, entryDetailSchema),
     source: (id) => client.get(`/api/entries/${encodeURIComponent(id)}/source`, entrySourceSchema),
+    create: (body) => client.post("/api/entries", body, entryDetailSchema),
     update: (id, body) =>
       client.patch(`/api/entries/${encodeURIComponent(id)}`, body, entryDetailSchema),
     remove: (id, reason) =>

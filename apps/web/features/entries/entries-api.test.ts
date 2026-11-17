@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError, createApiClient } from "@/lib/api/client";
-import { entriesApi, isEntryStale } from "./entries-api";
+import { entriesApi, isAlreadySubmitted, isEntryStale } from "./entries-api";
 import { detailFixture } from "./entries-test-helpers";
 
 const ENTRY_ID = "0193a1b2-0000-7000-8000-000000000001";
@@ -192,6 +192,43 @@ describe("cliente de escrita de lançamentos", () => {
       .catch((e: unknown) => e);
     expect(isEntryStale(other)).toBeNull();
     expect(isEntryStale(new Error("x"))).toBeNull();
+  });
+
+  const createBody = {
+    clientRequestId: "0193a1b2-0000-7000-8000-0000000000ee",
+    type: "expense" as const,
+    occurredOn: "2026-11-03",
+    description: "Gás",
+    amountCents: 45000,
+    categoryId: "0193a1b2-0000-7000-8000-0000000000cc",
+    unitId: UNIT,
+  };
+
+  it("create envia POST com a chave da tentativa e valida o detalhe devolvido", async () => {
+    const { api, fetchImpl } = writeSetup(jsonResponse(201, detail));
+    const created = await api.create(createBody);
+    expect(created.id).toBe(ENTRY_ID);
+    const { url, init } = call(0, fetchImpl);
+    expect(url).toBe("/api/entries");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(createBody);
+  });
+
+  it("isAlreadySubmitted reconhece só o 409 already_submitted (e não o context_changed)", async () => {
+    const { api } = writeSetup(
+      jsonResponse(409, { code: "already_submitted" }),
+      jsonResponse(409, { code: "context_changed" }),
+    );
+    const submitted = await api.create(createBody).catch((e: unknown) => e);
+    expect(isAlreadySubmitted(submitted)).toBe(true);
+    const other = await api.create(createBody).catch((e: unknown) => e);
+    expect(isAlreadySubmitted(other)).toBe(false);
+    expect(isAlreadySubmitted(new Error("x"))).toBe(false);
+  });
+
+  it("create com resposta fora do contrato vira ApiError", async () => {
+    const { api } = writeSetup(jsonResponse(201, { id: "x" }));
+    await expect(api.create(createBody)).rejects.toBeInstanceOf(ApiError);
   });
 
   it("resposta de escrita fora do contrato vira ApiError", async () => {

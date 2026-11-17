@@ -8,6 +8,7 @@ import type { EntriesApi } from "./entries-api";
 import { detailFixture } from "./entries-test-helpers";
 import {
   EntriesProvider,
+  useCreateEntry,
   useEntries,
   useEntryDetail,
   useEntryTotals,
@@ -41,6 +42,7 @@ function fakeApi(overrides: Partial<EntriesApi> = {}): EntriesApi {
     detail: unused,
     source: unused,
     update: unused,
+    create: unused,
     remove: unused,
     restore: unused,
     batchPreview: unused,
@@ -142,5 +144,31 @@ describe("mutações de lançamentos", () => {
     });
     expect(remove).toHaveBeenCalledWith(detail.id, "duplicado");
     expect(spy).toHaveBeenCalled();
+  });
+});
+
+describe("criação de lançamento", () => {
+  it("criar chama a API com o corpo e invalida as consultas de lançamentos", async () => {
+    const detail = detailFixture({ id: "0193a1b2-0000-7000-8000-000000000001" });
+    const create = vi.fn().mockResolvedValue(detail);
+    const { client, wrapper } = setup(fakeApi({ create }));
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useCreateEntry(), { wrapper });
+    const body = {
+      clientRequestId: "0193a1b2-0000-7000-8000-0000000000ee",
+      type: "expense" as const,
+      occurredOn: "2026-11-03",
+      description: "Gás",
+      amountCents: 45000,
+      categoryId: "0193a1b2-0000-7000-8000-0000000000cc",
+      unitId: UNIT,
+    };
+    await act(async () => {
+      await result.current.mutateAsync(body);
+    });
+    expect(create).toHaveBeenCalledWith(body);
+    expect(spy).toHaveBeenCalledWith({
+      queryKey: tenantKey({ tenantId: TENANT, unitId: UNIT }, "entries"),
+    });
   });
 });

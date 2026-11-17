@@ -19,7 +19,14 @@ function Quote({ label, text }: { label: string; text: string }) {
  * Aba Origem (RF25): de onde o lançamento veio. No F3a mostra texto, transcrição e chave de
  * acesso; o áudio e a imagem ficam para a E10 (pendência F3-1).
  */
-export function EntrySource({ entryId }: { entryId: string }) {
+export function EntrySource({
+  entryId,
+  created,
+}: {
+  entryId: string;
+  /** Quem criou e quando (do detalhe): a origem do lançamento do painel é a criação (RF25.Obs3). */
+  created?: { by: string; at: string };
+}) {
   const source = useEntrySource(entryId);
 
   if (source.isPending) {
@@ -53,11 +60,16 @@ export function EntrySource({ entryId }: { entryId: string }) {
         <p className="rounded-md border p-2 text-sm">Contém informação restrita</p>
       ) : (
         <>
-          {data.kind === "none" && (
-            <p className="text-sm text-muted-foreground">
-              Este lançamento não veio de uma mensagem.
-            </p>
-          )}
+          {data.kind === "none" &&
+            (data.channel === "web" && created !== undefined ? (
+              <p className="text-sm">
+                Lançado manualmente no painel por {created.by} em {formatInstant(created.at)}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Este lançamento não veio de uma mensagem.
+              </p>
+            ))}
           {data.text !== null && <Quote label="Texto original" text={data.text} />}
           {data.transcription !== null && <Quote label="Transcrição" text={data.transcription} />}
           {data.accessKey !== null && (

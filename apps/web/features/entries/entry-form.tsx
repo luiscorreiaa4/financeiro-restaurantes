@@ -1,5 +1,6 @@
 "use client";
 
+import { QUANTITY_UNITS } from "@app/core";
 import { type EntryDetail, type EntryOptions, entryPatchSchema } from "@app/core/contracts";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -22,7 +23,7 @@ import { SupplierField } from "./supplier-field";
 import { useUpdateEntry } from "./use-entries";
 
 /** Mensagem do 422 `invalid_entry`, por código de domínio, e o campo que ela aponta. */
-const DOMAIN_ERRORS: Record<string, { field: FormField | null; message: string }> = {
+export const DOMAIN_ERRORS: Record<string, { field: FormField | null; message: string }> = {
   DateTooFarAhead: {
     field: "occurredOn",
     message: "A data pode ser no máximo 60 dias à frente de hoje.",
@@ -35,9 +36,23 @@ const DOMAIN_ERRORS: Record<string, { field: FormField | null; message: string }
     message: "Algum cadastro escolhido não existe mais. Recarregue o lançamento.",
   },
   NothingToChange: { field: null, message: "Nenhuma alteração para salvar." },
+  AmountNotPositive: { field: "amountCents", message: "Informe um valor maior que zero." },
+  MoneyOverflow: { field: "amountCents", message: "O valor informado é grande demais." },
+  InvalidQuantity: { field: "quantity", message: "Informe uma quantidade válida." },
+  InvalidOrders: { field: "orders", message: "Informe um número inteiro maior que zero." },
+  DescriptionEmpty: {
+    field: "description",
+    message: "A descrição ficou vazia depois de omitir números sensíveis.",
+  },
+  CategoryTypeMismatch: {
+    field: "categoryId",
+    message: "A categoria não combina com o tipo do lançamento.",
+  },
+  SalesChannelRequired: { field: "salesChannelId", message: "Escolha o canal de venda." },
+  UnitInactive: { field: "unitId", message: "Esta unidade está inativa." },
 };
 
-const FALLBACK_ERROR = "Não foi possível salvar. Tente de novo.";
+export const FALLBACK_ERROR = "Não foi possível salvar. Tente de novo.";
 
 /** Edição do lançamento no painel (RF23). Só é montado para quem tem `canEdit`. */
 export function EntryForm({
@@ -63,6 +78,8 @@ export function EntryForm({
   const sending = useRef(false);
   const type = watch("type");
   const busy = update.isPending;
+  // Unidade de medida antiga, fora da lista fechada: continua escolhida e não vai no patch (R6).
+  const legacyUnit = entry.quantityUnit ?? "";
 
   function apiMessage(error: ApiError, field: FormField | null): string {
     const body = error.body as { code?: unknown; reason?: unknown } | undefined;
@@ -249,12 +266,21 @@ export function EntryForm({
           />
         </Field>
         <Field id="entry-quantity-unit" label="Unidade de medida" error={message("quantityUnit")}>
-          <Input
+          <NativeSelect
             id="entry-quantity-unit"
-            maxLength={20}
             aria-invalid={invalid("quantityUnit")}
             {...register("quantityUnit")}
-          />
+          >
+            <option value="">Nenhuma</option>
+            {legacyUnit !== "" && !QUANTITY_UNITS.some((unit) => unit === legacyUnit) && (
+              <option value={legacyUnit}>{legacyUnit}</option>
+            )}
+            {QUANTITY_UNITS.map((unit) => (
+              <option key={unit} value={unit}>
+                {unit}
+              </option>
+            ))}
+          </NativeSelect>
         </Field>
         <Field id="entry-unit" label="Unidade" error={message("unitId")}>
           <NativeSelect id="entry-unit" {...register("unitId")}>

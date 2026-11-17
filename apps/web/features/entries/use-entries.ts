@@ -1,6 +1,11 @@
 "use client";
 
-import type { EntryDetail, EntryListQuery, EntryUpdateBodyInput } from "@app/core/contracts";
+import type {
+  EntryCreateBody,
+  EntryDetail,
+  EntryListQuery,
+  EntryUpdateBodyInput,
+} from "@app/core/contracts";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, createElement, type ReactNode, useContext, useMemo } from "react";
 import { tenantKey } from "@/lib/query/keys";
@@ -103,6 +108,10 @@ function useEntriesMutation<TVars, TData>(run: (api: EntriesApi, vars: TVars) =>
     mutationFn: (vars: TVars) => run(api, vars),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: tenantKey(ctx, "entries") }),
   });
+}
+
+export function useCreateEntry() {
+  return useEntriesMutation((api, body: EntryCreateBody) => api.create(body));
 }
 
 export function useUpdateEntry() {
