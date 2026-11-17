@@ -7,6 +7,7 @@ import type { PanelDeps } from "./http/panel/panel-context";
 import { panelRoutes } from "./http/panel/panel-routes";
 import { type ProfileRoutesDeps, profileRoutes } from "./http/profile/profile-routes";
 import { type RecoveryRoutesDeps, recoveryRoutes } from "./http/recovery/recovery-routes";
+import { reportsRoutes } from "./http/reports/reports-routes";
 import { type SignupRoutesDeps, signupRoutes } from "./http/signup/signup-routes";
 import { type WhatsAppWebhookDeps, whatsappWebhookRoutes } from "./http/webhooks/whatsapp";
 
@@ -59,6 +60,8 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL" | "APP_URL">, deps: AppDeps 
   if (deps.profile) app.register(profileRoutes, { deps: deps.profile });
   if (deps.panel) app.register(panelRoutes, { deps: deps.panel });
   if (deps.entries) app.register(entriesRoutes, { deps: deps.entries });
+  // Relatórios do dashboard (F4, RF27): só precisam do contexto do painel, as mesmas deps.
+  if (deps.entries) app.register(reportsRoutes, { deps: deps.entries });
 
   return app;
 }
