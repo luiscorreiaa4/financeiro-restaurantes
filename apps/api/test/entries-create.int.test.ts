@@ -26,6 +26,10 @@ let unitB: string;
 let categoryA: string;
 let payrollA: string;
 let categoryB: string;
+let paymentB: string;
+let channelB: string;
+let revenueA: string;
+let supplierB: string;
 let supplierA: string;
 let owner: Who;
 let manager: Who;
@@ -165,6 +169,18 @@ async function created(who: Who, overrides: Record<string, unknown> = {}): Promi
   return entryDetailSchema.parse(response.json());
 }
 
+/** Espera até alguma consulta ficar presa num lock do banco (a requisição na fila do índice). */
+async function waitUntilBlocked(): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    const blocked = await admin(
+      "select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' limit 1",
+    );
+    if (blocked.rowCount) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("nenhuma consulta ficou presa no lock");
+}
+
 async function countEntries(where: string, params: unknown[]): Promise<number> {
   const result = await admin(`select count(*)::int as n from entries where ${where}`, params);
   return result.rows[0].n;
@@ -191,6 +207,26 @@ beforeAll(async () => {
   const b = await addTenant("Empresa B", [["Unidade da B"]]);
   unitB = b.ids[0] as string;
   categoryB = await addCategory(b.tenantId, "Categoria da B");
+  revenueA = uuidv7();
+  await admin(
+    "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, $2, 'Vendas A', 'revenue', 'receita_bruta')",
+    [revenueA, tenantA],
+  );
+  paymentB = uuidv7();
+  channelB = uuidv7();
+  supplierB = uuidv7();
+  await admin(
+    "insert into payment_methods (id, tenant_id, name, fee_percent_bp, fee_fixed_cents, type) values ($1, $2, 'Pix da B', 0, 0, 'pix')",
+    [paymentB, b.tenantId],
+  );
+  await admin("insert into sales_channels (id, tenant_id, name) values ($1, $2, 'Canal da B')", [
+    channelB,
+    b.tenantId,
+  ]);
+  await admin("insert into suppliers (id, tenant_id, name) values ($1, $2, 'Fornecedor da B')", [
+    supplierB,
+    b.tenantId,
+  ]);
 
   owner = await addMember(tenantA, "owner");
   manager = await addMember(tenantA, "manager", {
@@ -297,7 +333,7 @@ describe("POST /api/entries: criação (RF26)", () => {
         [uuidv7(), tenantA, winnerId, owner.userId],
       );
       response = post(owner, body({ clientRequestId: key, supplier: { name: supplierName } }));
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await waitUntilBlocked();
       await client.query("commit");
     } catch (error) {
       await client.query("rollback");
@@ -313,6 +349,87 @@ describe("POST /api/entries: criação (RF26)", () => {
       supplierName,
     ]);
     expect(suppliers.rows[0].n).toBe(0);
+  });
+
+  it("F3b-1: fornecedor novo com nome criado por outra requisição ainda sem commit associa o dela, sem duplicar", async () => {
+    const supplierName = `Fornecedor corrida F3b1 ${uuidv7()}`;
+    const existingId = uuidv7();
+    const client = await h.db.admin.connect();
+    let response: Promise<Awaited<ReturnType<typeof post>>> | undefined;
+    try {
+      await client.query("begin");
+      // A "outra requisição" já criou o fornecedor, mas ainda não commitou: o catálogo do POST
+      // não o vê e o INSERT dele bloqueia no índice único até o commit.
+      await client.query("insert into suppliers (id, tenant_id, name) values ($1, $2, $3)", [
+        existingId,
+        tenantA,
+        supplierName,
+      ]);
+      response = post(owner, body({ supplier: { name: `  ${supplierName.toUpperCase()}  ` } }));
+      await waitUntilBlocked();
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+    const result = await response;
+    expect(result?.statusCode, result?.body).toBe(201);
+    expect(result?.json().supplier).toMatchObject({ id: existingId });
+    const suppliers = await admin(
+      "select count(*)::int as n from suppliers where tenant_id = $1 and lower(name) = lower($2)",
+      [tenantA, supplierName],
+    );
+    expect(suppliers.rows[0].n).toBe(1);
+  });
+
+  it("F3b-1: na edição, fornecedor novo criado por outra requisição no meio do caminho responde 409 supplier_conflict, e repetir associa o existente", async () => {
+    const entry = await created(owner);
+    const supplierName = `Fornecedor edição F3b1 ${uuidv7()}`;
+    const existingId = uuidv7();
+    const edit = () =>
+      h.app.inject({
+        method: "PATCH",
+        url: `/api/entries/${entry.id}`,
+        remoteAddress: nextIp(),
+        headers: {
+          origin: h.origin,
+          "user-agent": "vitest",
+          cookie: `${owner.session}; ${CTX}=${owner.ctx}`,
+          "x-context": owner.ctx,
+          "content-type": "application/json",
+        },
+        payload: JSON.stringify({
+          expectedVersion: 1,
+          patch: { supplier: { name: supplierName } },
+          markReviewed: false,
+        }),
+      });
+    const client = await h.db.admin.connect();
+    let response: ReturnType<typeof edit> | undefined;
+    try {
+      await client.query("begin");
+      await client.query("insert into suppliers (id, tenant_id, name) values ($1, $2, $3)", [
+        existingId,
+        tenantA,
+        supplierName,
+      ]);
+      response = edit();
+      await waitUntilBlocked();
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+    const first = await response;
+    expect(first?.statusCode, first?.body).toBe(409);
+    expect(first?.json()).toEqual({ code: "supplier_conflict" });
+    const again = await edit();
+    expect(again.statusCode, again.body).toBe(200);
+    expect(again.json().supplier).toMatchObject({ id: existingId });
   });
 
   it("R8: a mesma chave de outro usuário e de outra empresa não colide nem revela nada", async () => {
@@ -402,6 +519,21 @@ describe("POST /api/entries: permissões e sensível", () => {
     });
   });
 
+  it("forma, canal e fornecedor de outra empresa respondem 422 UnknownReference no campo", async () => {
+    const payment = await post(owner, body({ paymentMethodId: paymentB }));
+    expect(payment.statusCode).toBe(422);
+    expect(payment.json()).toMatchObject({ reason: "UnknownReference", field: "paymentMethodId" });
+    const channel = await post(
+      owner,
+      body({ type: "revenue", categoryId: revenueA, salesChannelId: channelB }),
+    );
+    expect(channel.statusCode).toBe(422);
+    expect(channel.json()).toMatchObject({ reason: "UnknownReference", field: "salesChannelId" });
+    const supplier = await post(owner, body({ supplier: { id: supplierB } }));
+    expect(supplier.statusCode).toBe(422);
+    expect(supplier.json()).toMatchObject({ reason: "UnknownReference", field: "supplier" });
+  });
+
   it("unidade de outra empresa ou inexistente responde 422 no campo unitId", async () => {
     const response = await post(owner, body({ unitId: uuidv7() }));
     expect(response.statusCode).toBe(422);
@@ -457,16 +589,18 @@ describe("POST /api/entries: entradas de risco (Review Focus)", () => {
     expect(detail.flags).toContain("old_date");
   });
 
-  it("R2: 2026-02-30 responde erro de cliente, nunca 500", async () => {
+  it("R2: 2026-02-30 responde 400, nunca 500", async () => {
     const response = await post(owner, body({ occurredOn: "2026-02-30" }));
-    expect([400, 422]).toContain(response.statusCode);
+    expect(response.statusCode).toBe(400);
   });
 
-  it("R2: valor 9007199254740991 nunca derruba a rota com 500", async () => {
-    // Decisão do orquestrador: o teto de dinheiro do sistema inteiro é Number.MAX_SAFE_INTEGER
-    // (parse-brl, createEntry), então este valor é aceito (201). Aqui só se prova que não há 500.
-    const response = await post(owner, body({ amountCents: 9_007_199_254_740_991 }));
-    expect(response.statusCode).toBeLessThan(500);
+  it("R2 e F3c-3: o teto é R$ 100 milhões; um centavo acima responde 400 e valor enorme nunca dá 500", async () => {
+    const atCap = await post(owner, body({ amountCents: 10_000_000_000 }));
+    expect(atCap.statusCode).toBe(201);
+    const over = await post(owner, body({ amountCents: 10_000_000_001 }));
+    expect(over.statusCode).toBe(400);
+    const huge = await post(owner, body({ amountCents: 9_007_199_254_740_991 }));
+    expect(huge.statusCode).toBe(400);
   });
 
   it("quantidade com 4 casas decimais responde 422 no campo quantity", async () => {
