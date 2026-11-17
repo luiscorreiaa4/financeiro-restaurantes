@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 16/11/2026 (F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -28,7 +28,7 @@ Legenda de confiança, usada em todo o documento:
 | pós-F2 (não é etapa Fn) | **Feito (11/11/2026)** | Entrada no painel com três resultados, hook global de `Origin`, telas de acesso com sessão aberta, `pnpm lint` verde (DD-33). Ver `docs/superpowers/plans/2026-11-11-pos-f2.md`. |
 | F3 Lançamentos | **Feita: F3a (14/11/2026) e F3b (16/11/2026)** | F3a ("ver"): lista com filtros na URL, ordenação pelo servidor (DD-35), totais do servidor, detalhe, origem (texto, transcrição, chave) e histórico; contrato em `@app/core/contracts`, leitor `entryReader`, rotas `/api/entries*` com `requireEntryAction`, `features/entries` no web, migration 0018 (índices). F3b ("mudar"): edição com versão esperada e aviso de conflito (RF23), exclusão com motivo, exclusão em lote só de dono e gerente com quantidade e soma do servidor, lixeira de 30 dias com restauração em `/lancamentos/lixeira` (RF24); `PATCH`, `DELETE`, `restore`, `batch/*` e `GET /api/trash`, `preparePanelEdit` no core, `MoneyInput` e API falsa com escrita no E2E. Desenho: `docs/superpowers/specs/2026-11-13-f3-lancamentos-design.md`; planos: `docs/superpowers/plans/2026-11-13-f3a-lancamentos-ver.md` e `2026-11-13-f3b-lancamentos-mudar.md` |
 | F3c Lançamento manual (RF26) | **Feita (16/11/2026)** | Formulário em `/lancamentos/novo` ("Salvar" e "Salvar e lançar outro"), `POST /api/entries` com idempotência por tentativa (`entries.client_request_id`, migration 0019), sinais `possible_duplicate` (função única `isPossibleDuplicate` no core, candidatos no recorte do ator) e `old_date`, criação com canal `web` (versão 1 é a origem), opções com cadastro ativo, canal padrão e fuso da unidade, aba Origem do canal web, unidade de medida em lista fechada também na edição. DD-37; desenho em `docs/superpowers/specs/2026-11-16-f3c-lancamento-manual-design.md`, plano em `docs/superpowers/plans/2026-11-16-f3c-lancamento-manual.md` |
-| F4 Dashboard | A fazer | |
+| F4 Dashboard | **Feita (17/11/2026)** | Dashboard do RF27 com três rotas de agregação `GET /api/reports/summary`, `/monthly` e `/breakdown` (guarda `report:view`, recorte por papel, `reportReader` com `FILTER` e `GROUP BY`, sem migration), contas dos indicadores em `packages/core/src/reports` e contrato `.strict()` em `@app/core/contracts`. Cartões, quatro gráficos com tabela alternativa, filtros e estado na URL, estado vazio com link para o WhatsApp, `/` redireciona por permissão e axe no E2E. Desempenho medido com 100 mil lançamentos: bloco mais lento em 105 ms. DD-41, requisitos 1.19; desenho em `docs/superpowers/specs/2026-11-17-f4-dashboard-design.md`, plano em `docs/superpowers/plans/2026-11-17-f4-dashboard.md` |
 | F5 Exportação Excel/CSV | A fazer | Escolher a biblioteca de planilha (D-F7) |
 | F6 Configurações | A fazer | |
 | F7 PWA e responsividade | A fazer | |
@@ -36,7 +36,7 @@ Legenda de confiança, usada em todo o documento:
 | F9 Assinatura, plano e encerramento da conta (RF37) | A fazer (nova, 29/10/2026) | Depende da F1 (conta com plano e situação). Preços e limites: `[PROVISÓRIO – P03]` |
 | F10 Painel interno de operação (RF38) | A fazer (nova, 29/10/2026) | Usa `ai_usage` do canal (E6 em diante). Recebe o **código de indicação** (RF01.R14), adiado da F1b (DD-25) |
 | F11 v1.1 do painel (RF28 PDF, RF30) | Só listada | DRE em PDF e perguntas em linguagem natural; depois do piloto (o RF26 saiu daqui, DD-37) |
-| F12 Imposto estimado e DRE na tela (RF39, RF28 tela) | A fazer (**MVP**; nova, 05/11/2026) | Configuração de regime e parâmetros, cálculo por vigência no `core`, aviso de estimativa. Regras e parâmetros: P16, P17 (Matheus). Depende da F4 |
+| F12 Imposto estimado e DRE na tela (RF39, RF28 tela) | A fazer (**MVP**; nova, 05/11/2026) | Configuração de regime e parâmetros, cálculo por vigência no `core`, aviso de estimativa. Regras e parâmetros: P16, P17 (Matheus). Depende da F4. Recebe o cálculo e o cartão do imposto estimado no dashboard (DD-41) |
 | F13 Acesso do contador e importações no painel (RF36, RF35, RF31 manual) | A fazer (**MVP**; nova, 05/11/2026) | Convite com aviso de folha, lista de empresas do contador, upload de planilha, OFX e XML. Depende da F2 e da E14 do canal |
 
 ### Requisitos por etapa
@@ -255,7 +255,7 @@ Cada etapa do front traz o seu pedaço da API. Todos os endpoints validam entrad
 | `POST /api/entries/:id/restore` | F3 | `entry:restore`. Só dentro de `restorable_until` |
 | `POST /api/entries/batch/preview` | F3 | `entry:delete`. `{ ids }` → quantidade e soma, calculadas no servidor |
 | `POST /api/entries/batch/delete` | F3 | `entry:delete`. Só dono e gerente (RF24.Obs3); tudo ou nada; até 100 ids |
-| `GET /api/reports/summary`, `/by-category`, `/monthly` | F4 | Agregações calculadas no banco |
+| `GET /api/reports/summary`, `/breakdown`, `/monthly` | F4 | Agregações calculadas no banco |
 | `POST /api/exports` e `GET /api/exports/:id` | F5 | Cria job e informa estado e link assinado |
 | `GET /api/trash` | F3 | `entry:restore`. Filtros: período de exclusão, unidade, quem excluiu; cursor. Lixeira de 30 dias (RF24) |
 | `GET/POST/PATCH /api/members` | F6 | Convite por telefone, papéis, unidades de acesso e permissões adicionais (RF05) |
@@ -366,9 +366,9 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 
 ### F4: Dashboard — G
 
-**Entrega os requisitos:** RF27 (dashboard). Critérios: RF27.CA01 a CA05.
+**Entrega os requisitos:** RF27 (dashboard). Critérios: RF27.CA01 a CA08.
 
-**Mudança pelos requisitos v1.0:** os indicadores ficam fixados no RF27: receita bruta, deduções, receita líquida, despesas operacionais, resultado, margem, CMV sobre a receita, folha sobre a receita (só para quem vê folha; a API nem envia o indicador aos demais) e investimentos (fora do resultado). Ticket médio e ponto de equilíbrio dependem de dados ainda não coletados (P09). O tratamento de impostos sobre faturamento é `[PROVISÓRIO – P05]`: isolar em constante.
+**Mudança pelos requisitos v1.0:** os indicadores ficam fixados no RF27: receita bruta, deduções, receita líquida, despesas operacionais, resultado, margem, CMV sobre a receita, folha sobre a receita (só para quem vê folha; a API nem envia o indicador aos demais) e investimentos (fora do resultado). Ticket médio e ponto de equilíbrio entram (DD-13, P09 fechada). O tratamento de impostos sobre faturamento é `[PROVISÓRIO – P05]`: isolar em constante.
 
 **Entregas**
 - Indicadores do RF27, com variação em relação a "Comparar com" (período anterior ou mesmo período do ano anterior).
@@ -377,8 +377,9 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 - **Todos os números vêm de endpoints de agregação**; o front não soma dinheiro.
 - Alternativa em tabela para cada gráfico (acessibilidade) e estados vazios úteis ("ainda não há lançamentos neste período").
 - Carregamento em streaming por cartão (`<Suspense>` por bloco) ✅, sem `use cache` compartilhado para dados do tenant.
+- Imposto estimado: só o lugar no contrato; cálculo e cartão na F12 (DD-41).
 
-**Testes:** unitário dos mapeadores de dados para o formato dos gráficos; **reconciliação:** cada total do dashboard bate com uma consulta SQL independente; E2E com seed fixo conferindo valores exatos na tela; verificação de acessibilidade; teste de que um papel sem permissão não recebe o indicador de folha na resposta da API (não só some da tela).
+**Testes:** unitário dos mapeadores de dados para o formato dos gráficos; **reconciliação:** cada total do dashboard bate com uma consulta SQL independente; E2E com seed fixo conferindo valores exatos na tela; axe no E2E (DD-41); teste de que um papel sem permissão não recebe o indicador de folha na resposta da API (não só some da tela).
 
 **Pronto quando:** os totais da tela são idênticos aos do banco para o seed de referência.
 

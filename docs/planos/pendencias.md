@@ -52,7 +52,7 @@
 |---|---|---|---|
 | F1-1 | P12: ajustes do plano (autocadastro, senha, papel Contador) | F1, F2, F6 | [andamento §6](andamento.md#6-painel) · [requisitos §5](../requisitos.md#5-pendências-e-decisões-em-aberto) |
 | F1-2 | D-F7 (biblioteca de planilha), a única D-F aberta | F5 | [andamento §6](andamento.md#6-painel) |
-| F1-3 | Reunião de 05/11: contador, canal padrão, ticket médio, F12 e F13 | F2, F4, F6, F12, F13 | [andamento §6](andamento.md#6-painel) |
+| F1-3 | Reunião de 05/11: contador, canal padrão, ticket médio (feito na F4), F12 e F13 | F2, F4, F6, F12, F13 | [andamento §6](andamento.md#6-painel) |
 
 ### F1a
 
@@ -109,6 +109,14 @@
 | F3-5 | Restam dois limites: "hoje" da lixeira e do período usa `America/Sao_Paulo`, não o fuso da unidade, e as opções de filtro não escondem cadastro inativo (importa para o formulário de edição) | F6 | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-1 | Sugestão de categoria no formulário do RF26 (fora do MVP, DD-37) | Depois do piloto | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-8 | Mais formas de pagamento e canais padrão, com vários tipos de delivery (WhatsApp, site, iFood…); ligada a P07 | Decisão (Matheus) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+
+### F4
+
+| ID | Pendência | Resolver em | Detalhe |
+|---|---|---|---|
+| F4-1 | Balde "Pessoal (restrito)" do gráfico por categoria mostra participação, o que deixa deduzir a folha (RF28.Obs4) | Decisão (Luís e Matheus) | [andamento §6](andamento.md#6-painel) · bloco "F4" |
+| F4-2 | `setErrorHandler` de `reports-routes.ts` converte 4xx em `invalid_request` | antes do piloto | [andamento §6](andamento.md#6-painel) · bloco "F4" |
+| F4-3 | Imposto estimado e seu cartão no dashboard | F12 | [andamento §6](andamento.md#6-painel) · bloco "F4" |
 
 ### Pós-F2
 
