@@ -48,7 +48,12 @@ describe("valor digitado em reais vira centavos", () => {
     expect(cents("0,29")).toBe(29);
     expect(cents("1,15")).toBe(115);
     expect(cents("4,35")).toBe(435);
-    expect(cents("90071992547409,91")).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("aceita o teto de R$ 100 milhões e recusa um centavo acima (F3c-3)", () => {
+    expect(cents("100.000.000,00")).toBe(10_000_000_000);
+    expect(errorCode("100.000.000,01")).toBe("InvalidAmount");
+    expect(errorCode("90071992547409,91")).toBe("InvalidAmount");
   });
 
   it("recusa vírgula com mais de 2 casas", () => {

@@ -2,7 +2,7 @@ import type { DomainError } from "../errors/domain-errors";
 import { fail } from "../errors/domain-errors";
 import type { Result } from "../errors/result";
 import { ok } from "../errors/result";
-import { computeFee, type Money } from "../money";
+import { computeFee, MAX_ENTRY_CENTS, type Money } from "../money";
 import type { BusinessDate } from "./business-date";
 import { isBusinessDate, isUuidV7 } from "./business-date";
 import type { EntryFlag } from "./interpret";
@@ -139,6 +139,7 @@ function validateFields(
   }
   if (!isBusinessDate(fields.paidOn)) return fail("InvalidBusinessDate", { value: fields.paidOn });
   if (fields.amountCents <= 0) return fail("AmountNotPositive");
+  if (fields.amountCents > MAX_ENTRY_CENTS) return fail("MoneyOverflow");
   if (fields.orders !== null) {
     if (fields.type !== "revenue" || !Number.isInteger(fields.orders) || fields.orders <= 0) {
       return fail("InvalidOrders", { value: fields.orders });

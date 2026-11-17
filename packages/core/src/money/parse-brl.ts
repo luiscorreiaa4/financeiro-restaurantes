@@ -2,7 +2,7 @@ import type { DomainError } from "../errors/domain-errors";
 import { fail } from "../errors/domain-errors";
 import type { Result } from "../errors/result";
 import { ok } from "../errors/result";
-import type { Money } from "./money";
+import { MAX_ENTRY_CENTS, type Money } from "./money";
 
 /** Milhar bem formado: "1.234", "12.345.678". Não começa com zero. */
 const GROUPED = String.raw`[1-9]\d{0,2}(?:\.\d{3})+`;
@@ -15,7 +15,7 @@ const GROUPED_ONLY = new RegExp(`^${GROUPED}$`);
 const WITH_DOT_DECIMAL = /^(\d+)\.(\d{1,2})$/;
 const DIGITS_ONLY = /^\d+$/;
 
-const MAX_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
+const MAX_CENTS = BigInt(MAX_ENTRY_CENTS);
 
 type Parts = { readonly reais: string; readonly fraction: string };
 

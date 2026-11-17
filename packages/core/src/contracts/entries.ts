@@ -3,6 +3,7 @@ import type { CatalogCategory } from "../entry/catalog";
 import type { Channel, EntryType, VersionAction } from "../entry/entry";
 import type { EntryFlag } from "../entry/interpret";
 import { QUANTITY_UNITS } from "../entry/quantity-units";
+import { MAX_ENTRY_CENTS } from "../money/money";
 import { periodWithinLimit } from "./period";
 
 // Contrato da API de lançamentos do painel (D-F3, D-F4, DD-36): a única interface entre a
@@ -380,7 +381,7 @@ export const entryPatchSchema = z.strictObject({
   quantity: quantitySchema.nullable().optional(),
   quantityUnit: quantityUnitSchema.nullable().optional(),
   orders: z.int().min(1).max(ORDERS_MAX).nullable().optional(),
-  amountCents: z.int().min(1).optional(),
+  amountCents: z.int().min(1).max(MAX_ENTRY_CENTS).optional(),
   categoryId: idSchema.optional(),
   /** Um existente, um nome novo (a API associa ou cria) ou `null` para limpar. */
   supplier: supplierPatchSchema.optional(),
@@ -400,7 +401,7 @@ export const entryCreateBodySchema = z
     occurredOn: businessDateSchema,
     paidOn: businessDateSchema.optional(),
     description: z.string().trim().min(1).max(ENTRY_DESCRIPTION_MAX),
-    amountCents: z.int().min(1),
+    amountCents: z.int().min(1).max(MAX_ENTRY_CENTS),
     categoryId: idSchema,
     unitId: idSchema,
     supplier: supplierPatchSchema.optional(),

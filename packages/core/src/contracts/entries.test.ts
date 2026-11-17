@@ -773,6 +773,17 @@ describe("entryCreateBodySchema (RF26)", () => {
     expect(entryCreateBodySchema.safeParse({ ...base, amountCents: 1.5 }).success).toBe(false);
   });
 
+  it("aceita o teto de R$ 100 milhões e recusa um centavo acima (F3c-3)", () => {
+    expect(entryCreateBodySchema.safeParse({ ...base, amountCents: 10_000_000_000 }).success).toBe(
+      true,
+    );
+    expect(entryCreateBodySchema.safeParse({ ...base, amountCents: 10_000_000_001 }).success).toBe(
+      false,
+    );
+    expect(entryPatchSchema.safeParse({ amountCents: 10_000_000_000 }).success).toBe(true);
+    expect(entryPatchSchema.safeParse({ amountCents: 10_000_000_001 }).success).toBe(false);
+  });
+
   it("recusa chave de tentativa que não é uuid e chave extra", () => {
     expect(entryCreateBodySchema.safeParse({ ...base, clientRequestId: "abc" }).success).toBe(
       false,

@@ -12,13 +12,8 @@ export interface RecentEntry {
   readonly occurredOn: string;
 }
 
-export interface DuplicateCandidate {
-  readonly inboundMessageId: string | null;
-  readonly amountCents: number;
-  readonly supplierId: string | null;
-  readonly description: string;
-  readonly occurredOn: string;
-}
+/** O candidato tem os mesmos campos de um recente: a comparação é entre iguais. */
+export type DuplicateCandidate = RecentEntry;
 
 /**
  * Possível duplicidade: valor igual com o mesmo fornecedor, ou mesma descrição na mesma data.

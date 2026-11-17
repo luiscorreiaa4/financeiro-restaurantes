@@ -29,6 +29,19 @@ function Harness({
 }
 
 describe("MoneyInput", () => {
+  it("não deixa digitar acima de R$ 100.000.000,00 (teto do lançamento, F3c-3)", async () => {
+    render(<Harness />);
+    const input = screen.getByLabelText("Valor");
+    await userEvent.type(input, "100000000,00");
+    expect(input).toHaveValue("100.000.000,00");
+    await userEvent.clear(input);
+    await userEvent.type(input, "1000000000");
+    expect(input).toHaveValue("100.000.000");
+    await userEvent.clear(input);
+    await userEvent.type(input, "100000000,01");
+    expect(input).toHaveValue("100.000.000,0");
+  });
+
   it("digitar 1234,56 mostra 1.234,56 e emite 123456 centavos (RF23.CA01)", async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);

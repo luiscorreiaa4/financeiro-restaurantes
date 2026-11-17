@@ -1,6 +1,6 @@
 "use client";
 
-import { parseBRLInput } from "@app/core";
+import { MAX_ENTRY_CENTS, parseBRLInput } from "@app/core";
 import { type ClipboardEvent, type ComponentProps, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { maskBRL } from "@/lib/input-masks";
@@ -16,6 +16,13 @@ function formatCentsText(cents: number): string {
   const reais = Math.floor(cents / 100);
   const fraction = String(cents % 100).padStart(2, "0");
   return maskBRL(`${reais},${fraction}`);
+}
+
+/** Texto mascarado que passaria do teto do lançamento (a tecla que estoura é descartada). */
+function overCap(masked: string): boolean {
+  const [reais = "", fraction = ""] = masked.replaceAll(".", "").split(",");
+  const cents = BigInt(reais === "" ? "0" : reais) * 100n + BigInt(fraction.padEnd(2, "0") || "0");
+  return cents > BigInt(MAX_ENTRY_CENTS);
 }
 
 function centsOf(text: string): number | null {
@@ -55,7 +62,10 @@ export function MoneyInput({ value, onChange, onBlur, ...rest }: Props) {
       inputMode="decimal"
       autoComplete="off"
       value={text}
-      onChange={(event) => commit(maskBRL(event.target.value))}
+      onChange={(event) => {
+        const masked = maskBRL(event.target.value);
+        if (!overCap(masked)) commit(masked);
+      }}
       onPaste={handlePaste}
       onBlur={(event) => {
         // Ao sair, completa os decimais ("12,5" vira "12,50").

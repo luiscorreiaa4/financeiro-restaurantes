@@ -119,6 +119,15 @@ describe("criação de lançamento", () => {
     expect(result).toEqual({ ok: false, error: { code: "AmountNotPositive" } });
   });
 
+  it("aceita o teto de R$ 100 milhões e recusa um centavo acima (F3c-3)", () => {
+    const context = { ...whatsapp(t1), id: ENTRY_ID, tenantId: TENANT_ID };
+    expect(createEntry(draft({ amountCents: m(10_000_000_000) }), context).ok).toBe(true);
+    expect(createEntry(draft({ amountCents: m(10_000_000_001) }), context)).toEqual({
+      ok: false,
+      error: { code: "MoneyOverflow" },
+    });
+  });
+
   it("rejeita data de negócio inexistente", () => {
     const result = createEntry(draft({ occurredOn: "2026-02-30" }), {
       ...whatsapp(t1),
