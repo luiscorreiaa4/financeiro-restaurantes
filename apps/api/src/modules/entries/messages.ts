@@ -20,6 +20,9 @@ export const NOTHING_TO_UNDO_24H_TEXT =
   "Não encontrei lançamento seu nas últimas 24 horas para desfazer. Pelo painel você pode ver e apagar lançamentos mais antigos.";
 export const ALREADY_UNDONE_TEXT = "Esse lançamento já foi desfeito.";
 export const CANNOT_CHANGE_OTHERS_TEXT = "Você só pode mexer nos lançamentos que você mesmo fez.";
+/** RF06.R4: categoria sensível (folha) pelo canal, sem permissão. */
+export const SENSITIVE_CATEGORY_TEXT =
+  "Lançamentos de folha de pagamento só o Dono (ou quem ele liberou) pode fazer. Peça ao Dono para lançar. Nada desta mensagem foi registrado.";
 export const EXTRACTION_FAILED_TEXT =
   "Não consegui entender essa mensagem. Pode escrever de outro jeito? Exemplo: 'paguei 350 de carne no açougue'.";
 export const CORRECTION_UNCLEAR_HINT =

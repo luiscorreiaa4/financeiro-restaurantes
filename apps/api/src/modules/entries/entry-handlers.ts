@@ -64,6 +64,7 @@ import {
   placeLabel,
   questionText,
   RECEIPT_UNREADABLE_TEXT,
+  SENSITIVE_CATEGORY_TEXT,
   UNIT_INACTIVE_TEXT,
   UNIT_MISSING_TEXT,
   undoText,
@@ -126,6 +127,13 @@ interface PendingDraft {
  * (`interpretExtraction`, `buildDrafts`, `planCorrection`): o sistema valida, calcula e grava.
  * Reprocessar a mesma mensagem não duplica lançamento nem resposta (RF16.Obs1).
  */
+/** Categoria sensível; id que o cadastro não traz conta como sensível (falha fechado). */
+function isSensitiveCategory(catalog: CatalogSnapshot, categoryId: string | null): boolean {
+  if (categoryId === null) return false;
+  const category = catalog.categories.find((item) => item.id === categoryId);
+  return category === undefined || category.isSensitive !== false;
+}
+
 export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
   const { store, clock, logger } = deps;
 
@@ -287,6 +295,14 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
       recent,
       newId: deps.newId,
     });
+    // Categoria sensível sem permissão: nada da mensagem é gravado (RF06.R4, CA06).
+    if (
+      plan.drafts.some(({ draft }) => !mayUseCategory(context, catalog, unitId, draft.categoryId))
+    ) {
+      await recordUsage();
+      await context.reply(SENSITIVE_CATEGORY_TEXT, "notice");
+      return;
+    }
     const changes = plan.drafts.map(({ position, draft }) => {
       const created = createEntry(draft, {
         id: deps.newId(),
@@ -396,11 +412,26 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
     context: RouteContext,
     entry: Entry,
     action: "entry:edit" | "entry:delete",
+    catalog: CatalogSnapshot,
   ): boolean {
     const { sender } = context;
     return can(senderToActor(sender), action, {
       unitId: entry.unitId,
       isOwnEntry: entry.createdBy === sender.userId,
+      categoryIsSensitive: isSensitiveCategory(catalog, entry.categoryId),
+    });
+  }
+
+  /** RF06.R4: o remetente pode lançar nesta categoria? */
+  function mayUseCategory(
+    context: RouteContext,
+    catalog: CatalogSnapshot,
+    unitId: string,
+    categoryId: string | null,
+  ): boolean {
+    return can(senderToActor(context.sender), "entry:create", {
+      unitId,
+      categoryIsSensitive: isSensitiveCategory(catalog, categoryId),
     });
   }
 
@@ -583,7 +614,8 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
         await context.reply(target ? ALREADY_UNDONE_TEXT : NOTHING_TO_UNDO_24H_TEXT, "notice");
         return;
       }
-      if (!active.every((entry) => mayChange(context, entry, "entry:delete"))) {
+      const undoCatalog = await store.loadCatalog(tenantId);
+      if (!active.every((entry) => mayChange(context, entry, "entry:delete", undoCatalog))) {
         await context.reply(CANNOT_CHANGE_OTHERS_TEXT, "notice");
         return;
       }
@@ -596,7 +628,7 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
         await context.reply(CORRECTION_STALE_TEXT, "notice");
         return;
       }
-      const catalog = await store.loadCatalog(tenantId);
+      const catalog = undoCatalog;
       await context.reply(
         undoText(
           changes.map((change) => change.entry),
@@ -617,11 +649,11 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
         await context.reply(ALREADY_UNDONE_TEXT, "notice");
         return;
       }
-      if (!entries.every((entry) => mayChange(context, entry, "entry:edit"))) {
+      const catalog = await store.loadCatalog(tenantId);
+      if (!entries.every((entry) => mayChange(context, entry, "entry:edit", catalog))) {
         await context.reply(CANNOT_CHANGE_OTHERS_TEXT, "notice");
         return;
       }
-      const catalog = await store.loadCatalog(tenantId);
       const today = clock.today();
       const usage: AiUsageRecord[] = [];
       const extracted = await deps.correctionExtractor.extract({
@@ -664,6 +696,16 @@ export function createEntryHandlers(deps: EntryHandlerDeps): EntryHandlers {
           );
           return;
         case "ready": {
+          // Mover para categoria sensível sem permissão também é recusado (RF06.R4).
+          const blocked = outcome.patches.some(
+            ({ entry, patch }) =>
+              patch.categoryId !== undefined &&
+              !mayUseCategory(context, catalog, entry.unitId, patch.categoryId),
+          );
+          if (blocked) {
+            await context.reply(SENSITIVE_CATEGORY_TEXT, "notice");
+            return;
+          }
           const changes: EntryChange[] = [];
           for (const { entry, patch } of outcome.patches) {
             const edited = editEntry(entry, patch, {

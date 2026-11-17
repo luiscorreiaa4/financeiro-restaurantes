@@ -249,6 +249,7 @@ function world(script: Script = {}) {
 
 const OWNER = DEV_PHONES.owner.replace("+", "");
 const STAFF = DEV_PHONES.staff.replace("+", "");
+const MANAGER = DEV_PHONES.manager.replace("+", "");
 
 const replies = async () =>
   (
@@ -452,6 +453,49 @@ describe("lançamento por mensagem de texto (E7)", () => {
     const question = await lastReply();
     expect(question?.purpose).toBe("question");
     expect(question?.text).toContain("não aceito data futura");
+  });
+});
+
+describe("categoria sensível pelo WhatsApp (RF06.R4, E11-2)", () => {
+  const payroll = () =>
+    world({
+      extractions: [
+        {
+          result: register([
+            extracted({ description: "Salário do João", category_hint: "Folha de pagamento" }),
+          ]),
+        },
+      ],
+    });
+
+  it.each([
+    ["atendente", STAFF],
+    ["gerente sem VER_FOLHA", MANAGER],
+  ])("%s não grava folha de pagamento e é orientado a pedir ao dono", async (_papel, phone) => {
+    await payroll().say(phone, "paguei o salário do João 2500");
+    expect(await entryRows()).toHaveLength(0);
+    expect((await lastReply())?.text).toContain("Dono");
+  });
+
+  it("o dono grava folha de pagamento normalmente", async () => {
+    await payroll().say(OWNER, "paguei o salário do João 2500");
+    expect(await entryRows()).toHaveLength(1);
+  });
+
+  it("atendente não move o próprio lançamento para folha de pagamento por correção (RF06.R4)", async () => {
+    const w = world({
+      extractions: [{ result: register([extracted()]) }],
+      corrections: [correct({ category_hint: "Folha de pagamento" })],
+    });
+    await w.say(STAFF, "camarão 450");
+    const original = (await entryRows())[0];
+    await w.say(STAFF, "é salário", (await lastReply())?.wa_message_id);
+
+    expect((await entryRows())[0]).toMatchObject({
+      version: 1,
+      category_id: original?.category_id,
+    });
+    expect((await lastReply())?.text).toContain("Dono");
   });
 });
 
