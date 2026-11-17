@@ -124,7 +124,7 @@ const originChannelSchema = z.enum(ORIGIN_CHANNELS);
 // ---------------------------------------------------------------------------------------
 
 /** Lista da query string: `unitIds=a` vira `["a"]`; `unitIds=a&unitIds=b` já é lista. */
-function queryList<Item extends z.ZodType>(item: Item) {
+export function queryList<Item extends z.ZodType>(item: Item) {
   return z
     .preprocess(
       (value) => (Array.isArray(value) ? value : [value]),
