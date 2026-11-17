@@ -119,7 +119,6 @@
 | F3c-3 | Teto de dinheiro de negócio (hoje `MAX_SAFE_INTEGER` centavos) | Decisão (Luís ou Matheus) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-4 | `entryReader.recent` sem LIMIT, para a importação em massa | F13 | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-5 | Aplicar a migration 0019 no dev e roteiro à mão da F3c | F3c (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
-| F3c-6 | Next 16.4.3 com aviso de vulnerabilidade que aborta o `next build` de CI | Decisão (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-7 | Minors de teste da F3c | Quando tocar na área | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 
 ### Pós-F2
