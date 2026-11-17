@@ -112,12 +112,15 @@
 | F3-5 | Limites conhecidos do histórico, do detalhe e das opções | F3c | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3-6 | Aplicar a migration 0018 no dev e roteiro à mão da F3a | F3a (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3b-1 | Corrida na criação de fornecedor novo (sem unicidade por nome) | F3c ou F6 | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
-| F3b-2 | Contrato sem teto em `quantity` e sem limite de período na lixeira | F3c | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3b-2 | Sem limite de período na lixeira (o teto de `quantity` foi feito na F3c) | F6 ou F9 | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3b-3 | Edição e restauração conferem sensível e prazo fora da transação de gravação | Decisão (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3b-4 | Lançador vê quem excluiu; 409 do lote sem `current`; prazo da lixeira em UTC | Decisão (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
-| F3b-5 | Fornecedor com lista própria e `select` nativo; opções com cadastro inativo | F3c | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 | F3c-1 | Sugestão de categoria no formulário do RF26 (fora do MVP, DD-37) | Depois do piloto | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
-| F3c-2 | Opções do formulário: cadastro ativo, canal padrão e fuso da unidade | F3c | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3c-3 | Teto de dinheiro de negócio (hoje `MAX_SAFE_INTEGER` centavos) | Decisão (Luís ou Matheus) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3c-4 | `entryReader.recent` sem LIMIT, para a importação em massa | F13 | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3c-5 | Aplicar a migration 0019 no dev e roteiro à mão da F3c | F3c (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3c-6 | Next 16.4.3 com aviso de vulnerabilidade que aborta o `next build` de CI | Decisão (Luís) | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
+| F3c-7 | Minors de teste da F3c | Quando tocar na área | [andamento §6](andamento.md#6-painel) · bloco "Pendências deixadas pela F3" |
 
 ### Pós-F2
 

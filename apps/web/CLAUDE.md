@@ -31,6 +31,16 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - Link com aparência de botão: `<Link className={buttonVariants(...)}>`, não `<Button render={<Link/>}>` (vira `role=button`).
 - No E2E, a tabela de dono e gerente tem a coluna de seleção: não selecione célula por posição nem `getByLabel("Insumos")` sem `{ exact: true }` (as caixas se chamam "Selecionar Insumos #n"). A API falsa guarda estado: `POST http://localhost:4010/__reset` no `beforeEach` e no `afterEach` de spec que escreve.
 
+## Lançamentos: criação (`features/entries`, F3c)
+
+- Escrita só por `entriesApi.create` (`POST /api/entries`, `useCreateEntry`, invalida `tenantKey(ctx, "entries")`). `isAlreadySubmitted(e)` reconhece o 409 `already_submitted`; o 409 `context_changed` continua do `browser-client` e o formulário não perde o digitado.
+- **A chave de tentativa (`clientRequestId`, UUID v4) só muda depois de sucesso**: erro de rede, 5xx e 409 reenviam a mesma (RF26.R3). Trava síncrona (`useRef`) contra duplo clique, como na edição.
+- `create-form-values.ts` tem as regras do formulário (valores iniciais, `buildCreateBody`, `createLocalErrors`, `keepForNext`); `entry-create-form.tsx` é o formulário e `entry-create-screen.tsx` liga à API e ao contexto. A tela não calcula taxa nem líquido: a mensagem de "Salvar e lançar outro" usa os valores do servidor.
+- Erros: o 422 `invalid_entry` traz `field` (lista `ENTRY_FIELD_NAMES`) e `reason`; `DOMAIN_ERRORS` (`entry-form.tsx`) tem os textos e serve à criação e à edição.
+- Unidade de medida é lista fechada (`QUANTITY_UNITS`, RF12.R4); valor antigo fora da lista continua escolhido na edição e não vai no patch.
+- O seletor de unidade da casca também se chama "Unidade": no E2E use `#create-unit` para o do formulário. Specs que escrevem rodam com **um worker** (a API falsa guarda estado e o `__reset` de um derruba o outro).
+- O botão "Novo lançamento" exige `entry:create` **e** `accountAllows(accountStatus, role).write` (`allowedActions` não considera a situação da conta).
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
@@ -59,7 +69,7 @@ A API (`/api/me`) classifica a sessão; o `proxy.ts` só olha se há cookie. O E
 | `/redefinir-senha` | abre | abre; ao concluir, sai e vai a `/login` | idem | abre |
 | `/termos`, `/privacidade` | abre | abre | abre | abre |
 
-`/lancamentos/lixeira` é do grupo `(app)` (linha 1 da tabela) e exige `entry:restore` (`PageGuard`): quem não tem vê "Você não tem acesso a esta página".
+`/lancamentos/lixeira` é do grupo `(app)` (linha 1 da tabela) e exige `entry:restore` (`PageGuard`): quem não tem vê "Você não tem acesso a esta página". `/lancamentos/novo` também é do grupo `(app)` e exige `entry:create` (`PageGuard`); a conta somente leitura vê "Conta somente leitura: não é possível lançar."
 
 - Página nova em `app/(app)/` entra em `APP_ROUTES` (`e2e/routes.ts`). `lib/routes-list.test.ts` compara a lista com o disco e falha se faltar.
 - Escrita feita pelo servidor do Next, ou webhook novo, exige entrada explícita em `ORIGIN_EXEMPT_PATHS` da API (`apps/api/src/http/origin-guard.ts`; ver `.claude/rules/rota-de-tenant.md`, regra 6). Sem isso a API recusa por `origin_forbidden`.
