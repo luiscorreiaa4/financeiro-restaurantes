@@ -1,6 +1,12 @@
 import { type Money, money, ZERO } from "@app/core";
 import { describe, expect, it } from "vitest";
-import { formatBRL, formatBusinessDate, formatCents, todayBusinessDate } from "./index";
+import {
+  formatBRL,
+  formatBusinessDate,
+  formatCents,
+  formatPermille,
+  todayBusinessDate,
+} from "./index";
 
 const m = (cents: number): Money => {
   const result = money(cents);
@@ -57,5 +63,27 @@ describe("hoje como data de negócio", () => {
     // 01:30 UTC do dia 14 ainda é dia 13 em São Paulo (UTC-3).
     expect(todayBusinessDate(new Date("2026-11-14T01:30:00Z"))).toBe("2026-11-13");
     expect(todayBusinessDate(new Date("2026-11-14T03:00:00Z"))).toBe("2026-11-14");
+  });
+});
+
+describe("formatação de percentual em décimos de ponto (formatPermille)", () => {
+  it("mostra uma casa decimal com vírgula", () => {
+    expect(formatPermille(123)).toBe("12,3%");
+    expect(formatPermille(265)).toBe("26,5%");
+    expect(formatPermille(600)).toBe("60,0%");
+  });
+
+  it("mantém o sinal do valor negativo e o zero sem sinal", () => {
+    expect(formatPermille(-124)).toBe("-12,4%");
+    expect(formatPermille(-5)).toBe("-0,5%");
+    expect(formatPermille(0)).toBe("0,0%");
+  });
+
+  it("mostra traço quando não há valor", () => {
+    expect(formatPermille(null)).toBe("—");
+  });
+
+  it("recusa valor que não é inteiro seguro", () => {
+    expect(() => formatPermille(1.5)).toThrow(RangeError);
   });
 });

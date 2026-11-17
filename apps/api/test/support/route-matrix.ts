@@ -74,7 +74,31 @@ const missingCategoryCreateBody = () => ({
   unitId: crypto.randomUUID(),
 });
 
+/**
+ * Relatório do dashboard (RF27): permissão `report:view`, que o lançador não tem (403 mesmo com
+ * painel). A conta somente leitura continua lendo.
+ */
+const REPORT_READ: RouteCase["expected"] = { ...READ_BY_ALL, staff: 403 };
+
 export const ROUTE_MATRIX: readonly RouteCase[] = [
+  {
+    name: "GET /api/reports/summary",
+    method: "GET",
+    url: (f) => `/api/reports/summary?${f.period}`,
+    expected: REPORT_READ,
+  },
+  {
+    name: "GET /api/reports/monthly",
+    method: "GET",
+    url: () => "/api/reports/monthly?to=2026-11-30",
+    expected: REPORT_READ,
+  },
+  {
+    name: "GET /api/reports/breakdown",
+    method: "GET",
+    url: (f) => `/api/reports/breakdown?${f.period}&by=category`,
+    expected: REPORT_READ,
+  },
   {
     name: "GET /api/entries",
     method: "GET",

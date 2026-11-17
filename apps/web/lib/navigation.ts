@@ -8,7 +8,6 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/", label: "Início" },
   { href: "/lancamentos", label: "Lançamentos", action: "entry:view" },
   { href: "/dashboard", label: "Dashboard", action: "report:view" },
   { href: "/exportacoes", label: "Exportações", action: "export:data" },

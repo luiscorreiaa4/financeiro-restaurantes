@@ -56,6 +56,9 @@ function pathOf(page: Page) {
  * Registra (em sessionStorage, que sobrevive à navegação) se algum dos seletores chegou a existir
  * visível no DOM de qualquer documento: prova "não piscou a tela errada" antes do redirect.
  */
+/** O formulário do login. O dashboard (destino do dono) tem o seu próprio formulário de filtros. */
+const LOGIN_FORM = 'form:not([aria-label="Filtros do dashboard"])';
+
 async function watchFlash(page: Page, selectors: string[]) {
   await page.addInitScript((sels: string[]) => {
     const seen = () => {
@@ -116,7 +119,8 @@ for (const route of APP_ROUTES) {
     await expect(
       page.getByRole("heading", { level: 1 }).filter({ visible: true }).first(),
     ).toBeVisible();
-    expect(pathOf(page)).toBe(url);
+    // `/` redireciona por permissão (F4): o dono da sessão completa termina no dashboard.
+    expect(pathOf(page)).toBe(route === "/" ? "/dashboard" : url);
   });
 
   test(`(app) ${route}: sessão restrita vai a /acesso-restrito`, async ({ page }) => {
@@ -142,10 +146,10 @@ for (const route of ["/acesso-restrito", "/acesso-restrito/nova-empresa"]) {
     await expectStableUrl(page, new RegExp(`/login\\?next=${encodeURIComponent(route)}$`));
   });
 
-  test(`${route}: sessão completa vai a /`, async ({ page }) => {
+  test(`${route}: sessão completa vai a / e o dono segue ao /dashboard`, async ({ page }) => {
     await setSession(page, "full");
     await page.goto(route);
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
   });
 
   test(`${route}: sessão restrita abre`, async ({ page }) => {
@@ -203,10 +207,12 @@ for (const route of ["/login", "/cadastro", "/recuperar-senha"]) {
     expect(pathOf(page)).toBe(route);
   });
 
-  test(`${route}: sessão completa vai a / (padrão de safeNext)`, async ({ page }) => {
+  test(`${route}: sessão completa vai a / e o dono segue ao /dashboard (padrão de safeNext)`, async ({
+    page,
+  }) => {
     await setSession(page, "full");
     await page.goto(route);
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
   });
 
   test(`${route}: sessão restrita termina em /acesso-restrito (via /)`, async ({ page }) => {
@@ -236,18 +242,20 @@ test("/login?next= seguro com sessão completa vai ao destino pedido", async ({ 
   await expectStableUrl(page, /\/lancamentos$/);
 });
 
-test("/login?next=//evil.com com sessão completa termina em / (Review Focus 5)", async ({
+test("/login?next=//evil.com com sessão completa termina em / e o dono segue ao /dashboard (Review Focus 5)", async ({
   page,
 }) => {
   await setSession(page, "full");
   await page.goto("/login?next=//evil.com");
-  await expectStableUrl(page, `${BASE}/`);
+  await expectStableUrl(page, `${BASE}/dashboard`);
 });
 
-test("/login?next=https://evil.com com sessão completa termina em /", async ({ page }) => {
+test("/login?next=https://evil.com com sessão completa termina em / e o dono segue ao /dashboard", async ({
+  page,
+}) => {
   await setSession(page, "full");
   await page.goto(`/login?next=${encodeURIComponent("https://evil.com")}`);
-  await expectStableUrl(page, `${BASE}/`);
+  await expectStableUrl(page, `${BASE}/dashboard`);
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -316,9 +324,9 @@ test.describe("redirect() dentro de Suspense", () => {
     page,
   }) => {
     await setSession(page, "full");
-    await watchFlash(page, ["form", "input"]);
+    await watchFlash(page, [LOGIN_FORM, 'input[type="email"]']);
     await page.goto("/login");
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
     expect(await flashed(page)).toBeNull();
   });
 
@@ -327,9 +335,9 @@ test.describe("redirect() dentro de Suspense", () => {
   }) => {
     await setSession(page, "full");
     await page.goto("/termos");
-    await watchFlash(page, ["form"]);
+    await watchFlash(page, [LOGIN_FORM]);
     await clientNavigate(page, "/login");
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
     expect(await flashed(page)).toBeNull();
   });
 
@@ -340,7 +348,7 @@ test.describe("redirect() dentro de Suspense", () => {
     await expect(page.getByLabel("E-mail")).toBeVisible();
     await setSession(page, "full");
     await page.getByRole("link", { name: "Entrar" }).click();
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
   });
 
   test("carga direta: sessão restrita em rota de (app) redireciona sem mostrar a casca", async ({
@@ -380,7 +388,7 @@ test.describe("redirect() dentro de Suspense", () => {
     await setSession(page, "full");
     await watchFlash(page, ['a[href="/acesso-restrito/nova-empresa"]']);
     await page.goto("/acesso-restrito");
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
     expect(await flashed(page)).toBeNull();
   });
 
@@ -391,7 +399,7 @@ test.describe("redirect() dentro de Suspense", () => {
     await page.goto("/termos");
     await watchFlash(page, ['a[href="/acesso-restrito/nova-empresa"]']);
     await clientNavigate(page, "/acesso-restrito");
-    await expectStableUrl(page, `${BASE}/`);
+    await expectStableUrl(page, `${BASE}/dashboard`);
     expect(await flashed(page)).toBeNull();
   });
 });
@@ -450,7 +458,7 @@ test("restrito cria empresa: /lancamentos -> /acesso-restrito -> nova empresa ->
   await expect(page.getByRole("link", { name: "Abrir o WhatsApp" })).toBeVisible();
   // A sessão agora é completa: a tela restrita manda de volta a /.
   await page.goto("/acesso-restrito");
-  await expectStableUrl(page, `${BASE}/`);
+  await expectStableUrl(page, `${BASE}/dashboard`);
 });
 
 // ---------------------------------------------------------------------------------------------

@@ -121,3 +121,56 @@ export function resolvePeriod(preset: ResolvablePeriodPreset, today: BusinessDat
     }
   }
 }
+
+export const COMPARISON_KINDS = ["previous_period", "previous_year", "none"] as const;
+export type ComparisonKind = (typeof COMPARISON_KINDS)[number];
+
+// Número de dias desde 0000-03-01 (calendário gregoriano), só para contar dias entre datas.
+function dayNumber({ year, month, day }: DateParts): number {
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor(y / 400);
+  const yearOfEra = y - era * 400;
+  const dayOfYear = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const dayOfEra =
+    yearOfEra * 365 + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100) + dayOfYear;
+  return era * 146097 + dayOfEra;
+}
+
+/**
+ * Período de comparação do dashboard (RF27.R2). `previous_period` tem o mesmo número de
+ * dias, imediatamente antes; `previous_year` anda 12 meses nos dois extremos (29/02 vira
+ * 28/02, e o intervalo pode ficar um dia menor, DD-41); `none` não compara.
+ */
+export function comparisonPeriod(period: Period, kind: ComparisonKind): Period | null {
+  switch (kind) {
+    case "none":
+      return null;
+    case "previous_year":
+      return {
+        from: addMonthsToBusinessDate(period.from, -12),
+        to: addMonthsToBusinessDate(period.to, -12),
+      };
+    case "previous_period": {
+      const from = parts(period.from);
+      const length = dayNumber(parts(period.to)) - dayNumber(from) + 1;
+      const to = previousDay(from);
+      return { from: format(subtractDays(to, length - 1)), to: format(to) };
+    }
+  }
+}
+
+/** Janela de `count` meses que termina no mês de `to`: do dia 1 do primeiro mês até `to`. */
+export function monthsWindow(to: BusinessDate, count: number): Period {
+  const { year, month } = parts(to);
+  const first = shiftMonth(year, month, -(count - 1));
+  return { from: format({ ...first, day: 1 }), to };
+}
+
+/** Meses "AAAA-MM" da janela, em ordem crescente. */
+export function monthsOf(to: BusinessDate, count: number): readonly string[] {
+  const { year, month } = parts(to);
+  return Array.from({ length: count }, (_, index) => {
+    const m = shiftMonth(year, month, index - (count - 1));
+    return `${String(m.year).padStart(4, "0")}-${String(m.month).padStart(2, "0")}`;
+  });
+}

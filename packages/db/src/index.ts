@@ -13,6 +13,7 @@ export * from "./inbound-sender-repo";
 export * from "./outbound-message-repo";
 export * from "./panel-access-store";
 export * from "./panel-entry-writer";
+export * from "./report-reader";
 export * from "./sender-directory";
 export * from "./signup-repo";
 export * from "./signup-store";

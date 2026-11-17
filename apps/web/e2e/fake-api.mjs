@@ -1,6 +1,7 @@
 // API falsa, só para o E2E exercitar o rewrite de /api/* sem depender da API real.
 import { createServer } from "node:http";
 import { answerEntries, resetEntries } from "./fake-entries.mjs";
+import { answerReports } from "./fake-reports.mjs";
 
 const port = Number(process.env.FAKE_API_PORT ?? 4010);
 
@@ -361,6 +362,18 @@ createServer(async (req, res) => {
       return send(res, 409, { code: "context_changed" });
     }
     const answer = answerEntries(method, url, body, company, unitId);
+    return send(res, answer.status, answer.body);
+  }
+
+  // Relatórios do dashboard (F4, RF27): as mesmas checagens de sessão e contexto das rotas de lançamentos.
+  if (pathname.startsWith("/api/reports/")) {
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    const answer = answerReports(method, url, company);
     return send(res, answer.status, answer.body);
   }
 
