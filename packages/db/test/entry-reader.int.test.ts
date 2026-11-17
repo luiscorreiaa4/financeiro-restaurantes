@@ -19,6 +19,8 @@ import { createTenant, type TenantFixture } from "./fixtures";
 let db: TestDatabase;
 let appPool: ReturnType<typeof createPool>;
 let appDb: Database;
+/** Fuso padrão das unidades das fixtures. */
+const TZ = "America/Sao_Paulo";
 let a: TenantFixture;
 let b: TenantFixture;
 
@@ -1513,17 +1515,18 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
       kind: "expense",
       parentId: null,
       requiresQuantity: false,
+      active: true,
     });
     expect(result.categories.map((category) => category.id)).toContain(a.categoryId);
     expect(result.suppliers).toEqual([
       { id: supplier2, name: "Atacadão Central" },
       { id: a.supplierId, name: "Fornecedor" },
     ]);
-    expect(result.paymentMethods).toEqual([{ id: a.paymentMethodId, name: "Pix" }]);
-    expect(result.salesChannels).toEqual([{ id: a.salesChannelId, name: "Salão" }]);
+    expect(result.paymentMethods).toEqual([{ id: a.paymentMethodId, name: "Pix", active: true }]);
+    expect(result.salesChannels).toEqual([{ id: a.salesChannelId, name: "Salão", active: true }]);
     expect(result.units).toEqual([
-      { id: unit2, name: "Filial" },
-      { id: a.unitId, name: "Matriz" },
+      { id: unit2, name: "Filial", active: true, defaultSalesChannelId: null, timezone: TZ },
+      { id: a.unitId, name: "Matriz", active: true, defaultSalesChannelId: null, timezone: TZ },
     ]);
     expect(result.members.map((member) => member.name)).toEqual(["Dono", "Gerente", "Lançadora"]);
     expect(result.members).toContainEqual({ id: staffId, name: "Lançadora" });
@@ -1538,8 +1541,8 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
   });
 
   it("as unidades são só as do recorte, e recorte sem unidade não recebe nenhuma", async () => {
-    expect((await options(a.tenantId, managerNoPayroll)).units).toEqual([
-      { id: a.unitId, name: "Matriz" },
+    expect((await options(a.tenantId, managerNoPayroll)).units.map((unit) => unit.id)).toEqual([
+      a.unitId,
     ]);
     expect((await options(a.tenantId, { ...OWNER, unitIds: [] })).units).toEqual([]);
     // Unidade da empresa B pedida dentro da empresa A: nada.
@@ -1550,7 +1553,36 @@ describe("opções de filtro e nomes dos cadastros (1.7 do desenho)", () => {
     const result = await options(a.tenantId, staff);
     expect(result.members).toEqual([]);
     expect(result.categories.map((category) => category.id)).not.toContain(payrollCategoryId);
-    expect(result.units).toEqual([{ id: a.unitId, name: "Matriz" }]);
+    expect(result.units.map((unit) => unit.id)).toEqual([a.unitId]);
+  });
+
+  it("traz cadastro inativo marcado, o canal padrão e o fuso da unidade (F3c-2)", async () => {
+    const c = await createTenant(db.admin, "Opções do formulário");
+    await db.admin.query(
+      "update units set status = 'inactive', timezone = $2, default_sales_channel_id = $3 where id = $1",
+      [c.unitId, "America/Manaus", c.salesChannelId],
+    );
+    await db.admin.query("update payment_methods set status = 'inactive' where id = $1", [
+      c.paymentMethodId,
+    ]);
+    await db.admin.query("update sales_channels set status = 'inactive' where id = $1", [
+      c.salesChannelId,
+    ]);
+    await db.admin.query("update categories set status = 'inactive' where id = $1", [c.categoryId]);
+    const result = await options(c.tenantId, OWNER);
+    expect(entryOptionsSchema.safeParse(result).success).toBe(true);
+    expect(result.units).toEqual([
+      {
+        id: c.unitId,
+        name: expect.any(String),
+        active: false,
+        defaultSalesChannelId: c.salesChannelId,
+        timezone: "America/Manaus",
+      },
+    ]);
+    expect(result.paymentMethods.map((item) => item.active)).toEqual([false]);
+    expect(result.salesChannels.map((item) => item.active)).toEqual([false]);
+    expect(result.categories.find((item) => item.id === c.categoryId)?.active).toBe(false);
   });
 
   it("nada da empresa B aparece nas opções da empresa A (RNF02)", async () => {
@@ -2052,5 +2084,119 @@ describe("soma do lote (RF24.Obs3)", () => {
       expect(await sum(OWNER, [inTrash], "2026-06-15")).toEqual({ count: 1, totalCents: 64000 });
       expect(await sum(OWNER, [inTrash], "2026-06-16")).toEqual({ count: 0, totalCents: 0 });
     });
+  });
+});
+
+describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
+  const HOUR = 60 * 60 * 1000;
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
+  const recent = (scope: EntryScope, tenantId = a.tenantId) =>
+    withTenant(appDb, tenantId, (tx) =>
+      entryReader.recent(tx, scope, new Date(Date.now() - 24 * HOUR)),
+    );
+  /** Descrição única: o banco tem lançamentos de outros testes criados agora. */
+  const DESC = "Recente C4b";
+  let plain: string;
+  let payroll: string;
+  let orphan: string;
+  let otherUnit: string;
+  let trashed: string;
+  let colleague: string;
+  let old25: string;
+  let recent23: string;
+  let tenantB: string;
+
+  beforeAll(async () => {
+    const base = { tenant: a, occurredOn: "2026-08-03", description: DESC } as const;
+    plain = await insertEntry({ ...base, amountCents: 1111 });
+    payroll = await insertEntry({ ...base, amountCents: 2222, categoryId: payrollCategoryId });
+    const moved = uuidv7();
+    await db.admin.query(
+      "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, $2, 'Some no recente', 'expense', 'outras')",
+      [moved, a.tenantId],
+    );
+    orphan = await insertEntry({ ...base, amountCents: 3333, categoryId: moved });
+    await db.admin.query("update categories set tenant_id = $2 where id = $1", [moved, b.tenantId]);
+    otherUnit = await insertEntry({ ...base, amountCents: 4444, unitId: unit2 });
+    trashed = await insertEntry({ ...base, amountCents: 5555, deleted: true });
+    colleague = await insertEntry({ ...base, amountCents: 6666, createdBy: staffId });
+    old25 = await insertEntry({ ...base, amountCents: 7777, createdAt: hoursAgo(25) });
+    recent23 = await insertEntry({ ...base, amountCents: 8888, createdAt: hoursAgo(23) });
+    tenantB = await insertEntry({
+      tenant: b,
+      occurredOn: "2026-08-03",
+      description: DESC,
+      amountCents: 9999,
+    });
+  });
+
+  const mine = (rows: readonly { description: string; amountCents: number }[]) =>
+    rows.filter((r) => r.description === DESC).map((r) => r.amountCents);
+
+  it("devolve os campos do RecentEntry", async () => {
+    const rows = await recent({ unitIds: [a.unitId], ownerUserId: null, includeSensitive: false });
+    const row = rows.find((r) => r.amountCents === 1111);
+    expect(row).toEqual({
+      inboundMessageId: null,
+      amountCents: 1111,
+      supplierId: null,
+      description: DESC,
+      occurredOn: "2026-08-03",
+    });
+    expect(plain).toBeDefined();
+  });
+
+  it("sensível invisível não entra (nem a categoria órfã); com VER_FOLHA entra", async () => {
+    const hidden = mine(
+      await recent({ unitIds: [a.unitId], ownerUserId: null, includeSensitive: false }),
+    );
+    expect(hidden).not.toContain(2222);
+    expect(hidden).not.toContain(3333);
+    const seen = mine(
+      await recent({ unitIds: [a.unitId], ownerUserId: null, includeSensitive: true }),
+    );
+    expect(seen).toContain(2222);
+    expect(seen).toContain(3333);
+    expect(payroll).toBeDefined();
+    expect(orphan).toBeDefined();
+  });
+
+  it("outra unidade fica de fora; recorte com as duas unidades traz as duas", async () => {
+    const one = mine(
+      await recent({ unitIds: [a.unitId], ownerUserId: null, includeSensitive: true }),
+    );
+    expect(one).not.toContain(4444);
+    const both = mine(
+      await recent({ unitIds: [a.unitId, unit2], ownerUserId: null, includeSensitive: true }),
+    );
+    expect(both).toContain(4444);
+    expect(otherUnit).toBeDefined();
+  });
+
+  it("outra empresa nunca entra, mesmo com recorte 'all'", async () => {
+    const rows = mine(await recent(OWNER));
+    expect(rows).not.toContain(9999);
+    expect(mine(await recent(OWNER, b.tenantId))).toEqual([9999]);
+    expect(tenantB).toBeDefined();
+  });
+
+  it("lançamento na lixeira não entra", async () => {
+    expect(mine(await recent(OWNER))).not.toContain(5555);
+    expect(trashed).toBeDefined();
+  });
+
+  it("o lançador enxerga também o lançamento do colega na mesma unidade", async () => {
+    const rows = mine(await recent({ ...staff, unitIds: [a.unitId] }));
+    expect(rows).toContain(1111);
+    expect(rows).toContain(6666);
+    expect(colleague).toBeDefined();
+  });
+
+  it("janela por created_at: 25 h atrás fica de fora e 23 h atrás entra", async () => {
+    const rows = mine(await recent(OWNER));
+    expect(rows).not.toContain(7777);
+    expect(rows).toContain(8888);
+    expect(old25).toBeDefined();
+    expect(recent23).toBeDefined();
   });
 });

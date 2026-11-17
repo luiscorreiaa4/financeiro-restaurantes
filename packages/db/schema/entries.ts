@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { appendOnly, cents, createdAt, oneOf, primaryId, tenantIsolation } from "./_shared";
@@ -61,6 +62,12 @@ export const entries = pgTable(
     inboundMessageId: uuid("inbound_message_id"),
     /** Posição do lançamento dentro da mensagem de origem (uma mensagem pode gerar vários). */
     position: integer("position").notNull().default(0),
+    /**
+     * Chave de tentativa do lançamento criado pelo painel (RF26.R3): repetir o envio com a
+     * mesma chave não grava duas vezes. Nula nos lançamentos do canal e nos antigos. Fica fora
+     * do `Entry` de domínio e do retrato da versão.
+     */
+    clientRequestId: uuid("client_request_id"),
     /** Id da mensagem de confirmação enviada, usado para corrigir por reply. */
     confirmationWaMessageId: text("confirmation_wa_message_id"),
     aiConfidence: numeric("ai_confidence", { precision: 4, scale: 3, mode: "number" }),
@@ -108,6 +115,15 @@ export const entries = pgTable(
       columns: [t.tenantId, t.inboundMessageId],
       foreignColumns: [inboundMessages.tenantId, inboundMessages.id],
     }),
+    // Uma chave por usuário e empresa: a de outro usuário ou de outra empresa não colide (RF26.R3).
+    uniqueIndex("entries_client_request_unique")
+      .on(t.tenantId, t.createdBy, t.clientRequestId)
+      .where(sql`${t.clientRequestId} is not null`),
+    // Origem exclusiva: lançamento do painel (chave) ou do canal (mensagem), nunca os dois.
+    check(
+      "entries_origin_exclusive_check",
+      sql`${t.clientRequestId} is null or ${t.inboundMessageId} is null`,
+    ),
     index("entries_unit_date_idx").on(t.tenantId, t.unitId, t.occurredOn),
     index("entries_category_date_idx").on(t.tenantId, t.categoryId, t.occurredOn),
     // Não é único: uma confirmação cobre todos os lançamentos da mensagem (RF16.Obs2).

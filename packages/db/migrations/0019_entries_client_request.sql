@@ -1,0 +1,3 @@
+ALTER TABLE "entries" ADD COLUMN "client_request_id" uuid;--> statement-breakpoint
+CREATE UNIQUE INDEX "entries_client_request_unique" ON "entries" USING btree ("tenant_id","created_by","client_request_id") WHERE "entries"."client_request_id" is not null;--> statement-breakpoint
+ALTER TABLE "entries" ADD CONSTRAINT "entries_origin_exclusive_check" CHECK ("entries"."client_request_id" is null or "entries"."inbound_message_id" is null);

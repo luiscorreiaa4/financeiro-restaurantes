@@ -134,6 +134,13 @@
       "when": 1794582265701,
       "tag": "0018_entries_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794868839718,
+      "tag": "0019_entries_client_request",
+      "breakpoints": true
     }
   ]
 }

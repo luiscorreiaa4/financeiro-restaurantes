@@ -1,4 +1,4 @@
-import { type Entry, type EntryScope, parseBRLInput } from "@app/core";
+import { type Entry, type EntryScope, parseBRLInput, type RecentEntry } from "@app/core";
 import {
   businessDateSchema,
   ENTRY_CURSOR_MAX,
@@ -216,7 +216,7 @@ function searchCondition(q: string): SQL {
  * preenchida que a junção não trouxe conta como sensível. Nunca nulo. Os apelidos são texto
  * fixo do código.
  */
-function sensitiveExpression(entryAlias: string, categoryAlias: string): string {
+export function sensitiveExpression(entryAlias: string, categoryAlias: string): string {
   return `(${entryAlias}.category_id is not null and ${categoryAlias}.is_sensitive is not false)`;
 }
 
@@ -440,6 +440,17 @@ interface RawCategory extends RawName {
   parent_id: string | null;
   requires_quantity: boolean;
   is_sensitive: boolean;
+  /** Só nas opções do formulário (F3c-2). */
+  active?: boolean;
+}
+
+interface RawActive extends RawName {
+  active: boolean;
+}
+
+interface RawUnit extends RawActive {
+  default_sales_channel_id: string | null;
+  timezone: string;
 }
 
 const MEDIA_KINDS: Record<string, SourceKind> = { text: "text", audio: "audio", image: "image" };
@@ -908,6 +919,45 @@ export const entryReader = {
   },
 
   /**
+   * Candidatos à possível duplicidade (RF26.R4, RF12.R13): lançamentos criados depois de
+   * `since` (por `created_at`, não por data de negócio), fora da lixeira, nas unidades do
+   * recorte. Inclui os dos colegas: `scope.ownerUserId` é ignorado de propósito (o lançador
+   * também compara com a unidade inteira). Categoria sensível fica de fora quando o recorte
+   * não a inclui (`sensitiveExpression`, falha fechado). Só devolve os campos da comparação.
+   */
+  async recent(tx: Transaction, scope: EntryScope, since: Date): Promise<readonly RecentEntry[]> {
+    const where: SQL[] = [
+      sql`e.deleted_at is null`,
+      sql`e.created_at > ${since.toISOString()}::timestamptz`,
+    ];
+    if (scope.unitIds !== "all") {
+      where.push(sql`e.unit_id = any(${arrayLiteral(scope.unitIds)}::uuid[])`);
+    }
+    if (!scope.includeSensitive) where.push(sql`not ${IS_SENSITIVE}`);
+    const result = await tx.execute<{
+      inbound_message_id: string | null;
+      amount_cents: string;
+      supplier_id: string | null;
+      description: string;
+      occurred_on: string;
+    }>(sql`
+      select e.inbound_message_id, e.amount_cents::text as amount_cents, e.supplier_id,
+             e.description, e.occurred_on::text as occurred_on
+        from entries e
+        left join categories c on c.id = e.category_id
+       where ${sql.join(where, sql` and `)}
+       order by e.created_at desc, e.id desc
+    `);
+    return result.rows.map((raw) => ({
+      inboundMessageId: raw.inbound_message_id,
+      amountCents: toCents(raw.amount_cents),
+      supplierId: raw.supplier_id,
+      description: raw.description,
+      occurredOn: raw.occurred_on,
+    }));
+  },
+
+  /**
    * Opções dos filtros da lista. Categorias sensíveis só para quem as vê; membros só para
    * quem vê lançamento dos outros (vazio para o lançador). Não filtra cadastro inativo: o
    * filtro precisa achar lançamento antigo.
@@ -917,7 +967,7 @@ export const entryReader = {
    */
   async options(tx: Transaction, scope: EntryScope): Promise<EntryOptions> {
     const categories = await tx.execute<RawCategory>(sql`
-      select id, name, kind, parent_id, requires_quantity, is_sensitive
+      select id, name, kind, parent_id, requires_quantity, is_sensitive, status = 'active' as active
         from categories
        where ${scope.includeSensitive ? sql`true` : sql`is_sensitive is false`}
        order by name, id
@@ -925,14 +975,16 @@ export const entryReader = {
     const suppliers = await tx.execute<RawName>(
       sql`select id, name from suppliers order by name, id`,
     );
-    const paymentMethods = await tx.execute<RawName>(
-      sql`select id, name from payment_methods order by name, id`,
+    // Cadastro inativo continua na lista (o filtro precisa achar lançamento antigo); o
+    // formulário de criação usa `active` para não oferecê-lo (F3c-2).
+    const paymentMethods = await tx.execute<RawActive>(
+      sql`select id, name, status = 'active' as active from payment_methods order by name, id`,
     );
-    const salesChannels = await tx.execute<RawName>(
-      sql`select id, name from sales_channels order by name, id`,
+    const salesChannels = await tx.execute<RawActive>(
+      sql`select id, name, status = 'active' as active from sales_channels order by name, id`,
     );
-    const units = await tx.execute<RawName>(sql`
-      select id, name from units
+    const units = await tx.execute<RawUnit>(sql`
+      select id, name, status = 'active' as active, default_sales_channel_id, timezone from units
        where ${scope.unitIds === "all" ? sql`true` : sql`id = any(${arrayLiteral(scope.unitIds)}::uuid[])`}
        order by name, id
     `);
@@ -955,11 +1007,26 @@ export const entryReader = {
         kind: row.kind as EntryOptions["categories"][number]["kind"],
         parentId: row.parent_id,
         requiresQuantity: row.requires_quantity,
+        active: row.active,
       })),
       suppliers: toRefs(suppliers.rows),
-      paymentMethods: toRefs(paymentMethods.rows),
-      salesChannels: toRefs(salesChannels.rows),
-      units: toRefs(units.rows),
+      paymentMethods: paymentMethods.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        active: row.active,
+      })),
+      salesChannels: salesChannels.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        active: row.active,
+      })),
+      units: units.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        active: row.active,
+        defaultSalesChannelId: row.default_sales_channel_id,
+        timezone: row.timezone,
+      })),
       members: toRefs(members),
     };
   },
