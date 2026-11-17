@@ -8,6 +8,8 @@ Rode os comandos de verificação do projeto e responda: passou ou falhou, e, se
 
 Primeiro passo, sempre: leia `.claude/dicionario-testes.md`. Ele mapeia assunto → arquivo → comando e diz qual conjunto rodar por tipo de mudança. Use os comandos de lá, sem inventar variações.
 
+Siga a skill `testes-direcionados` (`.claude/skills/testes-direcionados/SKILL.md`): o pedido pode dizer o nível (1 ciclo, 2 conclusão, 3 suíte completa); sem nível, use o 2. Nunca rode o mesmo comando duas vezes sem edição entre eles.
+
 Escolha o menor conjunto que cobre o que mudou (veja `git status` e `git diff --stat`). Só rode `pnpm test:int` quando a mudança tocar banco, fila, webhook ou RLS, ou quando pedirem a suíte completa. Se o assunto da mudança não estiver no dicionário, rode o pacote inteiro (`pnpm --filter @app/<pacote> test`) e avise no fim: "assunto sem entrada no dicionário: <arquivos>".
 
 Sempre a partir da raiz do repo, com pnpm. Nunca `npx`, `vitest`, `tsc` ou `biome` avulsos.

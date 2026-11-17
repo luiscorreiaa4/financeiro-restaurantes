@@ -6,6 +6,12 @@ export interface CatalogCategory {
   readonly id: string;
   readonly name: string;
   readonly kind: "revenue" | "expense" | "investment" | "deduction";
+  /** Categoria exige quantidade e unidade de medida (RF12.R4). Ausente = não exige. */
+  readonly requiresQuantity?: boolean;
+  /** Ausente = ativa. */
+  readonly status?: CatalogStatus;
+  /** Categoria sensível (folha, RF06.R3). Ausente conta como sensível: na dúvida, falha fechado. */
+  readonly isSensitive?: boolean;
 }
 export interface CatalogSupplier {
   readonly id: string;
@@ -37,6 +43,8 @@ export interface CatalogUnit {
   readonly status: CatalogStatus;
   /** Canal usado quando a receita chega sem canal (RF04.R6, DD-08). */
   readonly defaultSalesChannelId: string | null;
+  /** Fuso da unidade (IANA). Ausente = fuso padrão. */
+  readonly timezone?: string;
 }
 
 export interface CatalogSnapshot {
@@ -54,6 +62,32 @@ export function normalizeName(value: string): string {
 
 const matches = (name: string, aliases: readonly string[], key: string) =>
   normalizeName(name) === key || aliases.some((alias) => normalizeName(alias) === key);
+
+/** Fornecedor citado pelo nome ou apelido, sem caixa nem acento (RF12.R7); nulo se não existe. */
+export function findSupplier(catalog: CatalogSnapshot, hint: string): CatalogSupplier | null {
+  const key = normalizeName(hint);
+  return (
+    catalog.suppliers.find((supplier) => matches(supplier.name, supplier.aliases, key)) ?? null
+  );
+}
+
+/**
+ * Fornecedor escolhido no painel (RF12.R7, RF10): `{ id }` segue como veio (o domínio confere se
+ * existe), `{ name }` associa o cadastrado por nome ou apelido (sem caixa nem espaço) ou cria um
+ * novo com `newId()`. O nome já vem validado pelo contrato.
+ */
+export function resolveSupplierChoice(
+  catalog: CatalogSnapshot,
+  choice: { readonly id: string } | { readonly name: string } | null,
+  newId: () => string,
+): { supplierId: string | null; newSupplier?: { id: string; name: string } } {
+  if (choice === null) return { supplierId: null };
+  if ("id" in choice) return { supplierId: choice.id };
+  const known = findSupplier(catalog, choice.name);
+  if (known !== null) return { supplierId: known.id };
+  const created = { id: newId(), name: choice.name };
+  return { supplierId: created.id, newSupplier: created };
+}
 
 /**
  * Forma de pagamento citada na mensagem: pelo nome ou apelido, só entre as ativas (RF08.R5).

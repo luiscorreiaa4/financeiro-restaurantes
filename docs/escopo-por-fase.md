@@ -57,10 +57,11 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 
 ### Painel
 
-- [ ] **RF22** Lista e pesquisa de lançamentos: F3
-- [ ] **RF23** Edição de lançamento: F3
-- [ ] **RF24** Lixeira de 30 dias: F3
-- [ ] **RF25** Ver origem e histórico de versões: F3
+- [x] **RF22** Lista e pesquisa de lançamentos: F3 (F3a, 14/11/2026)
+- [x] **RF23** Edição de lançamento: F3 (F3b, 16/11/2026)
+- [x] **RF24** Lixeira de 30 dias: F3 (F3b, 16/11/2026)
+- [x] **RF25** Ver origem e histórico de versões: F3 (parcial: texto, transcrição e chave de acesso). Áudio e imagem da origem ficam para a E10 (pendência F3-1, DD-36)
+- [x] **RF26** Lançamento manual no painel: F3c feita em 16/11/2026 (MVP desde 16/11/2026, DD-37; era v1.1)
 - [ ] **RF27** Dashboard (indicadores e gráficos): F4. Inclui ticket médio, ponto de equilíbrio e imposto estimado (DD-13)
 - [ ] **RF28 (tela)** DRE gerencial na tela, antecipada da v1.1; o PDF fica na v1.1: F12
 - [ ] **RF39** Imposto estimado por regime, opcional, todos os regimes, regras por vigência: F12 **[PROVISÓRIO – P16, P17]**
@@ -83,7 +84,6 @@ Atualizado em 05/11/2026 (reunião de descoberta: decisões DD-01 a DD-16 em [`d
 ## v1.1
 
 - [ ] **RF20** Consultas livres pelo WhatsApp, por hierarquia (os resumos fixos já estão no MVP): E12
-- [ ] **RF26** Lançamento manual no painel
 - [ ] **RF28** Fechamento mensal em PDF (a DRE na tela já está no MVP)
 - [ ] **RF30** Perguntas em linguagem natural sobre os dados (painel)
 - [ ] **RF33** Lançamentos recorrentes: E13

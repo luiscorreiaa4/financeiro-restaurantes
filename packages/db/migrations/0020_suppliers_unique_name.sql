@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "suppliers_tenant_name_norm_unique" ON "suppliers" USING btree ("tenant_id",lower(regexp_replace(btrim("name"), '[[:space:]]+', ' ', 'g')));

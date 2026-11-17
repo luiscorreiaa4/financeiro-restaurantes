@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { browserApi } from "@/lib/api/browser-client";
@@ -27,25 +28,37 @@ function normalize(text: string): string {
 /**
  * Seletor de empresa e de unidade (RF02.R6). Cada um só aparece havendo mais de uma opção.
  * "Todas as unidades" só para quem tem todas (`allUnits`). Trocar grava o cookie de contexto
- * (POST /api/context) e recarrega a página inteira, o que limpa o cache do router e o do
- * TanStack de uma vez (RF02.CA05). `autoComplete="off"`: sem ele, ao voltar no histórico o
+ * (POST /api/context) e faz uma troca suave, sem recarregar o documento (RF02.CA05): volta à
+ * mesma rota sem a query string (filtros e `?entry=` valem só na empresa anterior) e
+ * `router.refresh()` invalida o cache do router e refaz o layout no servidor, que lê o contexto
+ * novo; com ele, o dado de tenant das outras empresas e unidades sai do cache do TanStack. Os
+ * seletores ficam desativados até a transição terminar.
+ * `autoComplete="off"`: sem ele, ao voltar no histórico o
  * navegador restaura o valor antigo do `<select>` e a tela mostra a empresa anterior, embora o
  * contexto real seja o novo.
  */
-export function ContextSwitcher({
-  me,
-  api,
-  assign,
-}: {
-  me: FullMe;
-  api?: ApiClient;
-  assign?: (url: string) => void;
-}) {
+export function ContextSwitcher({ me, api }: { me: FullMe; api?: ApiClient }) {
   const ctx = { tenantId: me.context.tenantId, unitId: me.context.unitId };
   const client = useMemo(() => api ?? browserApi(() => contextHeaderOf(me)), [api, me]);
   const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [switching, startSwitch] = useTransition();
   const [failed, setFailed] = useState(false);
+  const busy = posting || switching;
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // O contexto novo chega com o layout refeito pelo servidor. Só então o dado das outras empresas
+  // e unidades sai da memória: limpar antes faria as consultas ativas refazerem a busca com o
+  // contexto antigo, e a API responderia 409 (que recarrega a página inteira).
+  const { tenantId, unitId } = ctx;
+  useEffect(() => {
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) =>
+        queryKey[0] === "t" && (queryKey[1] !== tenantId || queryKey[2] !== unitId),
+    });
+  }, [queryClient, tenantId, unitId]);
 
   const units = useQuery({
     queryKey: tenantKey(ctx, "units"),
@@ -58,15 +71,20 @@ export function ContextSwitcher({
   }
 
   async function choose(tenantId: string, unitId: string) {
-    setBusy(true);
+    setPosting(true);
     setFailed(false);
     try {
       await client.post("/api/context", { tenantId, unitId }, noBody);
-      (assign ?? ((url: string) => window.location.assign(url)))("/");
     } catch {
       setFailed(true);
-      setBusy(false);
+      setPosting(false);
+      return;
     }
+    startSwitch(() => {
+      router.refresh();
+      router.replace(pathname);
+    });
+    setPosting(false);
   }
 
   const unitOptions = [

@@ -88,3 +88,31 @@ export function applyMask(
   }
   return { value, caret: value.length };
 }
+
+/**
+ * Valor em reais enquanto se digita (RF23.R1): agrupa os milhares com ponto, mantém a vírgula
+ * decimal e aceita no máximo dois decimais. Só reformata texto, não faz conta (nada de `float`).
+ * O ponto digitado é ignorado: aqui ele só aparece como milhar; o ponto decimal de um texto
+ * colado é tratado antes, por `parseBRLInput` (ver `MoneyInput`).
+ */
+export function maskBRL(raw: string): string {
+  const text = raw.replace(/^\s*R\$/i, "");
+  let integer = "";
+  let fraction = "";
+  let hasComma = false;
+  for (const char of text) {
+    if (char === ",") {
+      hasComma = true;
+    } else if (char >= "0" && char <= "9") {
+      if (hasComma) {
+        if (fraction.length < 2) fraction += char;
+      } else {
+        integer += char;
+      }
+    }
+  }
+  if (integer === "" && !hasComma) return "";
+  const trimmed = integer.replace(/^0+(?=\d)/, "");
+  const grouped = (trimmed === "" ? "0" : trimmed).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return hasComma ? `${grouped},${fraction}` : grouped;
+}

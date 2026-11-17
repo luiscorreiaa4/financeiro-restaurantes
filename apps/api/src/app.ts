@@ -1,6 +1,7 @@
 import type { Env } from "@app/config/env";
 import Fastify from "fastify";
 import { type AuthRoutesDeps, authRoutes } from "./http/auth/auth-routes";
+import { type EntriesRoutesDeps, entriesRoutes } from "./http/entries/entries-routes";
 import { appOriginOf, originGuard } from "./http/origin-guard";
 import type { PanelDeps } from "./http/panel/panel-context";
 import { panelRoutes } from "./http/panel/panel-routes";
@@ -24,6 +25,8 @@ export interface AppDeps {
   readonly profile?: ProfileRoutesDeps;
   /** Contexto do painel (F2): guards de empresa, unidade e permissão. `GET /api/me`, `POST /api/context` e `GET /api/units`. */
   readonly panel?: PanelDeps;
+  /** Lançamentos do painel (F3a, RF22): `GET /api/entries`, `/api/entries/totals` e `/api/entries/options`. */
+  readonly entries?: EntriesRoutesDeps;
   /** Destino dos logs; o padrão é stdout. Existe para os testes lerem o que foi registrado. */
   readonly logStream?: { write(line: string): void };
 }
@@ -55,6 +58,7 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL" | "APP_URL">, deps: AppDeps 
   if (deps.recovery) app.register(recoveryRoutes, { deps: deps.recovery });
   if (deps.profile) app.register(profileRoutes, { deps: deps.profile });
   if (deps.panel) app.register(panelRoutes, { deps: deps.panel });
+  if (deps.entries) app.register(entriesRoutes, { deps: deps.entries });
 
   return app;
 }

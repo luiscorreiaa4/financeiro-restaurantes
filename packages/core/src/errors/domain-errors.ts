@@ -19,13 +19,26 @@ export type DomainError =
       readonly statedCents: number;
     }
   | { readonly code: "InvalidQuantity"; readonly value: number }
-  | { readonly code: "InvalidBusinessDate"; readonly value: string }
+  | {
+      readonly code: "InvalidBusinessDate";
+      readonly value: string;
+      /** Qual data do painel é inválida; ausente fora da criação pelo painel. */
+      readonly field?: "occurredOn" | "paidOn";
+    }
   | { readonly code: "InvalidId"; readonly value: string }
   | { readonly code: "OriginMissing" }
   | { readonly code: "EntryDeleted" }
   | { readonly code: "EntryAlreadyDeleted" }
   | { readonly code: "EntryNotDeleted" }
   | { readonly code: "NothingToChange" }
+  | { readonly code: "DateTooFarAhead"; readonly maxDate: string }
+  | { readonly code: "QuantityRequired" }
+  | { readonly code: "CategoryTypeMismatch"; readonly categoryId: string }
+  | { readonly code: "DescriptionEmpty" }
+  | {
+      readonly code: "UnknownReference";
+      readonly field: "category" | "supplier" | "payment_method" | "sales_channel" | "unit";
+    }
   | { readonly code: "PermissionDenied"; readonly role: string; readonly action: string }
   | {
       readonly code: "InvalidPermission";

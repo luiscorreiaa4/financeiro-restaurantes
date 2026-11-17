@@ -205,6 +205,12 @@ describe("EntryStore: catálogo e duplicidade", () => {
     const catalog = await store().loadCatalog(a.tenantId);
     expect(catalog.categories.map((category) => category.id)).toContain(a.categoryId);
     expect(catalog.categories.map((category) => category.id)).not.toContain(b.categoryId);
+    // O painel valida a edição com estes dois campos (RF12.R4, RF23).
+    expect(catalog.categories.find((category) => category.id === a.categoryId)).toMatchObject({
+      requiresQuantity: false,
+      status: "active",
+      isSensitive: false,
+    });
     expect(catalog.units).toEqual([
       {
         id: a.unitId,
@@ -212,6 +218,7 @@ describe("EntryStore: catálogo e duplicidade", () => {
         aliases: [],
         status: "active",
         defaultSalesChannelId: null,
+        timezone: "America/Sao_Paulo",
       },
     ]);
     expect(catalog.paymentMethods.map((method) => method.name)).toContain("Pix");
@@ -334,6 +341,42 @@ describe("EntryStore: desfazer e corrigir", () => {
       since: new Date(t0 + 60_000),
     });
     expect(outsideWindow).toEqual([]);
+  });
+
+  it("fornecedor novo entra na mesma transação da edição e some junto se o lançamento mudou no meio (RF23)", async () => {
+    const inboundId = await inbound(a);
+    const original = newEntry(a, inboundId);
+    await store().register({
+      tenantId: a.tenantId,
+      userId: a.userId,
+      inboundMessageId: inboundId,
+      entries: [{ position: 0, change: original }],
+      newSuppliers: [],
+      usage: [],
+    });
+    const context = { actorId: a.userId, channel: "web" as const, at: new Date() };
+    const supplierId = uuidv7();
+    const edited = editEntry(original.entry, { supplierId }, context);
+    if (!edited.ok) throw new Error("edição falhou");
+    const ok = await store().applyChanges(a.tenantId, [edited.value], {
+      newSuppliers: [{ id: supplierId, name: "Padaria Nova" }],
+    });
+    expect(ok).toBe(true);
+    const created = await db.admin.query("select name, tenant_id from suppliers where id = $1", [
+      supplierId,
+    ]);
+    expect(created.rows).toEqual([{ name: "Padaria Nova", tenant_id: a.tenantId }]);
+
+    // Mesma base antiga: recusada, e o fornecedor desta tentativa não fica no banco.
+    const lostId = uuidv7();
+    const stale = editEntry(original.entry, { supplierId: lostId }, context);
+    if (!stale.ok) throw new Error("edição falhou");
+    const refused = await store().applyChanges(a.tenantId, [stale.value], {
+      newSuppliers: [{ id: lostId, name: "Fornecedor Perdido" }],
+    });
+    expect(refused).toBe(false);
+    const lost = await db.admin.query("select 1 from suppliers where id = $1", [lostId]);
+    expect(lost.rows).toHaveLength(0);
   });
 
   it("recusa a alteração quando o lançamento mudou no meio e não grava versão", async () => {
@@ -596,5 +639,85 @@ describe("EntryStore: lixeira com rastro e restauração (RF24, RF25.R4)", () =>
       { version: 2, action: "delete" },
       { version: 3, action: "restore" },
     ]);
+  });
+});
+
+describe("EntryStore: guarda dentro do UPDATE (F3b-3, DD-39)", () => {
+  async function registered(f: TenantFixture) {
+    const inboundId = await inbound(f);
+    const original = newEntry(f, inboundId);
+    await store().register({
+      tenantId: f.tenantId,
+      userId: f.userId,
+      inboundMessageId: inboundId,
+      entries: [{ position: 0, change: original }],
+      newSuppliers: [],
+      usage: [],
+    });
+    return original;
+  }
+  const context = (at = new Date()) => ({ actorId: "", channel: "web" as const, at });
+  const markSensitive = (categoryId: string) =>
+    db.admin.query("update categories set is_sensitive = true where id = $1", [categoryId]);
+
+  it("categoria que virou sensível depois da leitura recusa a edição de quem não vê folha", async () => {
+    const f = await createTenant(db.admin, "Corrida de sensível");
+    const original = await registered(f);
+    const edited = editEntry(
+      original.entry,
+      { description: "Tentativa" },
+      { ...context(), actorId: f.userId },
+    );
+    if (!edited.ok) throw new Error("edição falhou");
+    await markSensitive(f.categoryId);
+
+    expect(await store().applyChanges(f.tenantId, [edited.value], { forbidSensitive: true })).toBe(
+      false,
+    );
+    const row = await db.admin.query("select description, version from entries where id = $1", [
+      original.entry.id,
+    ]);
+    expect(row.rows[0]).toEqual({ description: "Gás", version: 1 });
+    // Sem a guarda (canal e quem vê folha) a gravação segue como antes.
+    expect(await store().applyChanges(f.tenantId, [edited.value])).toBe(true);
+  });
+
+  it("mover para uma categoria que é sensível no momento da gravação também é recusado", async () => {
+    const f = await createTenant(db.admin, "Corrida de destino");
+    const original = await registered(f);
+    const payroll = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group, is_sensitive)
+       values ($1, $2, 'Folha', 'expense', 'outras', true)`,
+      [payroll, f.tenantId],
+    );
+    const edited = editEntry(
+      original.entry,
+      { categoryId: payroll },
+      { ...context(), actorId: f.userId },
+    );
+    if (!edited.ok) throw new Error("edição falhou");
+    expect(await store().applyChanges(f.tenantId, [edited.value], { forbidSensitive: true })).toBe(
+      false,
+    );
+  });
+
+  it("restauração depois do prazo da lixeira é recusada na gravação", async () => {
+    const f = await createTenant(db.admin, "Corrida do prazo");
+    const original = await registered(f);
+    const at = new Date("2026-10-01T15:00:00Z");
+    const deleted = softDeleteEntry(original.entry, { actorId: f.userId, channel: "web", at });
+    if (!deleted.ok) throw new Error("exclusão falhou");
+    expect(await store().applyChanges(f.tenantId, [deleted.value])).toBe(true);
+    const restored = restoreEntry(deleted.value.entry, { actorId: f.userId, channel: "web", at });
+    if (!restored.ok) throw new Error("restauração falhou");
+
+    // Prazo até 31/10: no dia 01/11 já venceu; no 31/10 ainda vale.
+    expect(
+      await store().applyChanges(f.tenantId, [restored.value], { restorableOn: "2026-11-01" }),
+    ).toBe(false);
+    expect(
+      await store().applyChanges(f.tenantId, [restored.value], { restorableOn: "2026-10-31" }),
+    ).toBe(true);
   });
 });

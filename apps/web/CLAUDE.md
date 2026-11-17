@@ -12,6 +12,35 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 6. **Toda chave de query de dado de tenant usa `tenantKey(ctx, ...)`** (`lib/query/keys.ts`), que inclui empresa e unidade. Chave escrita à mão para dado de tenant é proibida. Dado do usuário (perfil) não é do tenant e usa chave própria. No servidor, `getQueryClient()` devolve um cliente novo por chamada.
 7. Texto de mensagem de usuário é entrada não confiável: renderize como texto, nunca como HTML.
 
+## Lançamentos (`features/entries`, F3a)
+
+- Contrato da API em `@app/core/contracts` (Zod); o web não redefine schema de lançamento. Cliente em `entries-api.ts`, hooks em `use-entries.ts` (dentro de `EntriesProvider`, que entrega empresa, unidade e cliente).
+- **A tela não soma, não subtrai e não reordena.** Totais e resultado vêm de `/api/entries/totals`; a ordenação é pedida ao servidor pela URL (DD-35). O teste "os totais são os do servidor" (`entries-view.test.tsx`) dá um total diferente da soma das linhas e espera o do servidor.
+- Centavos do contrato são `number`: formate com `formatCents` (`@/lib/format`), que aceita o resultado negativo. `formatBRL` exige `Money` do core.
+- O estado mora na URL: filtros, `sort`, `dir` e o lançamento aberto (`?entry=<id>`). Ler e escrever só por `parseFilters` e `serializeFilters` (`url-filters.ts`); `cursor` e `limit` nunca vão para a URL da tela.
+- Campo controlado pela URL que o usuário marca (caixa de marcação) guarda o valor local até a navegação terminar (`useSynced` em `filters-bar.tsx`); sem isso a caixa volta ao estado antigo por um instante e o E2E falha em `check()`.
+- TanStack Table instalado é a v9: `useTable`, `tableFeatures` e `table.FlexRender`, com recursos e colunas fora do componente. A API da v8 (`useReactTable`, `getCoreRowModel`) só existe em `@tanstack/react-table/legacy`.
+- No jsdom o CSS não se aplica: a tabela do computador e os cartões do celular aparecem juntos no teste de componente. Escopo com `within(screen.getByRole("table"))`.
+
+## Lançamentos: escrita (`features/entries`, F3b)
+
+- Escrita só por `entriesApi` (`update`, `remove`, `restore`, `batchPreview`, `batchDelete`, `trash`); as mutações (`use-entries.ts`) invalidam `tenantKey(ctx, "entries")`. `isEntryStale(e)` devolve o detalhe atual do 409 `entry_stale`, que a tela trata (`StaleNotice`); o 409 `context_changed` continua do `browser-client` e o formulário não perde o digitado. O 409 do lote não traz `current`.
+- Dinheiro digitado: `MoneyInput` (`components/money-input.tsx`) emite centavos inteiros; texto colado passa por `parseBRLInput` do core. A tela nunca soma: confirmação do lote usa quantidade e soma de `batch/preview`.
+- Formulário (`entry-form.tsx`): React Hook Form, só o que mudou vai no `patch`, com `expectedVersion`; trava síncrona (`useRef`) contra duplo envio. `select` nativo e fornecedor com lista própria (`supplier-field.tsx`), não o `Combobox` do shadcn.
+- Seleção de linhas do lote: só na tabela do desktop, só dono e gerente; a chave é `serializeFilters` (abrir o drawer não limpa, mudar filtro ou ordem limpa).
+- Link com aparência de botão: `<Link className={buttonVariants(...)}>`, não `<Button render={<Link/>}>` (vira `role=button`).
+- No E2E, a tabela de dono e gerente tem a coluna de seleção: não selecione célula por posição nem `getByLabel("Insumos")` sem `{ exact: true }` (as caixas se chamam "Selecionar Insumos #n"). A API falsa guarda estado: `POST http://localhost:4010/__reset` no `beforeEach` e no `afterEach` de spec que escreve.
+
+## Lançamentos: criação (`features/entries`, F3c)
+
+- Escrita só por `entriesApi.create` (`POST /api/entries`, `useCreateEntry`, invalida `tenantKey(ctx, "entries")`). `isAlreadySubmitted(e)` reconhece o 409 `already_submitted`; o 409 `context_changed` continua do `browser-client` e o formulário não perde o digitado.
+- **A chave de tentativa (`clientRequestId`, UUID v4) só muda depois de sucesso**: erro de rede, 5xx e 409 reenviam a mesma (RF26.R3). Trava síncrona (`useRef`) contra duplo clique, como na edição.
+- `create-form-values.ts` tem as regras do formulário (valores iniciais, `buildCreateBody`, `createLocalErrors`, `keepForNext`); `entry-create-form.tsx` é o formulário e `entry-create-screen.tsx` liga à API e ao contexto. A tela não calcula taxa nem líquido: a mensagem de "Salvar e lançar outro" usa os valores do servidor.
+- Erros: o 422 `invalid_entry` traz `field` (lista `ENTRY_FIELD_NAMES`) e `reason`; `DOMAIN_ERRORS` (`entry-form.tsx`) tem os textos e serve à criação e à edição.
+- Unidade de medida é lista fechada (`QUANTITY_UNITS`, RF12.R4); valor antigo fora da lista continua escolhido na edição e não vai no patch.
+- O seletor de unidade da casca também se chama "Unidade": no E2E use `#create-unit` para o do formulário. Specs que escrevem rodam com **um worker** (a API falsa guarda estado e o `__reset` de um derruba o outro).
+- O botão "Novo lançamento" exige `entry:create` **e** `accountAllows(accountStatus, role).write` (`allowedActions` não considera a situação da conta).
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
@@ -23,6 +52,7 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 
 - Unitários e de componente: Vitest com jsdom, `*.test.ts(x)` ao lado do código. O Vitest ignora `e2e/` e o JSX é transformado pelo `oxc` (o tsconfig usa `jsx: "preserve"`).
 - E2E: Playwright em `e2e/*.spec.ts`, projetos `Desktop Chrome` e `Pixel 7`. `pnpm --filter @app/web test:e2e`. Sobe o web em `:3100` e uma API falsa em `:4010` (`e2e/fake-api.mjs`); com `CI=true` faz `next build` + `next start`, sem `CI` usa `next dev`. Instalar o navegador uma vez: `pnpm --filter @app/web exec playwright install chromium`.
+- Durante a tela, rode só a spec dela (`... exec playwright test <spec> --project="Desktop Chrome"`) e, ao concluir, a mesma spec nos dois projetos. Todas as specs com `CI=true` são nível 3 (skill `testes-direcionados`): mudança estrutural, fechamento de etapa, PR.
 - Selecione por papel e texto acessível, não por classe CSS. Toda tela nova precisa de teste no celular (sem rolagem horizontal).
 - Se o `typecheck` acusar `Cannot find module '../../app/...'` em `.next/types`, apague `apps/web/.next` (saída de build ignorada pelo git).
 - Biome precisa de `css.parser.tailwindDirectives` (já ligado) para ler o `globals.css`.
@@ -38,6 +68,8 @@ A API (`/api/me`) classifica a sessão; o `proxy.ts` só olha se há cookie. O E
 | `/login`, `/cadastro`, `/recuperar-senha` | abre | `safeNext(next)`, padrão `/` | `/acesso-restrito` (via `/`) | abre, sem laço |
 | `/redefinir-senha` | abre | abre; ao concluir, sai e vai a `/login` | idem | abre |
 | `/termos`, `/privacidade` | abre | abre | abre | abre |
+
+`/lancamentos/lixeira` é do grupo `(app)` (linha 1 da tabela) e exige `entry:restore` (`PageGuard`): quem não tem vê "Você não tem acesso a esta página". `/lancamentos/novo` também é do grupo `(app)` e exige `entry:create` (`PageGuard`); a conta somente leitura vê "Conta somente leitura: não é possível lançar."
 
 - Página nova em `app/(app)/` entra em `APP_ROUTES` (`e2e/routes.ts`). `lib/routes-list.test.ts` compara a lista com o disco e falha se faltar.
 - Escrita feita pelo servidor do Next, ou webhook novo, exige entrada explícita em `ORIGIN_EXEMPT_PATHS` da API (`apps/api/src/http/origin-guard.ts`; ver `.claude/rules/rota-de-tenant.md`, regra 6). Sem isso a API recusa por `origin_forbidden`.

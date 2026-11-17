@@ -418,8 +418,24 @@ export interface EntryStore {
   }): Promise<readonly Entry[]>;
   /** Grava tudo em uma transação: lançamentos, versões, fornecedores, uso de IA e pergunta. */
   register(registration: EntryRegistration): Promise<void>;
-  /** Aplica alterações (correção, desfazer). `false` se algum lançamento mudou no meio. */
-  applyChanges(tenantId: string, changes: readonly EntryChange[]): Promise<boolean>;
+  /**
+   * Aplica alterações (correção, desfazer, edição do painel). `false` se algum lançamento mudou
+   * no meio. `newSuppliers` são criados na mesma transação e somem junto se ela é desfeita.
+   *
+   * Guardas conferidas dentro do próprio `UPDATE`, depois de o ator ter sido autorizado sobre a
+   * leitura (F3b-3, DD-39): `forbidSensitive` recusa se a categoria atual ou a nova é sensível
+   * (ou desconhecida) NESTE momento, para quem não vê folha; `restorableOn` (data de negócio de
+   * hoje) recusa se o prazo da lixeira já venceu. Recusa devolve `false`, como a versão velha.
+   */
+  applyChanges(
+    tenantId: string,
+    changes: readonly EntryChange[],
+    extra?: {
+      readonly newSuppliers?: readonly { id: string; name: string }[];
+      readonly forbidSensitive?: boolean;
+      readonly restorableOn?: string;
+    },
+  ): Promise<boolean>;
   setConfirmation(tenantId: string, inboundMessageId: string, waMessageId: string): Promise<void>;
   /** Já enviamos resposta desta finalidade para esta mensagem? (envio idempotente, RF16.Obs1) */
   hasOutbound(

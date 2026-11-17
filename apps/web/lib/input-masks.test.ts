@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMask, CNPJ_MASK, maskBrPhone, maskCnpj, PHONE_MASK } from "./input-masks";
+import { applyMask, CNPJ_MASK, maskBRL, maskBrPhone, maskCnpj, PHONE_MASK } from "./input-masks";
 
 describe("maskCnpj", () => {
   it("formata enquanto digita", () => {
@@ -73,5 +73,34 @@ describe("applyMask (cursor)", () => {
 
   it("apagar tudo zera o cursor", () => {
     expect(applyMask(CNPJ_MASK, "1", "", 0)).toEqual({ value: "", caret: 0 });
+  });
+});
+
+describe("maskBRL", () => {
+  it("agrupa os milhares e mantém a vírgula decimal enquanto digita", () => {
+    expect(maskBRL("")).toBe("");
+    expect(maskBRL("1")).toBe("1");
+    expect(maskBRL("1234")).toBe("1.234");
+    expect(maskBRL("1234567")).toBe("1.234.567");
+    expect(maskBRL("1234,")).toBe("1.234,");
+    expect(maskBRL("1234,5")).toBe("1.234,5");
+    expect(maskBRL("1234,56")).toBe("1.234,56");
+  });
+
+  it("limita a dois decimais e ignora uma segunda vírgula", () => {
+    expect(maskBRL("1234,567")).toBe("1.234,56");
+    expect(maskBRL("12,3,4")).toBe("12,34");
+  });
+
+  it("tira o prefixo R$, espaços e letras; vírgula sozinha vira 0,", () => {
+    expect(maskBRL("R$ 1.234,56")).toBe("1.234,56");
+    expect(maskBRL("abc")).toBe("");
+    expect(maskBRL(",5")).toBe("0,5");
+  });
+
+  it("tira zeros à esquerda da parte inteira, sem apagar o zero antes da vírgula", () => {
+    expect(maskBRL("007")).toBe("7");
+    expect(maskBRL("0,50")).toBe("0,50");
+    expect(maskBRL("000")).toBe("0");
   });
 });

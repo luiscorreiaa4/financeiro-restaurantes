@@ -8,6 +8,12 @@ import { meFixture } from "@/lib/api/me-fixture";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { AppShell } from "./app-shell";
 
+// `useRouter` exige o roteador montado (o ContextSwitcher o usa na troca suave); aqui basta um falso.
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }),
+}));
+
 beforeEach(() => {
   // O seletor e o SessionKeeper chamam a API pelo navegador; aqui a resposta é sempre mínima.
   vi.stubGlobal(

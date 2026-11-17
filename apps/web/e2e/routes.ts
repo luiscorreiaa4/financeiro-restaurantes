@@ -10,6 +10,8 @@ export const APP_ROUTES = [
   "/dashboard",
   "/exportacoes",
   "/lancamentos",
+  "/lancamentos/lixeira",
+  "/lancamentos/novo",
   "/nova-empresa",
   "/perfil",
 ] as const;

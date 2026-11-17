@@ -1,13 +1,9 @@
-import { RequireAction } from "@/components/require-action";
+import { PageGuard } from "@/components/page-guard";
 import { UnderConstruction } from "@/components/under-construction";
-import { requireCurrentSession } from "@/lib/auth/session";
 
 // A API repete a checagem; aqui só evitamos mostrar a página a quem não tem a ação.
-export default async function Page() {
-  const me = await requireCurrentSession();
+export default function Page() {
   return (
-    <RequireAction me={me} action="export:data">
-      <UnderConstruction title="Exportações" />
-    </RequireAction>
+    <PageGuard action="export:data">{() => <UnderConstruction title="Exportações" />}</PageGuard>
   );
 }

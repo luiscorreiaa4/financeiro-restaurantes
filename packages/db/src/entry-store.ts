@@ -1,5 +1,6 @@
 import {
   type AiUsageRecord,
+  type CatalogSnapshot,
   type CatalogStatus,
   type Entry,
   type EntryChange,
@@ -37,7 +38,8 @@ function asMoney(value: number) {
   return result.value;
 }
 
-function toEntry(row: EntryRow): Entry {
+/** Linha de `entries` para o domínio; o leitor do painel reusa. */
+export function toEntry(row: EntryRow): Entry {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -72,7 +74,7 @@ function toEntry(row: EntryRow): Entry {
   };
 }
 
-function entryValues(entry: Entry, position: number) {
+export function entryValues(entry: Entry, position: number) {
   return {
     id: entry.id,
     tenantId: entry.tenantId,
@@ -107,7 +109,7 @@ function entryValues(entry: Entry, position: number) {
   };
 }
 
-function versionValues(change: EntryChange) {
+export function versionValues(change: EntryChange) {
   const { version } = change;
   return {
     id: uuidv7(),
@@ -161,76 +163,88 @@ class StaleEntryError extends Error {
   }
 }
 
+/** Catálogo do tenant dentro da transação do chamador (já com `app.tenant_id`). */
+export async function loadCatalogIn(tx: Transaction, tenantId: string): Promise<CatalogSnapshot> {
+  const [categoryRows, supplierRows, paymentRows, channelRows, unitRows] = await Promise.all([
+    tx
+      .select({
+        id: categories.id,
+        name: categories.name,
+        kind: categories.kind,
+        requiresQuantity: categories.requiresQuantity,
+        status: categories.status,
+        isSensitive: categories.isSensitive,
+      })
+      .from(categories)
+      .where(or(eq(categories.tenantId, tenantId), isNull(categories.tenantId))),
+    tx
+      .select({ id: suppliers.id, name: suppliers.name, aliases: suppliers.aliases })
+      .from(suppliers)
+      .where(eq(suppliers.tenantId, tenantId)),
+    tx
+      .select({
+        id: paymentMethods.id,
+        name: paymentMethods.name,
+        feePercentBp: paymentMethods.feePercentBp,
+        feeFixedCents: paymentMethods.feeFixedCents,
+        type: paymentMethods.type,
+        aliases: paymentMethods.aliases,
+        status: paymentMethods.status,
+        isDefaultCard: paymentMethods.isDefaultCard,
+      })
+      .from(paymentMethods)
+      .where(eq(paymentMethods.tenantId, tenantId)),
+    tx
+      .select({
+        id: salesChannels.id,
+        name: salesChannels.name,
+        feePercentBp: salesChannels.feePercentBp,
+        type: salesChannels.type,
+        aliases: salesChannels.aliases,
+        status: salesChannels.status,
+      })
+      .from(salesChannels)
+      .where(eq(salesChannels.tenantId, tenantId)),
+    tx
+      .select({
+        id: units.id,
+        name: units.name,
+        aliases: units.aliases,
+        status: units.status,
+        defaultSalesChannelId: units.defaultSalesChannelId,
+        timezone: units.timezone,
+      })
+      .from(units)
+      .where(eq(units.tenantId, tenantId))
+      // Ordem fixa: a escolha da primeira unidade de acesso (DE-25) não depende do plano do banco.
+      .orderBy(units.name, units.id),
+  ]);
+  return {
+    categories: categoryRows.map((row) => ({
+      ...row,
+      kind: row.kind as "revenue" | "expense" | "investment" | "deduction",
+      status: row.status as CatalogStatus,
+    })),
+    suppliers: supplierRows.map((row) => ({ ...row, aliases: row.aliases ?? [] })),
+    paymentMethods: paymentRows.map((row) => ({
+      ...row,
+      type: row.type as PaymentMethodType,
+      status: row.status as CatalogStatus,
+    })),
+    salesChannels: channelRows.map((row) => ({
+      ...row,
+      type: row.type as SalesChannelType,
+      status: row.status as CatalogStatus,
+    })),
+    units: unitRows.map((row) => ({ ...row, status: row.status as CatalogStatus })),
+  };
+}
+
 /** Adaptador de `EntryStore`: papel `app`, sempre dentro de `withTenant` (regra 2). */
 export function createEntryStore(db: Database): EntryStore {
   return {
     async loadCatalog(tenantId) {
-      return withTenant(db, tenantId, async (tx) => {
-        const [categoryRows, supplierRows, paymentRows, channelRows, unitRows] = await Promise.all([
-          tx
-            .select({ id: categories.id, name: categories.name, kind: categories.kind })
-            .from(categories)
-            .where(or(eq(categories.tenantId, tenantId), isNull(categories.tenantId))),
-          tx
-            .select({ id: suppliers.id, name: suppliers.name, aliases: suppliers.aliases })
-            .from(suppliers)
-            .where(eq(suppliers.tenantId, tenantId)),
-          tx
-            .select({
-              id: paymentMethods.id,
-              name: paymentMethods.name,
-              feePercentBp: paymentMethods.feePercentBp,
-              feeFixedCents: paymentMethods.feeFixedCents,
-              type: paymentMethods.type,
-              aliases: paymentMethods.aliases,
-              status: paymentMethods.status,
-              isDefaultCard: paymentMethods.isDefaultCard,
-            })
-            .from(paymentMethods)
-            .where(eq(paymentMethods.tenantId, tenantId)),
-          tx
-            .select({
-              id: salesChannels.id,
-              name: salesChannels.name,
-              feePercentBp: salesChannels.feePercentBp,
-              type: salesChannels.type,
-              aliases: salesChannels.aliases,
-              status: salesChannels.status,
-            })
-            .from(salesChannels)
-            .where(eq(salesChannels.tenantId, tenantId)),
-          tx
-            .select({
-              id: units.id,
-              name: units.name,
-              aliases: units.aliases,
-              status: units.status,
-              defaultSalesChannelId: units.defaultSalesChannelId,
-            })
-            .from(units)
-            .where(eq(units.tenantId, tenantId))
-            // Ordem fixa: a escolha da primeira unidade de acesso (DE-25) não depende do plano do banco.
-            .orderBy(units.name, units.id),
-        ]);
-        return {
-          categories: categoryRows.map((row) => ({
-            ...row,
-            kind: row.kind as "revenue" | "expense" | "investment" | "deduction",
-          })),
-          suppliers: supplierRows.map((row) => ({ ...row, aliases: row.aliases ?? [] })),
-          paymentMethods: paymentRows.map((row) => ({
-            ...row,
-            type: row.type as PaymentMethodType,
-            status: row.status as CatalogStatus,
-          })),
-          salesChannels: channelRows.map((row) => ({
-            ...row,
-            type: row.type as SalesChannelType,
-            status: row.status as CatalogStatus,
-          })),
-          units: unitRows.map((row) => ({ ...row, status: row.status as CatalogStatus })),
-        };
-      });
+      return withTenant(db, tenantId, (tx) => loadCatalogIn(tx, tenantId));
     },
 
     async findRecentEntries(tenantId, since) {
@@ -363,8 +377,18 @@ export function createEntryStore(db: Database): EntryStore {
       });
     },
 
-    async applyChanges(tenantId, changes) {
+    async applyChanges(tenantId, changes, extra) {
       return withTenant(db, tenantId, async (tx) => {
+        // Fornecedor novo antes dos lançamentos que o citam; a transação desfeita o leva junto.
+        if (extra?.newSuppliers && extra.newSuppliers.length > 0) {
+          await tx.insert(suppliers).values(
+            extra.newSuppliers.map((supplier) => ({
+              id: supplier.id,
+              tenantId,
+              name: supplier.name,
+            })),
+          );
+        }
         for (const { entry, version } of changes) {
           // Guarda de versão: só aplica se ninguém mexeu no lançamento desde que o lemos.
           const updated = await tx
@@ -400,6 +424,20 @@ export function createEntryStore(db: Database): EntryStore {
                 eq(entries.tenantId, tenantId),
                 eq(entries.id, entry.id),
                 eq(entries.version, entry.version - 1),
+                // Quem não vê folha: a categoria atual e a nova têm de ser comprovadamente não
+                // sensíveis agora; categoria sem cadastro conta como sensível (F3b-3).
+                extra?.forbidSensitive
+                  ? and(
+                      sql`(${entries.categoryId} is null or exists (select 1 from ${categories} where ${categories.id} = ${entries.categoryId} and ${categories.isSensitive} = false))`,
+                      entry.categoryId === null
+                        ? sql`true`
+                        : sql`exists (select 1 from ${categories} where ${categories.id} = ${entry.categoryId}::uuid and ${categories.isSensitive} = false)`,
+                    )
+                  : undefined,
+                // Prazo da lixeira conferido na gravação (RF24.R2).
+                extra?.restorableOn === undefined
+                  ? undefined
+                  : sql`${entries.restorableUntil} >= ${extra.restorableOn}::date`,
               ),
             )
             .returning({ id: entries.id });

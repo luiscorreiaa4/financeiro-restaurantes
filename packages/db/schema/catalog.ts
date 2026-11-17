@@ -92,6 +92,12 @@ export const suppliers = pgTable(
   (t) => [
     unique("suppliers_tenant_id_id_unique").on(t.tenantId, t.id),
     index("suppliers_tenant_name_idx").on(t.tenantId, t.name),
+    // F3b-1: dois cadastros com o mesmo nome (sem caixa nem espaços repetidos) na empresa não
+    // existem; a corrida de "fornecedor novo" cai neste índice e a rota tenta de novo.
+    uniqueIndex("suppliers_tenant_name_norm_unique").on(
+      t.tenantId,
+      sql`lower(regexp_replace(btrim(${t.name}), '[[:space:]]+', ' ', 'g'))`,
+    ),
     tenantIsolation("suppliers"),
   ],
 );

@@ -1,6 +1,6 @@
 import { type Money, money, ZERO } from "@app/core";
 import { describe, expect, it } from "vitest";
-import { formatBRL, formatBusinessDate } from "./index";
+import { formatBRL, formatBusinessDate, formatCents, todayBusinessDate } from "./index";
 
 const m = (cents: number): Money => {
   const result = money(cents);
@@ -33,4 +33,29 @@ describe("formatação de data de negócio", () => {
       expect(() => formatBusinessDate(input)).toThrow(RangeError);
     },
   );
+});
+
+describe("centavos do contrato da API (number) como reais", () => {
+  it("formata o inteiro de centavos que a API devolveu", () => {
+    expect(formatCents(123456)).toBe("R$ 1.234,56");
+    expect(formatCents(0)).toBe("R$ 0,00");
+  });
+
+  it("resultado negativo sai com o sinal na frente", () => {
+    expect(formatCents(-1564252)).toBe("-R$ 15.642,52");
+    expect(formatCents(-5)).toBe("-R$ 0,05");
+  });
+
+  it("recusa valor que não é inteiro seguro (nunca float)", () => {
+    expect(() => formatCents(10.5)).toThrow(RangeError);
+    expect(() => formatCents(Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("hoje como data de negócio", () => {
+  it("usa o dia de America/Sao_Paulo, não o de UTC", () => {
+    // 01:30 UTC do dia 14 ainda é dia 13 em São Paulo (UTC-3).
+    expect(todayBusinessDate(new Date("2026-11-14T01:30:00Z"))).toBe("2026-11-13");
+    expect(todayBusinessDate(new Date("2026-11-14T03:00:00Z"))).toBe("2026-11-14");
+  });
 });

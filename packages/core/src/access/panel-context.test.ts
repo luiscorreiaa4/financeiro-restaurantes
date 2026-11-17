@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIONS, type Actor } from "../permissions";
+import { ACTIONS, type Actor, can } from "../permissions";
 import { ACCOUNT_STATUSES } from "../signup/signup-defaults";
 import {
   accountAllows,
@@ -387,6 +387,29 @@ describe("allowedActions", () => {
     expect(acoes.length).toBeGreaterThan(0);
     for (const a of acoes) expect(a === "panel:access" || a.startsWith("entry:")).toBe(true);
     expect(acoes).toContain("panel:access");
+  });
+
+  it("lançador com painel tem as ações sobre os próprios lançamentos, inclusive ver (RF22.R3)", () => {
+    expect(allowedActions(actor({ role: "staff", units: [A] }))).toEqual([
+      "entry:create",
+      "entry:view",
+      "entry:edit",
+      "entry:delete",
+      "entry:restore",
+      "panel:access",
+    ]);
+  });
+
+  it("dono, gerente e contador recebem exatamente o que o can responde sem contexto", () => {
+    const actors = [
+      actor({}),
+      actor({ role: "manager", units: [A] }),
+      actor({ role: "manager", units: [A], permissions: ["VER_FOLHA", "EXPORTAR_DADOS"] }),
+      actor({ role: "accountant" }),
+    ];
+    for (const who of actors) {
+      expect(allowedActions(who), who.role).toEqual(ACTIONS.filter((a) => can(who, a)));
+    }
   });
 
   it("lançador sem painel não tem panel:access", () => {

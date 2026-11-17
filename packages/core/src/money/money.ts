@@ -13,6 +13,13 @@ export type Money = number & { readonly [moneyBrand]: "Money" };
 
 export const ZERO = 0 as Money;
 
+/**
+ * Teto de negócio do valor de um lançamento: R$ 100 milhões, em centavos (F3c-3, decisão do
+ * Luís e do Matheus em 16/11/2026). Vale para o painel e para o canal; o teto técnico do
+ * dinheiro segue sendo o inteiro seguro (somas e totais não passam por este teto).
+ */
+export const MAX_ENTRY_CENTS = 10_000_000_000;
+
 export function money(
   cents: number,
 ): Result<Money, Extract<DomainError, { code: "InvalidAmount" }>> {

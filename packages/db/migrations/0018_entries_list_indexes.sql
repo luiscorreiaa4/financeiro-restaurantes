@@ -1,0 +1,2 @@
+CREATE INDEX "entries_created_idx" ON "entries" USING btree ("tenant_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "entries_trash_idx" ON "entries" USING btree ("tenant_id","deleted_at") WHERE "entries"."deleted_at" is not null;

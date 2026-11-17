@@ -2,7 +2,7 @@ import type { DomainError } from "../errors/domain-errors";
 import { fail } from "../errors/domain-errors";
 import type { Result } from "../errors/result";
 import { ok } from "../errors/result";
-import { computeFee, type Money } from "../money";
+import { computeFee, MAX_ENTRY_CENTS, type Money } from "../money";
 import type { BusinessDate } from "./business-date";
 import { isBusinessDate, isUuidV7 } from "./business-date";
 import type { EntryFlag } from "./interpret";
@@ -139,6 +139,7 @@ function validateFields(
   }
   if (!isBusinessDate(fields.paidOn)) return fail("InvalidBusinessDate", { value: fields.paidOn });
   if (fields.amountCents <= 0) return fail("AmountNotPositive");
+  if (fields.amountCents > MAX_ENTRY_CENTS) return fail("MoneyOverflow");
   if (fields.orders !== null) {
     if (fields.type !== "revenue" || !Number.isInteger(fields.orders) || fields.orders <= 0) {
       return fail("InvalidOrders", { value: fields.orders });
@@ -260,9 +261,22 @@ export function restoreEntry(
   return ok({ entry: next, version: toVersion("restore", entry, next, context) });
 }
 
-/** Data (UTC) de `days` dias depois de `at`, como data de negócio. */
+/** Fuso que define "hoje" para o prazo da lixeira (o fuso da unidade é a F3-5, DD-39). */
+const TRASH_TIME_ZONE = "America/Sao_Paulo";
+
+/**
+ * Data de `days` dias depois do dia de `at` no fuso de São Paulo, como data de negócio. A
+ * soma é feita sobre a data (UTC puro), sem horário de verão no meio.
+ */
 function addDays(at: Date, days: number): BusinessDate {
-  const date = new Date(at.getTime() + days * 86_400_000);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TRASH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(at);
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 

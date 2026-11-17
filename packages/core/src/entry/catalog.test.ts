@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { type CatalogSnapshot, type CatalogUnit, findUnit, pickUnit } from "./catalog";
+import {
+  type CatalogSnapshot,
+  type CatalogUnit,
+  findSupplier,
+  findUnit,
+  pickUnit,
+  resolveSupplierChoice,
+} from "./catalog";
 
 const unit = (overrides: Partial<CatalogUnit> & Pick<CatalogUnit, "id" | "name">): CatalogUnit => ({
   aliases: [],
@@ -105,5 +112,53 @@ describe("pickUnit (DE-25)", () => {
 
   it("sem nenhuma unidade de acesso devolve nulo", () => {
     expect(pickUnit({ ...base, accessibleIds: [] })).toBeNull();
+  });
+});
+
+describe("findSupplier (RF12.R7)", () => {
+  const supplier = { id: "f1", name: "Atacadão", aliases: ["atacadao sp"] };
+  const withSuppliers = { ...catalog([]), suppliers: [supplier] };
+
+  it("acha o fornecedor pelo nome ou pelo apelido, sem caixa nem acento", () => {
+    expect(findSupplier(withSuppliers, "  ATACADAO ")).toBe(supplier);
+    expect(findSupplier(withSuppliers, "Atacadao SP")).toBe(supplier);
+  });
+
+  it("sem casamento devolve nulo", () => {
+    expect(findSupplier(withSuppliers, "Padaria")).toBeNull();
+  });
+});
+
+describe("resolveSupplierChoice (RF12.R7, RF10)", () => {
+  const withSuppliers: CatalogSnapshot = {
+    ...catalog([]),
+    suppliers: [{ id: "s1", name: "Atacadão", aliases: ["atacadao sul"] }],
+  };
+  const newId = () => "novo-id";
+
+  it("ausente ou nulo não associa fornecedor", () => {
+    expect(resolveSupplierChoice(withSuppliers, null, newId)).toEqual({ supplierId: null });
+  });
+
+  it("id é repassado, mesmo que não exista (a validação é do domínio)", () => {
+    expect(resolveSupplierChoice(withSuppliers, { id: "zzz" }, newId)).toEqual({
+      supplierId: "zzz",
+    });
+  });
+
+  it("nome igual a um cadastrado, em outra caixa e com espaços, associa o existente", () => {
+    expect(resolveSupplierChoice(withSuppliers, { name: "  ATACADAO  " }, newId)).toEqual({
+      supplierId: "s1",
+    });
+    expect(resolveSupplierChoice(withSuppliers, { name: "Atacadao Sul" }, newId)).toEqual({
+      supplierId: "s1",
+    });
+  });
+
+  it("nome desconhecido cria um fornecedor novo com o id dado", () => {
+    expect(resolveSupplierChoice(withSuppliers, { name: "Padaria Pão" }, newId)).toEqual({
+      supplierId: "novo-id",
+      newSupplier: { id: "novo-id", name: "Padaria Pão" },
+    });
   });
 });

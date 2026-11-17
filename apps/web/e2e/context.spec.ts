@@ -53,23 +53,36 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test("dono com 2 empresas troca e a tela mostra só a nova; voltar não mostra a anterior (RF02.CA05)", async ({
+test("dono com 2 empresas troca sem recarregar a página, fica na rota e voltar não mostra a anterior (RF02.CA05)", async ({
   page,
 }) => {
-  await signIn(page, "owner2");
-  // Uma página anterior no histórico: ir para a mesma URL só substituiria a entrada.
-  await page.goto("/lancamentos");
-  // Sem cookie de contexto a casca grava o fallback e recarrega.
+  await signIn(page, "owner2", `${T1}.all`);
+  // Uma página anterior no histórico: `replace` na troca não cria entrada nova.
+  await page.goto("/");
   await expect(visible(page, "Empresa")).toHaveValue(T1);
+  await page.goto("/lancamentos?q=algo");
+  await expect(visible(page, "Empresa")).toHaveValue(T1);
+  // Marca o documento: se a troca recarregasse a página, a marca sumiria.
+  await page.evaluate(() => {
+    (window as unknown as { __doc: string }).__doc = "mesmo-documento";
+  });
 
-  // Antes da hidratação a troca não dispara o handler: repete a seleção até a tela navegar.
+  // Antes da hidratação a troca não dispara o handler: repete a seleção até o valor mudar.
   await expect(async () => {
-    if (!/\/$/.test(page.url())) await visible(page, "Empresa").selectOption(T2);
-    await expect(page).toHaveURL(/\/$/, { timeout: 3_000 });
+    if ((await visible(page, "Empresa").inputValue()) !== T2) {
+      await visible(page, "Empresa").selectOption(T2);
+    }
+    await expect(visible(page, "Empresa")).toHaveValue(T2, { timeout: 3_000 });
   }).toPass({ timeout: 25_000 });
-  await expect(visible(page, "Empresa")).toHaveValue(T2);
-  await page.goBack();
+
+  // Mesma rota, sem a query string da empresa anterior, e o documento não foi recarregado.
   await expect(page).toHaveURL(/\/lancamentos$/);
+  expect(await page.evaluate(() => (window as unknown as { __doc?: string }).__doc)).toBe(
+    "mesmo-documento",
+  );
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
   await expect(visible(page, "Empresa")).toHaveValue(T2);
 });
 
