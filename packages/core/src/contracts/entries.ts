@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CatalogCategory } from "../entry/catalog";
 import type { Channel, EntryType, VersionAction } from "../entry/entry";
 import type { EntryFlag } from "../entry/interpret";
+import { QUANTITY_UNITS } from "../entry/quantity-units";
 import { periodWithinLimit } from "./period";
 
 // Contrato da API de lançamentos do painel (D-F3, D-F4, DD-36): a única interface entre a
@@ -93,6 +94,14 @@ export const ENTRY_CURSOR_MAX = 512;
 /** Nome de fornecedor novo digitado na edição. */
 export const SUPPLIER_NAME_MAX = 120;
 export const QUANTITY_UNIT_MAX = 20;
+export const SUPPLIER_NAME_MIN = 2;
+/** Maior número de pedidos: a coluna `orders` é `integer` (acima disso o banco recusa com 500). */
+export const ORDERS_MAX = 2_147_483_647;
+/**
+ * Maior quantidade aceita (RF26.R2): a coluna `quantity` é `numeric(14,3)`, ou seja, 11
+ * dígitos inteiros e 3 decimais; `quantityToMilli` converte esse valor sem perda.
+ */
+export const QUANTITY_MAX = 99_999_999_999.999;
 
 /** Data de negócio `AAAA-MM-DD` que existe no calendário (RNF13.R4). */
 export const businessDateSchema = z.iso.date();
@@ -243,12 +252,19 @@ export const entryOptionsSchema = z.object({
       kind: z.enum(CATEGORY_KINDS),
       parentId: idSchema.nullable(),
       requiresQuantity: z.boolean(),
+      active: z.boolean().optional(),
     }),
   ),
   suppliers: z.array(refSchema),
-  paymentMethods: z.array(refSchema),
-  salesChannels: z.array(refSchema),
-  units: z.array(refSchema),
+  paymentMethods: z.array(refSchema.extend({ active: z.boolean().optional() })),
+  salesChannels: z.array(refSchema.extend({ active: z.boolean().optional() })),
+  units: z.array(
+    refSchema.extend({
+      active: z.boolean().optional(),
+      defaultSalesChannelId: idSchema.nullable().optional(),
+      timezone: z.string().optional(),
+    }),
+  ),
   members: z.array(refSchema),
 });
 
@@ -325,9 +341,32 @@ export const entrySourceSchema = z
 
 const supplierPatchSchema = z.union([
   z.strictObject({ id: idSchema }),
-  z.strictObject({ name: z.string().trim().min(1).max(SUPPLIER_NAME_MAX) }),
+  z.strictObject({
+    name: z.string().trim().min(SUPPLIER_NAME_MIN).max(SUPPLIER_NAME_MAX),
+  }),
   z.null(),
 ]);
+
+const quantitySchema = z.number().positive().max(QUANTITY_MAX);
+const quantityUnitSchema = z.enum(QUANTITY_UNITS);
+
+/** Nomes de campo do formulário que o 422 pode apontar (lista fechada, D4 da F3c). */
+export const ENTRY_FIELD_NAMES = [
+  "type",
+  "occurredOn",
+  "paidOn",
+  "description",
+  "amountCents",
+  "categoryId",
+  "unitId",
+  "supplier",
+  "paymentMethodId",
+  "salesChannelId",
+  "orders",
+  "quantity",
+  "quantityUnit",
+] as const;
+export type EntryFieldName = (typeof ENTRY_FIELD_NAMES)[number];
 
 /**
  * Campos editáveis do RF23, todos opcionais. Campo ausente = não muda; `null` = limpar.
@@ -338,9 +377,9 @@ export const entryPatchSchema = z.strictObject({
   occurredOn: businessDateSchema.optional(),
   paidOn: businessDateSchema.optional(),
   description: z.string().trim().min(1).max(ENTRY_DESCRIPTION_MAX).optional(),
-  quantity: z.number().positive().nullable().optional(),
-  quantityUnit: z.string().trim().min(1).max(QUANTITY_UNIT_MAX).nullable().optional(),
-  orders: z.int().min(1).nullable().optional(),
+  quantity: quantitySchema.nullable().optional(),
+  quantityUnit: quantityUnitSchema.nullable().optional(),
+  orders: z.int().min(1).max(ORDERS_MAX).nullable().optional(),
   amountCents: z.int().min(1).optional(),
   categoryId: idSchema.optional(),
   /** Um existente, um nome novo (a API associa ou cria) ou `null` para limpar. */
@@ -349,6 +388,58 @@ export const entryPatchSchema = z.strictObject({
   salesChannelId: idSchema.nullable().optional(),
   unitId: idSchema.optional(),
 });
+
+/**
+ * Corpo da criação pelo painel (RF26, desenho 1.7). A chave de tentativa torna o envio
+ * idempotente; taxa e líquido não entram: o `core` calcula.
+ */
+export const entryCreateBodySchema = z
+  .strictObject({
+    clientRequestId: z.uuid(),
+    type: entryTypeSchema,
+    occurredOn: businessDateSchema,
+    paidOn: businessDateSchema.optional(),
+    description: z.string().trim().min(1).max(ENTRY_DESCRIPTION_MAX),
+    amountCents: z.int().min(1),
+    categoryId: idSchema,
+    unitId: idSchema,
+    supplier: supplierPatchSchema.optional(),
+    paymentMethodId: idSchema.nullable().optional(),
+    salesChannelId: idSchema.nullable().optional(),
+    orders: z.int().min(1).max(ORDERS_MAX).nullable().optional(),
+    quantity: quantitySchema.nullable().optional(),
+    quantityUnit: quantityUnitSchema.nullable().optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.type === "revenue" && body.salesChannelId == null) {
+      ctx.addIssue({ code: "custom", path: ["salesChannelId"], message: "required" });
+    }
+    if (body.type === "expense") {
+      if (body.salesChannelId != null) {
+        ctx.addIssue({ code: "custom", path: ["salesChannelId"], message: "not_allowed" });
+      }
+      if (body.orders != null) {
+        ctx.addIssue({ code: "custom", path: ["orders"], message: "not_allowed" });
+      }
+    }
+    if ((body.quantity == null) !== (body.quantityUnit == null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: [body.quantity == null ? "quantity" : "quantityUnit"],
+        message: "quantity_and_unit_together",
+      });
+    }
+  });
+
+/** 422 da criação e da edição: motivo estável e, quando dá, o campo do formulário. */
+export const entryInvalidSchema = z.object({
+  code: z.literal("invalid_entry"),
+  reason: z.string(),
+  field: z.enum(ENTRY_FIELD_NAMES).optional(),
+});
+
+/** 409 da criação: a tentativa já foi gravada, mas o ator não enxerga mais o lançamento. */
+export const entryAlreadySubmittedSchema = z.object({ code: z.literal("already_submitted") });
 
 export const entryUpdateBodySchema = z
   .object({
@@ -448,6 +539,7 @@ export type EntryDeleted = z.infer<typeof entryDeletedSchema>;
 export type EntryDetail = z.infer<typeof entryDetailSchema>;
 export type EntrySource = z.infer<typeof entrySourceSchema>;
 export type EntryPatch = z.infer<typeof entryPatchSchema>;
+export type EntryCreateBody = z.infer<typeof entryCreateBodySchema>;
 export type EntryUpdateBody = z.infer<typeof entryUpdateBodySchema>;
 /** O que o chamador envia: `patch` e `markReviewed` podem faltar. */
 export type EntryUpdateBodyInput = z.input<typeof entryUpdateBodySchema>;

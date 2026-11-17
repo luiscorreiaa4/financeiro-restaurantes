@@ -8,19 +8,11 @@ import {
   normalizeName,
   resolveFeeRule,
 } from "./catalog";
+import { isPossibleDuplicate, type RecentEntry } from "./duplicate";
 import type { EntryDraft } from "./entry";
 import type { EntryFlag, ReadyEntry } from "./interpret";
 
 const FALLBACK_CATEGORY = { expense: "Outras despesas", revenue: "Outras receitas" } as const;
-
-/** Lançamento recente de outra mensagem, para o sinal POSSIVEL_DUPLICIDADE (RF12.R13). */
-export interface RecentEntry {
-  readonly inboundMessageId: string | null;
-  readonly amountCents: number;
-  readonly supplierId: string | null;
-  readonly description: string;
-  readonly occurredOn: string;
-}
 
 const UNIT_ALIASES: Readonly<Record<string, string>> = {
   kg: "KG",
@@ -58,6 +50,8 @@ export function normalizeUnit(unit: string | null): string | null {
   if (unit === null || unit.trim() === "") return null;
   return UNIT_ALIASES[normalizeName(unit).replace(/\.$/, "")] ?? "OUTRA";
 }
+
+export type { RecentEntry };
 
 export interface BuildDraftsInput {
   readonly catalog: CatalogSnapshot;
@@ -164,14 +158,15 @@ export function buildDrafts(ready: readonly ReadyEntry[], input: BuildDraftsInpu
     const flags: EntryFlag[] = [...entry.flags];
     if (category.review) flags.push("category_to_review");
     if (revenueChannel?.review) flags.push("channel_to_review");
-    const key = normalizeName(entry.description);
-    const duplicate = input.recent.some(
-      (other) =>
-        other.inboundMessageId !== input.inboundMessageId &&
-        ((other.amountCents === entry.amountCents &&
-          supplierId !== null &&
-          other.supplierId === supplierId) ||
-          (normalizeName(other.description) === key && other.occurredOn === entry.occurredOn)),
+    const duplicate = isPossibleDuplicate(
+      {
+        inboundMessageId: input.inboundMessageId,
+        amountCents: entry.amountCents,
+        supplierId,
+        description: entry.description,
+        occurredOn: entry.occurredOn,
+      },
+      input.recent,
     );
     if (duplicate) flags.push("possible_duplicate");
 

@@ -280,17 +280,17 @@ describe("edição pelo painel: quantidade exigida pela categoria (RF12.R4)", ()
   });
 
   it("aceita a categoria que exige quantidade com quantidade e unidade no mesmo patch", () => {
-    const result = run({ categoryId: CAT_QTD, quantity: 5, quantityUnit: "kg" }, expense());
+    const result = run({ categoryId: CAT_QTD, quantity: 5, quantityUnit: "KG" }, expense());
     expect(result.ok).toBe(true);
   });
 
   it("aceita quando o lançamento já tinha quantidade e unidade", () => {
-    const entry = expense({ quantity: 3, quantityUnit: "kg" });
+    const entry = expense({ quantity: 3, quantityUnit: "KG" });
     expect(run({ categoryId: CAT_QTD }, entry).ok).toBe(true);
   });
 
   it("recusa limpar a quantidade de lançamento em categoria que a exige", () => {
-    const entry = expense({ categoryId: CAT_QTD, quantity: 3, quantityUnit: "kg" });
+    const entry = expense({ categoryId: CAT_QTD, quantity: 3, quantityUnit: "KG" });
     expect(run({ quantity: null }, entry)).toMatchObject({
       ok: false,
       error: { code: "QuantityRequired" },

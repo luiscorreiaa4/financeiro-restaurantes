@@ -6,12 +6,16 @@ import {
   centsSchema,
   ENTRY_CHANGE_FIELDS,
   ENTRY_CURSOR_MAX,
+  ENTRY_FIELD_NAMES,
   ENTRY_FILTER_LIST_MAX,
   ENTRY_FLAGS,
   ENTRY_SORTS,
   ENTRY_TYPES,
+  entryAlreadySubmittedSchema,
+  entryCreateBodySchema,
   entryDeleteBodySchema,
   entryDetailSchema,
+  entryInvalidSchema,
   entryItemSchema,
   entryListQuerySchema,
   entryListResponseSchema,
@@ -23,6 +27,7 @@ import {
   entryUpdateBodySchema,
   entryVersionSchema,
   ORIGIN_CHANNELS,
+  QUANTITY_MAX,
   QUANTITY_UNIT_MAX,
   SUPPLIER_NAME_MAX,
   trashQuerySchema,
@@ -472,7 +477,7 @@ describe("edição de lançamento (RF23)", () => {
       { description: "Compra de carne" },
       { quantity: 2.5 },
       { quantity: null },
-      { quantityUnit: "kg" },
+      { quantityUnit: "KG" },
       { quantityUnit: null },
       { amountCents: 123456 },
       { orders: 10 },
@@ -741,5 +746,160 @@ describe("ajustes da revisão do contrato", () => {
     expectTypeOf<EntryListQueryInput["unitIds"]>().toEqualTypeOf<string[] | undefined>();
     expectTypeOf<EntryListQueryInput["limit"]>().toEqualTypeOf<number | undefined>();
     expectTypeOf<Required<EntryListQueryInput>>().toEqualTypeOf<Required<EntryListQuery>>();
+  });
+});
+
+describe("entryCreateBodySchema (RF26)", () => {
+  const base = {
+    clientRequestId: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+    type: "expense",
+    occurredOn: "2026-11-16",
+    description: "Tomate",
+    amountCents: 1500,
+    categoryId: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a01",
+    unitId: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a02",
+  };
+  const channelId = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a03";
+
+  it("aceita o corpo mínimo e apara a descrição", () => {
+    const parsed = entryCreateBodySchema.parse({ ...base, description: "  Tomate  " });
+    expect(parsed.description).toBe("Tomate");
+  });
+
+  it("recusa corpo sem valor, com valor zero ou fracionado", () => {
+    const { amountCents: _omit, ...semValor } = base;
+    expect(entryCreateBodySchema.safeParse(semValor).success).toBe(false);
+    expect(entryCreateBodySchema.safeParse({ ...base, amountCents: 0 }).success).toBe(false);
+    expect(entryCreateBodySchema.safeParse({ ...base, amountCents: 1.5 }).success).toBe(false);
+  });
+
+  it("recusa chave de tentativa que não é uuid e chave extra", () => {
+    expect(entryCreateBodySchema.safeParse({ ...base, clientRequestId: "abc" }).success).toBe(
+      false,
+    );
+    expect(entryCreateBodySchema.safeParse({ ...base, extra: 1 }).success).toBe(false);
+  });
+
+  it("despesa não leva canal nem pedidos", () => {
+    expect(entryCreateBodySchema.safeParse({ ...base, salesChannelId: channelId }).success).toBe(
+      false,
+    );
+    expect(entryCreateBodySchema.safeParse({ ...base, orders: 3 }).success).toBe(false);
+  });
+
+  it("receita exige canal e aceita pedidos", () => {
+    const receita = { ...base, type: "revenue" };
+    expect(entryCreateBodySchema.safeParse(receita).success).toBe(false);
+    expect(
+      entryCreateBodySchema.safeParse({ ...receita, salesChannelId: channelId, orders: 3 }).success,
+    ).toBe(true);
+  });
+
+  it("quantidade e unidade de medida andam juntas", () => {
+    expect(entryCreateBodySchema.safeParse({ ...base, quantity: 2 }).success).toBe(false);
+    expect(entryCreateBodySchema.safeParse({ ...base, quantityUnit: "KG" }).success).toBe(false);
+    expect(
+      entryCreateBodySchema.safeParse({ ...base, quantity: 2.5, quantityUnit: "KG" }).success,
+    ).toBe(true);
+  });
+
+  it("recusa unidade de medida fora da lista e quantidade acima do teto", () => {
+    expect(
+      entryCreateBodySchema.safeParse({ ...base, quantity: 1, quantityUnit: "XX" }).success,
+    ).toBe(false);
+    expect(
+      entryCreateBodySchema.safeParse({
+        ...base,
+        quantity: QUANTITY_MAX + 1,
+        quantityUnit: "KG",
+      }).success,
+    ).toBe(false);
+    expect(
+      entryCreateBodySchema.safeParse({ ...base, quantity: QUANTITY_MAX, quantityUnit: "KG" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("pedidos acima do inteiro do banco são recusados, na criação e na edição (nunca 500)", () => {
+    expect(
+      entryCreateBodySchema.safeParse({
+        ...base,
+        type: "revenue",
+        salesChannelId: channelId,
+        orders: 2_147_483_647,
+      }).success,
+    ).toBe(true);
+    expect(
+      entryCreateBodySchema.safeParse({
+        ...base,
+        type: "revenue",
+        salesChannelId: channelId,
+        orders: 2_147_483_648,
+      }).success,
+    ).toBe(false);
+    expect(entryPatchSchema.safeParse({ orders: 2_147_483_647 }).success).toBe(true);
+    expect(entryPatchSchema.safeParse({ orders: 2_147_483_648 }).success).toBe(false);
+  });
+
+  it("fornecedor: id, nome de 2 a 120 caracteres ou nulo", () => {
+    const id = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a04";
+    expect(entryCreateBodySchema.safeParse({ ...base, supplier: { id } }).success).toBe(true);
+    expect(entryCreateBodySchema.safeParse({ ...base, supplier: null }).success).toBe(true);
+    expect(entryCreateBodySchema.safeParse({ ...base, supplier: { name: "Ab" } }).success).toBe(
+      true,
+    );
+    expect(entryCreateBodySchema.safeParse({ ...base, supplier: { name: " A " } }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("entryPatchSchema, endurecido pela F3c", () => {
+  it("recusa unidade de medida fora da lista, nome de fornecedor de 1 caractere e quantidade acima do teto", () => {
+    expect(entryPatchSchema.safeParse({ quantityUnit: "XX" }).success).toBe(false);
+    expect(entryPatchSchema.safeParse({ supplier: { name: "A" } }).success).toBe(false);
+    expect(entryPatchSchema.safeParse({ quantity: QUANTITY_MAX + 1 }).success).toBe(false);
+    expect(entryPatchSchema.safeParse({ quantity: 2, quantityUnit: "KG" }).success).toBe(true);
+  });
+});
+
+describe("respostas de erro da criação", () => {
+  it("entryInvalidSchema aceita campo da lista fechada e recusa outro", () => {
+    expect(
+      entryInvalidSchema.safeParse({ code: "invalid_entry", reason: "x", field: "amountCents" })
+        .success,
+    ).toBe(true);
+    expect(entryInvalidSchema.safeParse({ code: "invalid_entry", reason: "x" }).success).toBe(true);
+    expect(
+      entryInvalidSchema.safeParse({ code: "invalid_entry", reason: "x", field: "foo" }).success,
+    ).toBe(false);
+    expect(ENTRY_FIELD_NAMES).toContain("paidOn");
+  });
+
+  it("entryAlreadySubmittedSchema só leva o código", () => {
+    expect(entryAlreadySubmittedSchema.safeParse({ code: "already_submitted" }).success).toBe(true);
+  });
+
+  it("entryOptionsSchema aceita active, canal padrão e fuso opcionais", () => {
+    const id = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a05";
+    const parsed = entryOptionsSchema.parse({
+      categories: [
+        { id, name: "A", kind: "expense", parentId: null, requiresQuantity: false, active: false },
+      ],
+      suppliers: [],
+      paymentMethods: [{ id, name: "Pix", active: true }],
+      salesChannels: [{ id, name: "Salão", active: true }],
+      units: [
+        {
+          id,
+          name: "Centro",
+          active: true,
+          defaultSalesChannelId: id,
+          timezone: "America/Sao_Paulo",
+        },
+      ],
+      members: [],
+    });
+    expect(parsed.units[0]?.timezone).toBe("America/Sao_Paulo");
   });
 });

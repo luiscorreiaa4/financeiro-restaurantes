@@ -72,6 +72,24 @@ export function findSupplier(catalog: CatalogSnapshot, hint: string): CatalogSup
 }
 
 /**
+ * Fornecedor escolhido no painel (RF12.R7, RF10): `{ id }` segue como veio (o domínio confere se
+ * existe), `{ name }` associa o cadastrado por nome ou apelido (sem caixa nem espaço) ou cria um
+ * novo com `newId()`. O nome já vem validado pelo contrato.
+ */
+export function resolveSupplierChoice(
+  catalog: CatalogSnapshot,
+  choice: { readonly id: string } | { readonly name: string } | null,
+  newId: () => string,
+): { supplierId: string | null; newSupplier?: { id: string; name: string } } {
+  if (choice === null) return { supplierId: null };
+  if ("id" in choice) return { supplierId: choice.id };
+  const known = findSupplier(catalog, choice.name);
+  if (known !== null) return { supplierId: known.id };
+  const created = { id: newId(), name: choice.name };
+  return { supplierId: created.id, newSupplier: created };
+}
+
+/**
  * Forma de pagamento citada na mensagem: pelo nome ou apelido, só entre as ativas (RF08.R5).
  * "Cartão" sem especificar vira a forma de cartão padrão da empresa (RF12.R8); sem ela, nenhuma.
  */
