@@ -182,7 +182,7 @@ function decodeCursor(text: string, sort: EntrySort, dir: SortDirection): Cursor
  * Lista como literal de array do Postgres, num parâmetro só. Lista vazia vira `{}`, e
  * `= any('{}')` não casa com nada: recorte sem unidade não vê lançamento nenhum.
  */
-function arrayLiteral(values: readonly string[]): string {
+export function arrayLiteral(values: readonly string[]): string {
   return `{${values.map((value) => `"${value.replace(/[\\"]/g, "\\$&")}"`).join(",")}}`;
 }
 
@@ -361,7 +361,7 @@ const ROW_COLUMNS = sql`
 const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
 
 /** Centavos do banco (texto de `bigint` ou `numeric`) para `number`, sem passar por float. */
-function toCents(text: string): number {
+export function toCents(text: string): number {
   const value = BigInt(text);
   if (value > MAX_SAFE || value < -MAX_SAFE) {
     throw new RangeError("entryReader: valor em centavos fora do inteiro seguro");
