@@ -62,6 +62,13 @@
             "shell": "powershell",
             "timeout": 30,
             "statusMessage": "Formatando com Biome..."
+          },
+          {
+            "type": "command",
+            "command": "& \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\migration-checklist.ps1\"",
+            "shell": "powershell",
+            "timeout": 10,
+            "statusMessage": "Conferindo migration..."
           }
         ]
       }

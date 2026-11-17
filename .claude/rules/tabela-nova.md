@@ -19,3 +19,5 @@ Checklist (na E5 a contagem do `schema.test.ts` foi esquecida e quebrou o `pnpm 
    - a lista e a contagem ("define as N tabelas") em `packages/db/src/schema.test.ts`.
 5. Rode `pnpm test:int` no `db`: o meta-teste de isolamento cobre a tabela nova sozinho.
 6. `pnpm db:migrate` não lê o `.env`: exporte `DATABASE_ADMIN_URL` antes de aplicar no banco local.
+7. Chave estrangeira simples para tabela com `tenant_id` nulo (categorias padrão) não protege entre empresas: a referência de outra empresa passa no banco. Confira a referência lendo sob RLS (catálogo da empresa) antes de gravar, e teste com id de outra empresa (esperado 422).
+8. Coluna ou índice parcial novo: o `drizzle-kit generate` pode não emitir `WHERE` do índice nem `CHECK`; declare no schema (`uniqueIndex(...).where(...)`, `check(...)`) e confira o SQL gerado, escrevendo à mão se faltar.
