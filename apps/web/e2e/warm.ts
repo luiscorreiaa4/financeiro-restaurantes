@@ -6,6 +6,7 @@ const WEB = "http://localhost:3100";
 const ROUTES = [
   "/",
   "/lancamentos",
+  "/lancamentos/novo",
   "/dashboard",
   "/exportacoes",
   "/configuracoes",

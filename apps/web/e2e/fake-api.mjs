@@ -113,14 +113,22 @@ const U3 = "0190a000-0000-7000-8000-0000000000a3";
 const ACTIONS_BY_ROLE = {
   owner: [
     "entry:view",
+    "entry:create",
     "entry:restore",
     "report:view",
     "export:data",
     "catalog:view",
     "panel:access",
   ],
-  manager: ["entry:view", "entry:restore", "report:view", "catalog:view", "panel:access"],
-  staff: ["entry:view", "entry:restore", "panel:access"],
+  manager: [
+    "entry:view",
+    "entry:create",
+    "entry:restore",
+    "report:view",
+    "catalog:view",
+    "panel:access",
+  ],
+  staff: ["entry:view", "entry:create", "entry:restore", "panel:access"],
   accountant: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
 };
 

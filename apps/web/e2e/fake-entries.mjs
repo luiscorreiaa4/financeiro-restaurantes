@@ -207,11 +207,15 @@ const ok = (body) => ({ status: 200, body });
 
 // Estado em memória: lançamentos, fornecedores (os fixos mais os criados na edição) e o contador
 // que dá o próximo id de fornecedor criado. `resetEntries()` volta tudo ao inicial.
+// `nextEntry` é o contador de ids dos lançamentos criados (os 60 dos dados fixos usam 1 a 60).
+// `requests` guarda chave de tentativa (`<ator>|<clientRequestId>`) → id do lançamento criado.
 function freshState() {
   return {
     entries: Array.from({ length: 60 }, (_, i) => buildEntry(i)),
     suppliers: SUPPLIERS.map((s) => ({ ...s })),
     nextSupplier: 1,
+    nextEntry: 61,
+    requests: new Map(),
   };
 }
 let state = freshState();
@@ -569,11 +573,17 @@ function options(company) {
         kind,
         parentId,
         requiresQuantity,
+        active: true,
       })),
     suppliers: state.suppliers.map(ref),
-    paymentMethods: PAYMENTS.map(ref),
-    salesChannels: SALES.map(ref),
-    units: company.units.map(ref),
+    paymentMethods: PAYMENTS.map((p) => ({ ...ref(p), active: true })),
+    salesChannels: SALES.map((s) => ({ ...ref(s), active: true })),
+    units: company.units.map((u) => ({
+      ...ref(u),
+      active: true,
+      timezone: "America/Sao_Paulo",
+      defaultSalesChannelId: SALES[0].id,
+    })),
     members: company.role === "staff" ? [] : Object.values(MEMBER).map(ref),
   });
 }
@@ -757,17 +767,7 @@ function applyPatch(e, patch, company) {
     e.category = ref(category);
   }
   if (patch.supplier !== undefined) {
-    let supplier = null;
-    if (patch.supplier && "id" in patch.supplier) {
-      supplier = state.suppliers.find((s) => idIs(s.id, patch.supplier.id));
-    } else if (patch.supplier) {
-      state.nextSupplier += 1;
-      supplier = {
-        id: fixedId("0190a300", 100 + state.nextSupplier),
-        name: patch.supplier.name.trim(),
-      };
-      state.suppliers.push(supplier);
-    }
+    const supplier = supplierFrom(patch.supplier);
     note(changes, "supplier", e.supplier?.name ?? null, supplier?.name ?? null);
     e.supplier = supplier ? ref(supplier) : null;
   }
@@ -787,11 +787,7 @@ function applyPatch(e, patch, company) {
     e.unit = ref(unit);
   }
   if (patch.amountCents !== undefined || patch.type !== undefined) {
-    const feeCents =
-      e.type === "revenue"
-        ? Math.floor((e.amountCents * e.feePercentBp) / 10000) + e.feeFixedCents
-        : 0;
-    const netCents = e.amountCents - feeCents;
+    const { feeCents, netCents } = settleFee(e);
     note(changes, "feeCents", e.feeCents, feeCents);
     note(changes, "netCents", e.netCents, netCents);
     e.feeCents = feeCents;
@@ -899,6 +895,180 @@ function trash(url, company, unitId) {
   return ok({ items, nextCursor: null });
 }
 
+// Fornecedor do corpo (edição e criação): `{id}` acha um existente; `{name}` cria um novo, com o
+// contador do estado; null ou ausente não tem fornecedor.
+function supplierFrom(value) {
+  if (!value) return null;
+  if ("id" in value) return state.suppliers.find((s) => idIs(s.id, value.id)) ?? null;
+  state.nextSupplier += 1;
+  const supplier = { id: fixedId("0190a300", 100 + state.nextSupplier), name: value.name.trim() };
+  state.suppliers.push(supplier);
+  return supplier;
+}
+
+// Taxa e líquido (RF12): receita usa a taxa percentual e fixa do lançamento; despesa não tem taxa.
+function settleFee(e) {
+  const feeCents =
+    e.type === "revenue"
+      ? Math.floor((e.amountCents * e.feePercentBp) / 10000) + e.feeFixedCents
+      : 0;
+  return { feeCents, netCents: e.amountCents - feeCents };
+}
+
+// Corpo da criação (contrato `entryCreateBodySchema`): chaves conhecidas, formato e as regras do
+// superRefine (receita pede canal; despesa não aceita canal nem pedidos; quantidade e unidade juntas).
+const CREATE_KEYS = [
+  "clientRequestId",
+  "type",
+  "occurredOn",
+  "paidOn",
+  "description",
+  "amountCents",
+  "categoryId",
+  "unitId",
+  "supplier",
+  "paymentMethodId",
+  "salesChannelId",
+  "orders",
+  "quantity",
+  "quantityUnit",
+];
+// Mesma lista de packages/core/src/entry/quantity-units.ts.
+const QUANTITY_UNIT_LIST = ["KG", "G", "L", "ML", "UN", "DZ", "CX", "PCT", "FD", "SC", "OUTRA"];
+const optional = (v, check) => v === undefined || check(v);
+
+function validCreate(body) {
+  if (!isPlainObject(body) || !Object.keys(body).every((k) => CREATE_KEYS.includes(k)))
+    return false;
+  if (!isUuid(body.clientRequestId) || !ENTRY_TYPES.includes(body.type)) return false;
+  if (!isDate(body.occurredOn) || !optional(body.paidOn, isDate)) return false;
+  if (!isText(body.description, 200) || !isPositiveInt(body.amountCents)) return false;
+  if (!isUuid(body.categoryId) || !isUuid(body.unitId)) return false;
+  if (!optional(body.supplier, (v) => isNullOr(v, validSupplier))) return false;
+  if (!optional(body.paymentMethodId, (v) => isNullOr(v, isUuid))) return false;
+  if (!optional(body.salesChannelId, (v) => isNullOr(v, isUuid))) return false;
+  if (!optional(body.orders, (v) => isNullOr(v, isPositiveInt))) return false;
+  if (!optional(body.quantity, (v) => isNullOr(v, (x) => typeof x === "number" && x > 0))) {
+    return false;
+  }
+  if (!optional(body.quantityUnit, (v) => isNullOr(v, (x) => QUANTITY_UNIT_LIST.includes(x)))) {
+    return false;
+  }
+  const revenue = body.type === "revenue";
+  if (revenue && body.salesChannelId == null) return false;
+  if (!revenue && (body.salesChannelId != null || body.orders != null)) return false;
+  return (body.quantity == null) === (body.quantityUnit == null);
+}
+
+// Aviso de possível duplicata (RF12): outro lançamento ativo que o ator vê, com o mesmo valor e
+// fornecedor, ou com a mesma descrição (sem caixa) e a mesma data.
+function isPossibleDuplicate(candidate, company) {
+  const supplierId = candidate.supplier?.id ?? null;
+  const description = candidate.description.toLowerCase();
+  return tenantEntries(company).some(
+    (e) =>
+      e.deleted === null &&
+      visible(e, company) &&
+      ((e.amountCents === candidate.amountCents && (e.supplier?.id ?? null) === supplierId) ||
+        (e.description.toLowerCase() === description && e.occurredOn === candidate.occurredOn)),
+  );
+}
+
+// Aviso de data antiga (RF12): mais de 60 dias antes de "hoje", a data fixa da API falsa (NOW).
+const OLD_DATE_DAYS = 60;
+const TODAY = NOW.slice(0, 10);
+function isOldDate(occurredOn) {
+  return (Date.parse(TODAY) - Date.parse(occurredOn)) / 86_400_000 > OLD_DATE_DAYS;
+}
+
+// Criação pelo painel (RF26). A mesma chave de tentativa do mesmo ator devolve o lançamento já criado
+// (200), sem criar outro; a primeira vez responde 201. A conta só leitura e o contador recebem 403.
+function createEntry(body, company) {
+  const refused = writeProblem(company, false);
+  if (refused) return refused;
+  if (!validCreate(body)) return INVALID;
+  // Só a empresa T1 tem catálogo e lançamentos na API falsa.
+  if (company.tenantId !== TENANT_T1) return UNKNOWN_REFERENCE;
+  const actor = actorOf(company);
+  const requestKey = `${actor.id}|${body.clientRequestId.toLowerCase()}`;
+  const again = state.requests.get(requestKey);
+  if (again) {
+    return ok(
+      detailOf(
+        state.entries.find((e) => e.id === again),
+        company,
+      ),
+    );
+  }
+  if (!referencesKnown(body, company)) return UNKNOWN_REFERENCE;
+
+  const category = Object.values(CATEGORY).find((c) => idIs(c.id, body.categoryId));
+  const unit = company.units.find((u) => idIs(u.id, body.unitId));
+  const payment = PAYMENTS.find((p) => idIs(p.id, body.paymentMethodId ?? "")) ?? null;
+  const sales = SALES.find((s) => idIs(s.id, body.salesChannelId ?? "")) ?? null;
+  const supplier = supplierFrom(body.supplier ?? null);
+  // Mesma regra dos dados fixos: receita no cartão de crédito tem taxa de 2,5%.
+  const feePercentBp = body.type === "revenue" && payment?.id === PAYMENTS[1].id ? 250 : 0;
+  const draft = {
+    type: body.type,
+    amountCents: body.amountCents,
+    feePercentBp,
+    feeFixedCents: 0,
+    description: body.description.trim(),
+    occurredOn: body.occurredOn,
+    supplier: supplier ? ref(supplier) : null,
+  };
+  const { feeCents, netCents } = settleFee(draft);
+  const flags = [];
+  if (isPossibleDuplicate(draft, company)) flags.push("possible_duplicate");
+  if (isOldDate(body.occurredOn)) flags.push("old_date");
+
+  const entry = {
+    id: fixedId("0190a700", state.nextEntry),
+    version: 1,
+    type: body.type,
+    occurredOn: body.occurredOn,
+    // Sem data de pagamento no corpo, vale a de ocorrência (o contrato exige a data).
+    paidOn: body.paidOn ?? body.occurredOn,
+    description: draft.description,
+    quantity: body.quantity ?? null,
+    quantityUnit: body.quantityUnit ?? null,
+    orders: body.orders ?? null,
+    amountCents: body.amountCents,
+    feePercentBp,
+    feeFixedCents: 0,
+    feeCents,
+    netCents,
+    category: ref(category),
+    supplier: draft.supplier,
+    paymentMethod: payment ? ref(payment) : null,
+    salesChannel: sales ? ref(sales) : null,
+    unit: ref(unit),
+    createdBy: ref(actor),
+    originChannel: "web",
+    flags,
+    createdAt: NOW,
+    updatedAt: NOW,
+    deleted: null,
+    // Versão 1 da criação, pelo canal da web e pelo autor da escrita (RF25.R4).
+    history: [
+      {
+        version: 1,
+        action: "create",
+        channel: "web",
+        changedBy: ref(actor),
+        changedAt: NOW,
+        restricted: false,
+        changes: [],
+      },
+    ],
+  };
+  state.entries.push(entry);
+  state.nextEntry += 1;
+  state.requests.set(requestKey, entry.id);
+  return { status: 201, body: detailOf(entry, company) };
+}
+
 // Roteia /api/entries* e /api/trash. Os guards de sessão e de contexto ficam em fake-api.mjs,
 // como em /api/units. `body` é o JSON já lido (vazio nas leituras).
 export function answerEntries(method, url, body, company, unitId) {
@@ -920,6 +1090,7 @@ export function answerEntries(method, url, body, company, unitId) {
       return e ? ok(detailOf(e, company)) : NOT_FOUND;
     }
   }
+  if (method === "POST" && path === "/api/entries") return createEntry(input, company);
   if (method === "POST" && path === "/api/entries/batch/preview") {
     return batch(input, company, false);
   }
