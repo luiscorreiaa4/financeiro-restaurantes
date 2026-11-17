@@ -63,6 +63,7 @@ import {
   insertPanelEntry,
   isUniqueViolation,
   loadCatalogIn,
+  SUPPLIER_NAME_UNIQUE,
   type Transaction,
   withTenant,
 } from "@app/db";
@@ -566,10 +567,17 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
       try {
         outcome = await withTenant(deps.appDb, panel.tenantId, create);
       } catch (error) {
-        if (!isUniqueViolation(error, "entries_client_request_unique")) throw error;
-        // Corrida com a mesma chave: a transação inteira foi desfeita; só relê.
-        const replayed = await withTenant(deps.appDb, panel.tenantId, replay);
-        outcome = replayed ?? { kind: "already_submitted" };
+        if (isUniqueViolation(error, SUPPLIER_NAME_UNIQUE)) {
+          // F3b-1: outra requisição criou o mesmo fornecedor novo no meio do caminho. A
+          // transação inteira foi desfeita; uma nova lê o catálogo já com ele e o associa.
+          outcome = await withTenant(deps.appDb, panel.tenantId, create);
+        } else if (isUniqueViolation(error, "entries_client_request_unique")) {
+          // Corrida com a mesma chave: a transação inteira foi desfeita; só relê.
+          const replayed = await withTenant(deps.appDb, panel.tenantId, replay);
+          outcome = replayed ?? { kind: "already_submitted" };
+        } else {
+          throw error;
+        }
       }
 
       switch (outcome.kind) {
@@ -727,7 +735,15 @@ export const entriesRoutes: FastifyPluginAsync<{ deps: EntriesRoutesDeps }> = as
 
       // Revisar lançamento sem sinais e sem edição não grava versão: devolve o detalhe atual.
       if (changes.length > 0) {
-        const applied = await deps.store.applyChanges(panel.tenantId, changes, { newSuppliers });
+        let applied: boolean;
+        try {
+          applied = await deps.store.applyChanges(panel.tenantId, changes, { newSuppliers });
+        } catch (error) {
+          // F3b-1: outra requisição criou o mesmo fornecedor novo no meio do caminho. Nada foi
+          // gravado; repetir o envio associa o cadastro que já existe.
+          if (!isUniqueViolation(error, SUPPLIER_NAME_UNIQUE)) throw error;
+          return reply.code(409).send({ code: "supplier_conflict" });
+        }
         if (!applied) return stale();
       }
       const detail = await readDetail(request, scope, id);

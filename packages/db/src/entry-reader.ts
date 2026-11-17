@@ -543,6 +543,12 @@ interface RawTotals extends Record<string, unknown> {
  * Consultas de leitura dos lançamentos do painel (RF22). Rodam na transação de `withTenant`;
  * quem chama já resolveu o recorte com `entryScopeFor`.
  */
+/**
+ * Teto de linhas dos candidatos de duplicidade (F3c-4): os mais recentes da janela. Sozinho o
+ * painel nunca chega perto; a importação em massa (F13) deve pré-filtrar por valor e data.
+ */
+export const RECENT_LIMIT = 2000;
+
 export const entryReader = {
   /**
    * Página da lista. `nextCursor` é nulo na última página.
@@ -925,7 +931,12 @@ export const entryReader = {
    * também compara com a unidade inteira). Categoria sensível fica de fora quando o recorte
    * não a inclui (`sensitiveExpression`, falha fechado). Só devolve os campos da comparação.
    */
-  async recent(tx: Transaction, scope: EntryScope, since: Date): Promise<readonly RecentEntry[]> {
+  async recent(
+    tx: Transaction,
+    scope: EntryScope,
+    since: Date,
+    limit: number = RECENT_LIMIT,
+  ): Promise<readonly RecentEntry[]> {
     const where: SQL[] = [
       sql`e.deleted_at is null`,
       sql`e.created_at > ${since.toISOString()}::timestamptz`,
@@ -947,6 +958,7 @@ export const entryReader = {
         left join categories c on c.id = e.category_id
        where ${sql.join(where, sql` and `)}
        order by e.created_at desc, e.id desc
+       limit ${Math.max(1, Math.floor(limit))}
     `);
     return result.rows.map((raw) => ({
       inboundMessageId: raw.inbound_message_id,

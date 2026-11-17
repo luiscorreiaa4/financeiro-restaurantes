@@ -141,6 +141,13 @@
       "when": 1794868839718,
       "tag": "0019_entries_client_request",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794878878071,
+      "tag": "0020_suppliers_unique_name",
+      "breakpoints": true
     }
   ]
 }

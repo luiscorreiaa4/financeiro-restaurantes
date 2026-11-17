@@ -2105,6 +2105,7 @@ describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
   let old25: string;
   let recent23: string;
   let tenantB: string;
+  let noCategory: string;
 
   beforeAll(async () => {
     const base = { tenant: a, occurredOn: "2026-08-03", description: DESC } as const;
@@ -2128,6 +2129,7 @@ describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
       description: DESC,
       amountCents: 9999,
     });
+    noCategory = await insertEntry({ ...base, amountCents: 1212, categoryId: null });
   });
 
   const mine = (rows: readonly { description: string; amountCents: number }[]) =>
@@ -2180,6 +2182,12 @@ describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
     expect(tenantB).toBeDefined();
   });
 
+  it("lançamento sem categoria não é sensível: entra mesmo sem VER_FOLHA", async () => {
+    const rows = await recent({ unitIds: [a.unitId], ownerUserId: null, includeSensitive: false });
+    expect(mine(rows)).toContain(1212);
+    expect(noCategory).toBeDefined();
+  });
+
   it("lançamento na lixeira não entra", async () => {
     expect(mine(await recent(OWNER))).not.toContain(5555);
     expect(trashed).toBeDefined();
@@ -2190,6 +2198,16 @@ describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
     expect(rows).toContain(1111);
     expect(rows).toContain(6666);
     expect(colleague).toBeDefined();
+  });
+
+  it("o teto de linhas devolve só os mais recentes (F3c-4)", async () => {
+    const rows = await withTenant(appDb, a.tenantId, (tx) =>
+      entryReader.recent(tx, OWNER, new Date(Date.now() - 24 * HOUR), 2),
+    );
+    expect(rows).toHaveLength(2);
+    const all = await recent(OWNER);
+    expect(all.length).toBeGreaterThan(2);
+    expect(rows).toEqual(all.slice(0, 2));
   });
 
   it("janela por created_at: 25 h atrás fica de fora e 23 h atrás entra", async () => {

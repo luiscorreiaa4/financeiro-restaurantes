@@ -55,6 +55,9 @@ function pgError(error: unknown): { code?: string; constraint?: string } | null 
   return typeof candidate === "object" && candidate !== null ? candidate : null;
 }
 
+/** Índice único do nome do fornecedor por empresa (migration 0020, F3b-1). */
+export const SUPPLIER_NAME_UNIQUE = "suppliers_tenant_name_norm_unique";
+
 /** Violação de unicidade (23505) da constraint ou índice com este nome. */
 export function isUniqueViolation(error: unknown, constraint: string): boolean {
   const pg = pgError(error) as { code?: unknown; constraint?: unknown } | null;
