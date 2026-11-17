@@ -197,6 +197,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
   - [ ] **F3c-5 (Luís):** aplicar a migration `0019` no banco de dev e fazer o roteiro à mão da F3c (`docs/planos/f3-como-testar.md`, seção 3, "F3c").
   - [x] **F3c-6 (feito em 16/11/2026):** Next atualizado de 16.4.3 para 16.4.6 (`next upgrade --agent=security`), que corrige o aviso de vulnerabilidade; o `next build` de `CI=true` e o E2E `entries-create` voltaram a subir sozinhos.
   - [x] **F3c-7 (feito em 16/11/2026):** testes de forma, canal e fornecedor de outra empresa; `2026-02-30` exige 400; a corrida espera o lock em vez de 300 ms; categoria nula em `recent`; `DuplicateCandidate` virou alias de `RecentEntry`.
+  - [ ] **F3c-8 (decisão, Luís e Matheus; 17/11/2026):** ampliar as formas de pagamento e os canais de venda padrão. Hoje o padrão é curto (Dinheiro, Pix, Débito, Crédito, Voucher; Salão, Delivery próprio, iFood, Retirada). Incluir vários tipos de delivery, por exemplo WhatsApp, site/app próprio, iFood, 99Food e Keeta, cada um como canal separado. Relacionada a P07 (listas padrão e taxas típicas) e a F1b-3; a lista final e as taxas são do Matheus, e entram em `requisitos.md` (RF08, RF09) antes do seed.
   - [ ] **F3-6 (Luís):** aplicar a migration `0018` no banco de dev e fazer o roteiro à mão da F3a (dono, gerente e lançador).
 
 ## 7. Documentação
