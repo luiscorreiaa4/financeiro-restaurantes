@@ -1,0 +1,1 @@
+ALTER TABLE "exports" ADD COLUMN "included_sensitive" boolean DEFAULT false NOT NULL;
