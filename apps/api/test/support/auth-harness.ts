@@ -17,6 +17,8 @@ import { createBackgroundTasks } from "../../src/infra/auth/background-tasks";
 import { createAuth, createAuthGateway } from "../../src/infra/auth/create-auth";
 import { createSystemClock } from "../../src/infra/clock";
 import { createMemoryEmailSender } from "../../src/infra/email/memory-email-sender";
+import { createExportLinkSigner } from "../../src/infra/exports/export-link";
+import { createInMemoryExportStore } from "../../src/infra/exports/local-export-store";
 import { createCheckEntry, createCheckSession } from "../../src/modules/auth/check-session";
 import { createProfileService } from "../../src/modules/profile/profile-service";
 import {
@@ -42,7 +44,17 @@ export function setCookies(response: LightMyRequestResponse): string[] {
   return Array.isArray(header) ? header : [header];
 }
 
+/** Fila falsa das exportações: guarda os jobs e falha sob comando (`failNext`). */
+export interface ExportsTestKit {
+  store: ReturnType<typeof createInMemoryExportStore>;
+  signer: ReturnType<typeof createExportLinkSigner>;
+  jobs: Array<{ queue: string; payload: Record<string, unknown> }>;
+  /** O próximo `enqueue` lança. */
+  failNext: boolean;
+}
+
 export interface AuthHarness {
+  exports: ExportsTestKit;
   db: TestDatabase;
   authPool: ReturnType<typeof createPool>;
   appPool: ReturnType<typeof createPool>;
@@ -108,6 +120,12 @@ export async function startAuthHarness(): Promise<AuthHarness> {
   });
   const gateway = createAuthGateway(auth, { store, clock, background: tasks });
   const logLines: string[] = [];
+  const exportsKit: ExportsTestKit = {
+    store: createInMemoryExportStore(),
+    signer: createExportLinkSigner(SECRET, clock),
+    jobs: [],
+    failNext: false,
+  };
   const checkSession = createCheckSession({ gateway, access: store, clock });
   const checkEntry = createCheckEntry({ gateway, access: store, clock });
   const panel = {
@@ -135,6 +153,23 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       },
       panel,
       entries: { ...panel, clock, store: createEntryStore(panel.appDb), newId: uuidv7 },
+      exports: {
+        ...panel,
+        clock,
+        store: exportsKit.store,
+        linkSigner: exportsKit.signer,
+        queue: {
+          async enqueue(queue: string, payload: Readonly<Record<string, unknown>>) {
+            if (exportsKit.failNext) {
+              exportsKit.failNext = false;
+              throw new Error("fila fora do ar");
+            }
+            exportsKit.jobs.push({ queue, payload: { ...payload } });
+            return { jobId: "job" };
+          },
+        },
+        newId: uuidv7,
+      },
       logStream: { write: (line) => logLines.push(line) },
     },
   );
@@ -256,6 +291,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
   };
 
   return {
+    exports: exportsKit,
     db,
     authPool,
     appPool,

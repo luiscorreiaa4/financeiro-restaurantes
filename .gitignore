@@ -47,3 +47,6 @@ test-results/
 
 # Gerado pelo next dev (regras para agentes)
 apps/web/AGENTS.md
+
+# Arquivos das exportações do painel (desenvolvimento)
+.dev-exports/

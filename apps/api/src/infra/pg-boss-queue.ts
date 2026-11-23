@@ -1,5 +1,6 @@
 import type { JobQueue } from "@app/core";
 import { PgBoss } from "pg-boss";
+import { ensureExportQueues } from "./exports-queue";
 import {
   ensureProcessInboundQueues,
   type ProcessInboundQueueConfig,
@@ -23,6 +24,7 @@ export async function createPgBossQueue(
   boss.on("error", onError);
   await boss.start();
   await ensureProcessInboundQueues(boss, queueConfig);
+  await ensureExportQueues(boss);
 
   return {
     async enqueue(queue, payload, options) {
