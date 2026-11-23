@@ -1,8 +1,15 @@
-import { type Entry, type EntryScope, parseBRLInput, type RecentEntry } from "@app/core";
+import {
+  type Entry,
+  type EntryScope,
+  type ExportEntryRow,
+  parseBRLInput,
+  type RecentEntry,
+} from "@app/core";
 import {
   businessDateSchema,
   ENTRY_CURSOR_MAX,
   type EntryDeleted,
+  type EntryFilters,
   type EntryItem,
   type EntryListQuery,
   type EntryOptions,
@@ -274,9 +281,15 @@ function restrictedNoticeConditions(scope: EntryScope, query: EntryListQuery): S
  * Condições comuns à lista e aos totais: recorte e filtros do RF22. Fora daqui só entram o
  * cursor e a ordenação.
  */
-function conditions(scope: EntryScope, query: EntryListQuery, sensitivity: Sensitivity): SQL {
+function conditions(
+  scope: EntryScope,
+  query: EntryFilters,
+  sensitivity: Sensitivity,
+  opts: { includeDeleted?: boolean } = {},
+): SQL {
   const where: SQL[] = [
-    sql`e.deleted_at is null`,
+    // A exportação COMPLETA (RF29.Obs1) leva ativos e lixeira juntos; o resto só os ativos.
+    opts.includeDeleted === true ? sql`true` : sql`e.deleted_at is null`,
     sql`e.occurred_on between ${query.from}::date and ${query.to}::date`,
     ...scopeConditions(scope, sensitivity),
   ];
@@ -406,6 +419,18 @@ interface RawRow extends Record<string, unknown> {
   flags: string[];
   created_at: string;
   deleted_at: string | null;
+}
+
+/** Linha da exportação mais o id, para o worker buscar as versões (`exportVersions`). */
+export interface ExportEntryReadRow extends ExportEntryRow {
+  id: string;
+}
+
+interface RawExportRow extends RawRow {
+  category_parent_name: string | null;
+  dre_group: string | null;
+  nature: string | null;
+  supplier_document: string | null;
 }
 
 interface RawListRow extends RawRow {
@@ -984,6 +1009,96 @@ export const entryReader = {
       description: raw.description,
       occurredOn: raw.occurred_on,
     }));
+  },
+
+  /**
+   * Linhas da exportação (RF29.R3): o mesmo recorte, os mesmos filtros e a mesma noção de
+   * sensível da lista e dos totais (`conditions`, falha fechado), na ordem competência,
+   * criação e id. O `limit` vale depois do filtro de sensibilidade. Com `includeDeleted`,
+   * ativos e lixeira entram juntos (COMPLETO, só do dono) e `deletedAt` vem preenchido.
+   * Quem chama passa `EXPORT_MAX_ROWS + 1` para saber se estourou o teto.
+   */
+  async exportRows(
+    tx: Transaction,
+    scope: EntryScope,
+    filters: EntryFilters,
+    opts: { includeDeleted: boolean; limit: number },
+  ): Promise<ExportEntryReadRow[]> {
+    const result = await tx.execute<RawExportRow>(sql`
+      select ${ROW_COLUMNS},
+             pc.name as category_parent_name, c.dre_group, c.nature,
+             s.document as supplier_document
+      ${FROM}
+      left join categories pc on pc.id = c.parent_id
+      where ${conditions(scope, filters, "visible", { includeDeleted: opts.includeDeleted })}
+      order by e.occurred_on asc, e.created_at asc, e.id asc
+      limit ${Math.max(1, Math.floor(opts.limit))}
+    `);
+    return result.rows.map((raw) => ({
+      id: raw.id,
+      occurredOn: raw.occurred_on,
+      paidOn: raw.paid_on,
+      type: raw.type as ExportEntryRow["type"],
+      description: raw.description,
+      quantity: raw.quantity === null ? null : Number(raw.quantity),
+      quantityUnit: raw.quantity_unit,
+      orders: raw.orders,
+      amountCents: toCents(raw.amount_cents),
+      feeCents: toCents(raw.fee_cents),
+      netCents: toCents(raw.net_cents),
+      category: raw.category_name,
+      categoryParentName: raw.category_parent_name,
+      dreGroup: raw.dre_group,
+      nature: raw.nature as ExportEntryRow["nature"],
+      supplier: raw.supplier_name,
+      supplierDocument: raw.supplier_document,
+      paymentMethod: raw.payment_method_name,
+      salesChannel: raw.sales_channel_name,
+      unit: raw.unit_name,
+      createdBy: raw.created_by_name ?? "",
+      originChannel: raw.origin_channel as ExportEntryRow["originChannel"],
+      flags: raw.flags as ExportEntryRow["flags"],
+      createdAt: raw.created_at,
+      deletedAt: raw.deleted_at,
+    }));
+  },
+
+  /**
+   * Versões dos lançamentos pedidos, por lançamento e versão, para o histórico do COMPLETO.
+   *
+   * PRÉ-CONDIÇÃO: não recebe recorte. Passe só ids que `exportRows` devolveu para o ator; o
+   * `before` e o `after` podem citar categoria sensível anterior (`diffVersion` falha fechado).
+   */
+  async exportVersions(
+    tx: Transaction,
+    entryIds: readonly string[],
+  ): Promise<Array<EntryVersionRow & { entryId: string }>> {
+    const valid = [...new Set(entryIds.filter((id) => UUID_VALUE.test(id)))];
+    if (valid.length === 0) return [];
+    const result = await tx.execute<RawVersion & { entry_id: string }>(sql`
+      select v.entry_id, v.version, v.action, v.channel, v.changed_by, vu.name as changed_by_name,
+             ${sql.raw(isoInstant("v.changed_at"))} as changed_at,
+             v.before, v.after
+        from entry_versions v
+        left join users vu on vu.id = v.changed_by
+       where v.entry_id = any(${arrayLiteral(valid)}::uuid[])
+       order by v.entry_id, v.version
+    `);
+    return result.rows.map((raw) => ({
+      entryId: raw.entry_id,
+      version: raw.version,
+      action: raw.action,
+      channel: raw.channel,
+      changedBy: { id: raw.changed_by, name: raw.changed_by_name ?? "" },
+      changedAt: raw.changed_at,
+      before: raw.before,
+      after: raw.after,
+    }));
+  },
+
+  /** Nomes do histórico: o mesmo carregador de `GET /api/entries/:id/history` (`names`). */
+  async exportVersionNames(tx: Transaction): Promise<EntryNames> {
+    return entryReader.names(tx);
   },
 
   /**
