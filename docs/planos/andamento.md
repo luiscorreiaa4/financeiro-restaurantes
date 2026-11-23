@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. CI no GitHub rodou verde em 09/11/2026 (inclusive `e2e` e `integration`) |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 feita em 09/11/2026** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto, DE-25; contador só por e-mail e pendências do review, DE-26; evals resolvidos); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026), F2 (10/11/2026), F3a (14/11/2026), F3b e F3c (16/11/2026), F4 (17/11/2026) feitas**; **F5 com o código pronto em 23/11/2026 (verificação final pendente: E2E completo e suítes inteiras)**; F6 a F13 a fazer. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026), F2 (10/11/2026), F3a (14/11/2026), F3b e F3c (16/11/2026), F4 (17/11/2026), F5 (23/11/2026) feitas**; F6 a F13 a fazer, **F6 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato

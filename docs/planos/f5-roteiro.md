@@ -22,15 +22,9 @@ Roteiro para o Luís. Cobre RF29 (CA01 a CA05) com o painel e o worker de verdad
 8. **Limites.** Peça 4 exportações sem esperar terminar: a quarta recusa com "Você já tem 3 exportações em andamento". Um período com mais de 100 mil linhas termina em "Falhou" com a explicação.
 9. **Auditoria.** No banco: `select action, target, metadata, created_at from audit_log where action like 'export_%' order by created_at desc;` deve mostrar `export_requested`, `export_ready` (com `rowCount`) e `export_downloaded`, sem texto de busca (a busca vira `[busca]`) e sem nome de arquivo.
 
-## Verificação final que ficou pendente (rodar quando houver memória)
+## Verificação automática (23/11/2026)
 
-A execução desta etapa foi interrompida na verificação pesada por falta de memória do computador. Rode, nesta ordem:
-
-```
-pnpm typecheck && pnpm lint && pnpm test
-pnpm --filter @app/db test:int
-pnpm --filter @app/api test:int
-CI=true pnpm --filter @app/web exec playwright test exports --workers=1
-```
-
-O E2E `exports.spec.ts` tem 7 cenários; só o primeiro (dono exporta em CSV e baixa o arquivo com BOM) foi visto passando no Desktop Chrome. Os outros seis e o projeto Mobile Chrome (Pixel 7) ainda não rodaram até o fim.
+- `pnpm lint` e `pnpm test` (raiz): verdes.
+- `@app/db test:int`: 474 testes, 22 arquivos. `@app/api test:int`: 666 testes, 20 arquivos.
+- E2E com `CI=true` (build de produção, todas as specs, Desktop Chrome e Pixel 7): 330 passaram; as 2 instabilidades da spec `context.spec.ts` (troca de empresa, anteriores à F5) foram corrigidas abrindo `/dashboard` direto, e em 192 execuções repetidas no modo CI não houve falha.
+- A spec `exports.spec.ts` tem 7 cenários por projeto, todos verdes: dono exporta em CSV e baixa com BOM, COMPLETO só do dono, lançador sem botão, conta somente leitura exporta, falha, celular de 360 px e axe na tela e no diálogo.
