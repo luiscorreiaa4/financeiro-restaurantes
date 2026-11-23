@@ -1,6 +1,7 @@
 // API falsa, só para o E2E exercitar o rewrite de /api/* sem depender da API real.
 import { createServer } from "node:http";
 import { answerEntries, resetEntries } from "./fake-entries.mjs";
+import { answerExports, resetExports } from "./fake-exports.mjs";
 import { answerReports } from "./fake-reports.mjs";
 
 const port = Number(process.env.FAKE_API_PORT ?? 4010);
@@ -118,6 +119,7 @@ const ACTIONS_BY_ROLE = {
     "entry:restore",
     "report:view",
     "export:data",
+    "export:full",
     "catalog:view",
     "panel:access",
   ],
@@ -377,9 +379,30 @@ createServer(async (req, res) => {
     return send(res, answer.status, answer.body);
   }
 
-  // Rota de teste: volta os lançamentos e os fornecedores criados ao estado inicial.
+  // Exportações (F5, RF29): mesmas checagens de sessão e contexto. O download sai como texto (`raw`).
+  if (pathname.startsWith("/api/exports")) {
+    const body = method === "GET" ? {} : await readJson(req);
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    // O download é navegação do navegador (sem X-Context), como na API real (T11): só as rotas de fetch o exigem.
+    const isDownload = method === "GET" && /^\/api\/exports\/[^/]+\/download$/.test(pathname);
+    if (!isDownload && req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    const answer = answerExports(method, url, body);
+    if (answer.raw !== undefined) {
+      res.statusCode = answer.status;
+      for (const [k, v] of Object.entries(answer.headers ?? {})) res.setHeader(k, v);
+      return res.end(answer.raw);
+    }
+    return send(res, answer.status, answer.body);
+  }
+
+  // Rota de teste: volta os lançamentos, os fornecedores e as exportações criadas ao estado inicial.
   if (method === "POST" && url === "/__reset") {
     resetEntries();
+    resetExports();
     res.statusCode = 204;
     return res.end();
   }
