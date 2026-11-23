@@ -472,3 +472,12 @@ export interface EntryStore {
     costUsdMicros: number;
   }>;
 }
+
+/** Arquivos gerados pelas exportações (RF29). A chave é `exports/<tenant>/<exportação>.<ext>`. */
+export interface ExportFileStore {
+  /** Sobrescreve. */
+  put(key: string, bytes: Uint8Array): Promise<void>;
+  get(key: string): Promise<Uint8Array | null>;
+  /** Chave ausente não é erro. */
+  delete(key: string): Promise<void>;
+}
