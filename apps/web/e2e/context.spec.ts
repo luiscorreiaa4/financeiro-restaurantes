@@ -57,8 +57,11 @@ test("dono com 2 empresas troca sem recarregar a página, fica na rota e voltar 
   page,
 }) => {
   await signIn(page, "owner2", `${T1}.all`);
-  // Uma página anterior no histórico: `replace` na troca não cria entrada nova.
-  await page.goto("/");
+  // Uma página anterior no histórico: `replace` na troca não cria entrada nova. Abre `/dashboard`
+  // (o destino de `/` para o dono): `/` redireciona pelo cliente depois do `load`, e essa navegação
+  // pendente derrubava o `goto` seguinte (ERR_ABORTED).
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/dashboard$/);
   await expect(visible(page, "Empresa")).toHaveValue(T1);
   await page.goto("/lancamentos?q=algo");
   await expect(visible(page, "Empresa")).toHaveValue(T1);
@@ -82,7 +85,7 @@ test("dono com 2 empresas troca sem recarregar a página, fica na rota e voltar 
   );
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
   await expect(visible(page, "Empresa")).toHaveValue(T2);
 });
 
@@ -179,8 +182,12 @@ test("duas abas: a aba esquecida recarrega ao receber 409", async ({ page }) => 
 });
 
 test("sem rolagem horizontal com o seletor de empresa e de unidade", async ({ page }) => {
-  await signIn(page, "owner2");
-  await page.goto("/");
+  // Contexto gravado e página final aberta: sem a recarga da primeira visita (já coberta pelo teste
+  // do cookie `fr_ctx`) e sem o redirecionamento de `/`, que derrubava o `evaluate` ("Execution
+  // context was destroyed").
+  await signIn(page, "owner2", `${T1}.all`);
+  await page.goto("/dashboard");
+  await expect(page.getByRole("status").filter({ hasText: "Carregando…" })).toBeHidden();
   await expect(visible(page, "Empresa")).toBeVisible();
   await expect(visible(page, "Unidade")).toBeVisible();
 
