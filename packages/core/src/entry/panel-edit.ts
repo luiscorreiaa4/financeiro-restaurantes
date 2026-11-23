@@ -60,7 +60,7 @@ export function preparePanelEdit(input: {
   }
   if (patch.unitId !== undefined) {
     const unit = catalog.units.find((item) => item.id === patch.unitId);
-    if (!unit || unit.status !== "active") return fail("UnknownReference", { field: "unit" });
+    if (unit?.status !== "active") return fail("UnknownReference", { field: "unit" });
   }
   if (patch.supplier && !catalog.suppliers.some((item) => item.id === patch.supplier?.id)) {
     return fail("UnknownReference", { field: "supplier" });
@@ -70,7 +70,7 @@ export function preparePanelEdit(input: {
       item.id ===
       (patch.paymentMethodId !== undefined ? patch.paymentMethodId : entry.paymentMethodId),
   );
-  if (patch.paymentMethodId && (!paymentMethod || paymentMethod.status !== "active")) {
+  if (patch.paymentMethodId && paymentMethod?.status !== "active") {
     return fail("UnknownReference", { field: "payment_method" });
   }
   const channel = catalog.salesChannels.find(
@@ -78,7 +78,7 @@ export function preparePanelEdit(input: {
       item.id ===
       (patch.salesChannelId !== undefined ? patch.salesChannelId : entry.salesChannelId),
   );
-  if (patch.salesChannelId && (!channel || channel.status !== "active")) {
+  if (patch.salesChannelId && channel?.status !== "active") {
     return fail("UnknownReference", { field: "sales_channel" });
   }
 
