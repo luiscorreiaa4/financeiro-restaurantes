@@ -15,7 +15,7 @@ Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer ·
 | Fundação (fase 0) | Pronta. CI no GitHub rodou verde em 09/11/2026 (inclusive `e2e` e `integration`) |
 | Canal WhatsApp E1 a E9 | **Feitas.** Ressalvas: E3 sem mensagem real do celular (Meta); E9 com áudio e foto testados só com simulação |
 | Canal WhatsApp E10 a E14 | **E11 feita em 09/11/2026** (dados e domínio de 06/11/2026; `trocar unidade`, `trocar empresa` e empresa citada no texto, DE-25; contador só por e-mail e pendências do review, DE-26; evals resolvidos); a E10 está travada pela Meta. E12 (resumos fixos) e E14 (importações e XML) entraram no MVP |
-| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026), F2 (10/11/2026), F3a (14/11/2026), F3b e F3c (16/11/2026), F4 (17/11/2026) feitas**; F5 a F13 a fazer, **F5 é a próxima**. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
+| Painel web F0 a F13 | **F0 (06/11/2026), F1a, F1b e F1c (09/11/2026), F2 (10/11/2026), F3a (14/11/2026), F3b e F3c (16/11/2026), F4 (17/11/2026) feitas**; **F5 com o código pronto em 23/11/2026 (verificação final pendente: E2E completo e suítes inteiras)**; F6 a F13 a fazer. F12 (imposto estimado e DRE) e F13 (contador, importações e XML) entraram no MVP |
 | Negócio, jurídico e validação | Quase tudo em aberto ([`matheus.md`](matheus.md)) |
 
 ## 2. O que já existe, de fato
@@ -89,7 +89,7 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 **F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026 e F2 em 10/11/2026**; F3 a F13 a fazer, a **F3 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
-- [ ] D-F7 (biblioteca de planilha): **Decidido em 11/11/2026 (DD-32):** fica para o começo da F5; é a única D-F aberta.
+- [x] D-F7 (biblioteca de planilha): **Decidido em 23/11/2026 (DD-42):** write-excel-file para o XLSX e fflate para o zip, com prova no começo da F5; plano B, exceljs. (Antes, DD-32: fica para o começo da F5.)
 - **Pendências deixadas pela F0:**
   - [x] 🟡 Rodar no GitHub os jobs novos `e2e` e `integration`: **feito em 09/11/2026 (Luís), tudo verde.** É a primeira vez que a suíte de integração roda no CI; localmente passou (db 179, api 88). Se falhar, diagnosticar a causa real, sem enfraquecer teste. Dono: Luís (depende do push).
   - [ ] Decidir a **identidade visual** (marca, paleta, fonte). A F0 ficou neutra por decisão do Luís (D-F8); a troca é local, em `apps/web/app/globals.css`. Antes do piloto (F7 e F8).
@@ -206,6 +206,14 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
     - [ ] **F4-1 (decisão dos sócios):** o balde "Pessoal (restrito)" do gráfico por categoria mostra valor e participação, o que permite deduzir a proporção de folha que o indicador escondido não mostra (DD-41, RF28.Obs4). Se a intenção for esconder a proporção de verdade, o balde teria que sair sem valor.
     - [ ] **F4-2:** `apps/api/src/http/reports/reports-routes.ts`: o `setErrorHandler` converte qualquer 4xx lançado em `invalid_request`. Hoje os guards respondem direto e nada sai errado.
     - [ ] **F4-3 (F12):** imposto estimado e o cartão dele no dashboard ficam na F12 (DD-41). O contrato já reserva `estimatedTax`.
+- **Pendências deixadas pela F5 (23/11/2026, DD-42):**
+  - [ ] **F5-1 (F8):** e-mail de exportação pronta, com link para `/exportacoes`, nunca o arquivo (DD-42).
+  - [ ] **F5-2 (E10):** `ExportFileStore` S3 e criptografia em repouso (DD-42).
+  - [ ] **F5-3 (E10):** a API e o worker **não sobem em produção** até existir o `ExportFileStore` em S3 (a composição lança erro, de propósito); em desenvolvimento a pasta `.dev-exports/` é relativa ao diretório de trabalho, então API e worker precisam rodar da mesma pasta (`apps/api`).
+  - [ ] **F5-4:** corrida rara: um job que expira vai para a DLQ enquanto o worker original ainda está vivo; a DLQ marca `failed` e apaga o arquivo, e o `put` tardio do worker original pode deixar um arquivo órfão sem `fileKey` (o job de limpeza o ignora). Aceito pelo `expireInSeconds` de 600; avaliar uma varredura por prefixo na E10.
+  - [ ] **F5-5:** reenvio da mesma chave depois de um 503 devolve 200 com o pedido `failed` (a tela já queima a chave no 503 e no `failed`; outro cliente precisa fazer o mesmo).
+  - [ ] **F5-6:** o texto livre da busca (`filters.q`) fica guardado na linha do pedido mesmo depois dos 7 dias (a auditoria já o troca por `[busca]`); apagar o `q` no `delete-export-file`. Outros minors da revisão final (categoria pai sem sensibilidade, `writeXlsx` sem validar inteiro seguro, testes do mesmo usuário com vínculo em duas empresas) estão no ledger da etapa.
+  - [ ] **F5-7:** a lista `/exportacoes` ainda mostra como disponível um arquivo que o autor já não pode baixar (perdeu VER_FOLHA ou a unidade depois do pronto); `Baixar` responde 403 e a tela mostra a mensagem genérica. Tratar o 403 com texto próprio.
 
 ## 7. Documentação
 
