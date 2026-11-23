@@ -239,3 +239,79 @@ export const ROUTE_MATRIX: readonly RouteCase[] = [
     },
   },
 ];
+
+/** O que as linhas de exportação precisam do cenário (um pedido pronto e um link por persona). */
+export interface ExportMatrixFixture {
+  /** Pedido `ready` de cada persona, com o arquivo no store. */
+  readonly exportIds: Readonly<Record<Persona, string>>;
+  /** URL de download já com o token de cada persona (emitido no relógio inicial). */
+  readonly downloadUrls: Readonly<Record<Persona, string>>;
+}
+
+export interface ExportRouteCase {
+  readonly name: string;
+  readonly method: "GET" | "POST";
+  readonly url: (fixture: ExportMatrixFixture, persona: Persona) => string;
+  readonly body?: () => unknown;
+  /** Navegação do navegador: não manda `X-Context` (o contexto vem só do cookie). */
+  readonly navigation?: true;
+  readonly expected: Readonly<Record<Persona, number>>;
+}
+
+/**
+ * Exportar é leitura (DD-06): a conta somente leitura exporta. O gerente do cenário tem
+ * EXPORTAR_DADOS (com e sem VER_FOLHA); o lançador, não. Roda em `exports-routes.int.test.ts`,
+ * com cenário próprio: a tabela acima é de lançamentos e seu cenário não tem pedido de exportação.
+ */
+const EXPORT_ALLOWED: ExportRouteCase["expected"] = {
+  owner: 200,
+  manager: 200,
+  managerNoPayroll: 200,
+  staff: 403,
+  accountant: 200,
+  restricted: 401,
+  readOnly: 200,
+  staffNoPanel: 401,
+};
+
+export const EXPORT_ROUTE_MATRIX: readonly ExportRouteCase[] = [
+  {
+    name: "POST /api/exports",
+    method: "POST",
+    url: () => "/api/exports",
+    body: () => ({
+      format: "csv",
+      content: "entries",
+      filters: { from: "2026-11-01", to: "2026-11-30" },
+      clientRequestId: crypto.randomUUID(),
+    }),
+    // Criar pedido responde 202 (aceito, a geração é assíncrona).
+    expected: {
+      ...EXPORT_ALLOWED,
+      owner: 202,
+      manager: 202,
+      managerNoPayroll: 202,
+      accountant: 202,
+      readOnly: 202,
+    },
+  },
+  {
+    name: "GET /api/exports",
+    method: "GET",
+    url: () => "/api/exports",
+    expected: EXPORT_ALLOWED,
+  },
+  {
+    name: "POST /api/exports/:id/link",
+    method: "POST",
+    url: (f, persona) => `/api/exports/${f.exportIds[persona]}/link`,
+    expected: EXPORT_ALLOWED,
+  },
+  {
+    name: "GET /api/exports/:id/download",
+    method: "GET",
+    url: (f, persona) => f.downloadUrls[persona],
+    navigation: true,
+    expected: EXPORT_ALLOWED,
+  },
+];

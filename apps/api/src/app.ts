@@ -2,6 +2,7 @@ import type { Env } from "@app/config/env";
 import Fastify from "fastify";
 import { type AuthRoutesDeps, authRoutes } from "./http/auth/auth-routes";
 import { type EntriesRoutesDeps, entriesRoutes } from "./http/entries/entries-routes";
+import { type ExportsRoutesDeps, exportsRoutes } from "./http/exports/exports-routes";
 import { appOriginOf, originGuard } from "./http/origin-guard";
 import type { PanelDeps } from "./http/panel/panel-context";
 import { panelRoutes } from "./http/panel/panel-routes";
@@ -28,6 +29,8 @@ export interface AppDeps {
   readonly panel?: PanelDeps;
   /** Lançamentos do painel (F3a, RF22): `GET /api/entries`, `/api/entries/totals` e `/api/entries/options`. */
   readonly entries?: EntriesRoutesDeps;
+  /** Exportação Excel/CSV (F5, RF29): `/api/exports*`. */
+  readonly exports?: ExportsRoutesDeps;
   /** Destino dos logs; o padrão é stdout. Existe para os testes lerem o que foi registrado. */
   readonly logStream?: { write(line: string): void };
 }
@@ -62,6 +65,7 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL" | "APP_URL">, deps: AppDeps 
   if (deps.entries) app.register(entriesRoutes, { deps: deps.entries });
   // Relatórios do dashboard (F4, RF27): só precisam do contexto do painel, as mesmas deps.
   if (deps.entries) app.register(reportsRoutes, { deps: deps.entries });
+  if (deps.exports) app.register(exportsRoutes, { deps: deps.exports });
 
   return app;
 }

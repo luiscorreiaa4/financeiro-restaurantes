@@ -51,6 +51,16 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - `pnpm dlx shadcn@latest add chart` **pode trocar a versão do `recharts`** no `package.json`: confira o `git diff package.json` e o lockfile e desfaça. O `chart.tsx` gerado ganhou `biome-ignore` justificados; no jsdom o `ChartContainer` precisa de `initialDimension`.
 - `/` não renderiza página: redireciona por `allowedActions` (`report:view` vai a `/dashboard`, o resto a `/lancamentos`). O item "Início" saiu do menu.
 
+## Exportações (`features/exports`, F5)
+
+- Contrato em `@app/core/contracts` (`exports.ts`, `.strict()`); cliente `exports-api.ts`, hooks `use-exports.ts` com **escopo explícito** (`ExportsScope = { ctx, api }`, montado por `useExportsScope(me)`), chave `tenantKey(ctx, "exports")`. Não há provedor: a casca, a lista e a página montam o mesmo escopo.
+- **O pedido nunca leva ordenação.** `toExportFilters(query)` (`export-filters.ts`) tira `sort`, `dir`, `cursor` e `limit` dos filtros da URL: o contrato da exportação é estrito e a API recusa. O teste do diálogo confere que o corpo não tem `sort`.
+- **Chave de tentativa por pedido exato** (`clientRequestId`): vale para uma assinatura `formato + conteúdo + filtros`; só troca depois de sucesso, mas é **queimada no 503** (`queue_unavailable`) e no 200 com item `failed`, porque a API gravou aquela chave como falha e o reenvio devolveria o pedido falho. Trava síncrona (`useRef`) contra duplo clique.
+- **Download só pela API.** `useDownloadExport` faz `POST /api/exports/:id/link` e leva o navegador até a `url` (`window.location.assign`, injetável nos testes). A tela nunca guarda a URL (o token vale 1 hora) e cada clique pede um link novo. O download é **navegação**: não leva `X-Context` (a API lê o contexto do cookie `fr_ctx`); a API falsa do E2E reproduz isso (só o download dispensa o `X-Context`).
+- **Aviso de pronta na casca** (`export-notifier.tsx`, montado em `app-shell.tsx` só com `contextSource === "cookie"` e `export:data`, com `key` por empresa e unidade): guarda em `useRef` os ids que estavam `queued` ou `generating` e anuncia só a **transição** para `ready` ou `failed`. Carregar a página com algo já pronto não anuncia. A consulta se repete a cada 3 s só enquanto houver pedido pendente (`refetchInterval` função; `staleTime: 0`).
+- O COMPLETO só aparece no diálogo com `export:full` (só o dono); a conta somente leitura também exporta (DD-42): o botão não depende de `accountAllows`.
+- No E2E (`e2e/exports.spec.ts`) a fila da API falsa anda um passo por consulta: `queued → generating → ready` leva cerca de 6 s (use timeout de 25 s para a faixa). O gerente da API falsa não tem `export:data` (igual ao core: exige a permissão EXPORTAR_DADOS). A spec escreve na API falsa, então roda com um worker e `POST /__reset`.
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).

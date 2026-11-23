@@ -26,6 +26,7 @@ export const TABLES = [
   "categories",
   "entries",
   "entry_versions",
+  "exports",
   "fiscal_documents",
   "inbound_messages",
   "membership_units",
@@ -182,6 +183,11 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     [uuidv7(), f.tenantId, f.userId, f.inboundMessageId],
   );
   await run(
+    `insert into exports (id, tenant_id, requested_by, unit_choice, format, content, filters, status, client_request_id)
+     values ($1, $2, $3, 'all', 'csv', 'entries', '{}', 'queued', $4)`,
+    [uuidv7(), f.tenantId, f.userId, uuidv7()],
+  );
+  await run(
     `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)
      values ($1, $2, '2026-01-01', true, 'simples_nacional', '{"rbt12Cents": 24000000}', $3)`,
     [uuidv7(), f.tenantId, f.userId],
@@ -294,6 +300,11 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
     outbound_messages: {
       sql: "insert into outbound_messages (id, tenant_id, wa_message_id, to_wa_id, purpose, text) values ($1, $2, $3, '5511900000000', 'notice', 'Intruso')",
       params: [id(), f.tenantId, `dev.out.${id()}`],
+    },
+    exports: {
+      sql: `insert into exports (id, tenant_id, requested_by, unit_choice, format, content, filters, status, client_request_id)
+            values ($1, $2, $3, 'all', 'xlsx', 'entries', '{}', 'queued', $4)`,
+      params: [id(), f.tenantId, f.userId, id()],
     },
     tax_settings: {
       sql: `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)

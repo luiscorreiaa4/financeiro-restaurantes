@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ExportButton } from "@/features/exports/export-dialog";
+import type { ExportsScope } from "@/features/exports/use-exports";
 import { BatchBar } from "./batch-bar";
 import { EntriesTable } from "./entries-table";
 import { EntryCard } from "./entry-card";
@@ -30,6 +32,8 @@ export function EntriesView({
   role,
   canSeeTrash = false,
   canCreate = false,
+  exportScope,
+  canExportFull = false,
 }: {
   today: string;
   role: string;
@@ -37,6 +41,10 @@ export function EntriesView({
   canSeeTrash?: boolean;
   /** Quem pode lançar (`entry:create`) e tem conta gravável ganha "Novo lançamento" (RF26, RF37). */
   canCreate?: boolean;
+  /** Só quem tem `export:data` recebe o escopo, e com ele o botão "Exportar" (RF29). A conta somente leitura também exporta. */
+  exportScope?: ExportsScope;
+  /** Só o dono (`export:full`) vê o conteúdo COMPLETO no diálogo (RF29.R3). */
+  canExportFull?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -98,6 +106,9 @@ export function EntriesView({
             >
               Lixeira
             </Link>
+          )}
+          {exportScope && (
+            <ExportButton scope={exportScope} query={query} canFull={canExportFull} />
           )}
         </div>
       </div>

@@ -8,7 +8,9 @@ import type { Env } from "@app/config/env";
 import {
   DEFAULT_USAGE_LIMITS,
   type EmailSender,
+  type ExportFileStore,
   fail,
+  type JobQueue,
   type MediaDownloader,
   type MessageSender,
   type Transcriber,
@@ -39,6 +41,9 @@ import { createAuth, createAuthGateway } from "./infra/auth/create-auth";
 import { createSystemClock } from "./infra/clock";
 import { createDevMessageSender } from "./infra/dev-message-sender";
 import { createFileEmailSender } from "./infra/email/file-email-sender";
+import { createExportLinkSigner } from "./infra/exports/export-link";
+import { createLocalExportStore } from "./infra/exports/local-export-store";
+import { type ExportWorker, startExportWorker } from "./infra/exports-worker";
 import { createLogger, type JobLogger } from "./infra/logger";
 import { createDevFileMediaDownloader } from "./infra/media/dev-file-media-downloader";
 import { createFfmpegAudioConverter } from "./infra/media/ffmpeg-audio-converter";
@@ -48,6 +53,9 @@ import { createPgBossQueue } from "./infra/pg-boss-queue";
 import { type ProcessInboundWorker, startProcessInboundWorker } from "./infra/pg-boss-worker";
 import { createCheckEntry, createCheckSession } from "./modules/auth/check-session";
 import { createEntryHandlers } from "./modules/entries/entry-handlers";
+import { createDeleteExportFile } from "./modules/exports/delete-export-file";
+import { createFailStuckExport } from "./modules/exports/fail-stuck-export";
+import { createGenerateExport } from "./modules/exports/generate-export";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
@@ -79,7 +87,7 @@ export async function compose(
   const ingestPool = createPool(env.DATABASE_INGEST_URL);
   const queue = await createPgBossQueue(env.DATABASE_ADMIN_URL, onQueueError);
   const repo = createInboundIngestRepo(createDatabase(ingestPool));
-  const auth = composeAuth(env);
+  const auth = composeAuth(env, queue);
 
   return {
     deps: {
@@ -94,6 +102,7 @@ export async function compose(
       profile: auth.profile,
       panel: auth.panel,
       entries: auth.entries,
+      exports: auth.exports,
     },
     async close() {
       await queue.stop();
@@ -106,13 +115,17 @@ export async function compose(
  * Acesso ao painel (F1a): Better Auth sobre o papel `app_auth`. O autocadastro (F1b) usa a
  * mesma conexão, o mesmo envio de e-mail e a mesma fila em segundo plano.
  */
-function composeAuth(env: Env): {
+function composeAuth(
+  env: Env,
+  queue: JobQueue,
+): {
   deps: NonNullable<AppDeps["auth"]>;
   signup: NonNullable<AppDeps["signup"]>;
   recovery: NonNullable<AppDeps["recovery"]>;
   profile: NonNullable<AppDeps["profile"]>;
   panel: NonNullable<AppDeps["panel"]>;
   entries: NonNullable<AppDeps["entries"]>;
+  exports: NonNullable<AppDeps["exports"]>;
   close(): Promise<void>;
 } {
   if (env.DATABASE_AUTH_URL === undefined) {
@@ -227,6 +240,15 @@ function composeAuth(env: Env): {
     // Lançamentos (F3a, F3b): os mesmos guards e o mesmo banco do painel, mais o relógio, o
     // cadastro e a gravação da edição (o mesmo `EntryStore` do canal, pelo papel `app`).
     entries: { ...panel, clock, store: createEntryStore(appDb), newId: uuidv7 },
+    // Exportação (F5): a mesma pasta de arquivos do worker; o link é assinado com o AUTH_SECRET.
+    exports: {
+      ...panel,
+      clock,
+      store: createExportFileStore(env),
+      queue,
+      linkSigner: createExportLinkSigner(env.AUTH_SECRET, clock),
+      newId: uuidv7,
+    },
     async close() {
       await background.drain();
       await Promise.all([pool.end(), appPool.end()]);
@@ -252,7 +274,11 @@ export async function composeWorker(
   env: Env,
   logger: JobLogger,
   onQueueError: (error: Error) => void,
-): Promise<{ worker: ProcessInboundWorker; close(): Promise<void> }> {
+): Promise<{
+  worker: ProcessInboundWorker;
+  exportWorker: ExportWorker;
+  close(): Promise<void>;
+}> {
   if (env.DATABASE_INGEST_URL === undefined) {
     throw new Error("DATABASE_INGEST_URL é obrigatória para o worker do WhatsApp");
   }
@@ -260,6 +286,11 @@ export async function composeWorker(
   const appPool = createPool(env.DATABASE_URL);
   const ingestDb = createDatabase(ingestPool);
   const appDb = createDatabase(appPool);
+  if (env.DATABASE_AUTH_URL === undefined) {
+    throw new Error("DATABASE_AUTH_URL é obrigatória para o worker de exportação (papel app_auth)");
+  }
+  // Vínculos do usuário (papel `app_auth`): o worker recalcula o ator ao gerar a exportação.
+  const authPool = createPool(env.DATABASE_AUTH_URL);
   if (env.ANTHROPIC_API_KEY === undefined) {
     throw new Error("ANTHROPIC_API_KEY é obrigatória para o worker interpretar as mensagens");
   }
@@ -336,13 +367,46 @@ export async function composeWorker(
     onError: onQueueError,
   });
 
+  const queue = await createPgBossQueue(env.DATABASE_ADMIN_URL, onQueueError);
+  const exportStore = createExportFileStore(env);
+  const exportWorker = await startExportWorker({
+    connectionString: env.DATABASE_ADMIN_URL,
+    generateExport: createGenerateExport({
+      appDb,
+      access: createPanelAccessStore(createDatabase(authPool)),
+      store: exportStore,
+      queue,
+      clock,
+      logger,
+    }),
+    deleteExportFile: createDeleteExportFile({ appDb, store: exportStore, logger }),
+    failStuckExport: createFailStuckExport({ appDb, store: exportStore, logger }),
+    logger,
+    onError: onQueueError,
+  });
+
   return {
     worker,
+    exportWorker,
     async close() {
-      await worker.stop();
-      await Promise.all([ingestPool.end(), appPool.end()]);
+      await Promise.all([worker.stop(), exportWorker.stop()]);
+      await queue.stop();
+      await Promise.all([ingestPool.end(), appPool.end(), authPool.end()]);
     },
   };
+}
+
+/**
+ * Arquivos das exportações (RF29). Em desenvolvimento, uma pasta local; o S3 chega na E10 e,
+ * até lá, a composição de produção recusa subir.
+ */
+export const DEV_EXPORTS_DIR = ".dev-exports";
+
+function createExportFileStore(env: Pick<Env, "NODE_ENV">): ExportFileStore {
+  if (env.NODE_ENV === "production") {
+    throw new Error("sem S3 para as exportações (E10): o store local é só de desenvolvimento");
+  }
+  return createLocalExportStore(DEV_EXPORTS_DIR, env.NODE_ENV);
 }
 
 /** `CHANNEL_MODE` escolhe o adaptador de envio; o resto do código não sabe a diferença. */

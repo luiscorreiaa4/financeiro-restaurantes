@@ -313,3 +313,56 @@ describe("papel de ingestão (app_ingest)", () => {
     }
   });
 });
+
+describe("exportações (exports)", () => {
+  it("o papel app lê, insere e atualiza, mas não apaga nem a própria linha", async () => {
+    await asTenant(db.app, a.tenantId, async (client) => {
+      const own = await client.query("select id from exports where tenant_id = $1", [a.tenantId]);
+      expect(own.rowCount).toBeGreaterThan(0);
+      const update = await client.query("update exports set status = 'generating' where id = $1", [
+        own.rows[0].id,
+      ]);
+      expect(update.rowCount).toBe(1);
+      const result = await attempt(client, "delete from exports where id = $1", [own.rows[0].id]);
+      expect(result).toMatchObject({ error: RLS_VIOLATION_OR_NO_PRIVILEGE });
+    });
+  });
+
+  it("a chave de pedido repetida pelo mesmo usuário na mesma empresa é recusada", async () => {
+    const { rows } = await db.admin.query(
+      "select requested_by, client_request_id from exports where tenant_id = $1 limit 1",
+      [a.tenantId],
+    );
+    await expect(
+      db.admin.query(
+        `insert into exports (id, tenant_id, requested_by, unit_choice, format, content, filters, status, client_request_id)
+         values (gen_random_uuid(), $1, $2, 'all', 'csv', 'entries', '{}', 'queued', $3)`,
+        [a.tenantId, rows[0].requested_by, rows[0].client_request_id],
+      ),
+    ).rejects.toMatchObject({ code: "23505", constraint: "exports_client_request_unique" });
+  });
+
+  it("recusa formato, conteúdo e situação fora da lista", async () => {
+    const invalid: [column: string, value: string][] = [
+      ["format", "pdf"],
+      ["content", "tudo"],
+      ["status", "done"],
+    ];
+    for (const [column, value] of invalid) {
+      const values: Record<string, string> = {
+        format: "csv",
+        content: "entries",
+        status: "queued",
+        [column]: value,
+      };
+      await expect(
+        db.admin.query(
+          `insert into exports (id, tenant_id, requested_by, unit_choice, format, content, filters, status, client_request_id)
+           values (gen_random_uuid(), $1, $2, 'all', $3, $4, '{}', $5, gen_random_uuid())`,
+          [a.tenantId, a.userId, values.format, values.content, values.status],
+        ),
+        column,
+      ).rejects.toMatchObject({ code: "23514" });
+    }
+  });
+});

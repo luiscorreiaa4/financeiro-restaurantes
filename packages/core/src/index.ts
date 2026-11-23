@@ -3,6 +3,7 @@ export * from "./auth";
 export * from "./conversation";
 export * from "./entry";
 export * from "./errors";
+export * from "./exports";
 export * from "./media";
 export * from "./money";
 export * from "./permissions";

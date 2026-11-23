@@ -6,6 +6,7 @@ export * from "./client";
 export * from "./dev-seed";
 export * from "./entry-reader";
 export * from "./entry-store";
+export * from "./exports-repo";
 export * from "./inbound-ingest-repo";
 export * from "./inbound-media-repo";
 export * from "./inbound-processing-repo";

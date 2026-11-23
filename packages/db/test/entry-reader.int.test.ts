@@ -3,6 +3,7 @@ import {
   type EntryListQuery,
   type EntrySort,
   entryDetailSchema,
+  entryFiltersSchema,
   entryItemSchema,
   entryListQuerySchema,
   entryOptionsSchema,
@@ -2297,5 +2298,274 @@ describe("candidatos de duplicidade no recorte (RF26.R4)", () => {
     expect(rows).toContain(8888);
     expect(old25).toBeDefined();
     expect(recent23).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// F5: leitura para exportação (RF29, CA01)
+// ---------------------------------------------------------------------------------------
+
+describe("leitura para exportação (RF29)", () => {
+  const EXPORT_MONTH = "2027-03";
+  let parentCategoryId: string;
+  let childCategoryId: string;
+  let supplierWithDocument: string;
+  let tenantBExportEntry: string;
+  const ids: Record<"child" | "parentOnly" | "deleted" | "versioned" | "deletedPayroll", string> = {
+    child: "",
+    parentOnly: "",
+    deleted: "",
+    versioned: "",
+    deletedPayroll: "",
+  };
+
+  function exportRows(
+    tenantId: string,
+    scope: EntryScope,
+    filters: Record<string, unknown>,
+    opts: { includeDeleted?: boolean; limit?: number } = {},
+  ) {
+    const parsed = entryFiltersSchema.parse(filters);
+    return withTenant(appDb, tenantId, (tx) =>
+      entryReader.exportRows(tx, scope, parsed, {
+        includeDeleted: opts.includeDeleted ?? false,
+        limit: opts.limit ?? 1000,
+      }),
+    );
+  }
+
+  beforeAll(async () => {
+    parentCategoryId = uuidv7();
+    childCategoryId = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group, nature)
+       values ($1, $2, 'Insumos', 'expense', 'cmv', 'variable')`,
+      [parentCategoryId, a.tenantId],
+    );
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group, nature, parent_id)
+       values ($1, $2, 'Carnes', 'expense', 'cmv', 'variable', $3)`,
+      [childCategoryId, a.tenantId, parentCategoryId],
+    );
+    supplierWithDocument = uuidv7();
+    await db.admin.query(
+      "insert into suppliers (id, tenant_id, name, document) values ($1, $2, 'Frigorífico Sul', '12345678000195')",
+      [supplierWithDocument, a.tenantId],
+    );
+    ids.child = await insertEntry({
+      tenant: a,
+      occurredOn: `${EXPORT_MONTH}-02`,
+      amountCents: 10000,
+      description: "Picanha",
+      categoryId: childCategoryId,
+      supplierId: supplierWithDocument,
+    });
+    ids.parentOnly = await insertEntry({
+      tenant: a,
+      occurredOn: `${EXPORT_MONTH}-03`,
+      amountCents: 5000,
+      description: "Só o pai",
+      categoryId: parentCategoryId,
+    });
+    ids.deleted = await insertEntry({
+      tenant: a,
+      occurredOn: `${EXPORT_MONTH}-04`,
+      amountCents: 700,
+      description: "Excluído do mês",
+      deleted: true,
+    });
+    ids.versioned = await insertEntry({
+      tenant: a,
+      occurredOn: `${EXPORT_MONTH}-05`,
+      amountCents: 300,
+      description: "Com histórico",
+    });
+    await insertVersion({
+      tenant: a,
+      entryId: ids.versioned,
+      version: 2,
+      action: "update",
+      channel: "web",
+      changedBy: a.userId,
+      before: { amountCents: 300 },
+      after: { amountCents: 350 },
+    });
+    // Folha na lixeira, de autoria da lançadora: nem gerente sem folha nem lançador a recebem.
+    ids.deletedPayroll = await insertEntry({
+      tenant: a,
+      occurredOn: `${EXPORT_MONTH}-07`,
+      amountCents: 90000,
+      description: "Folha excluída",
+      categoryId: payrollCategoryId,
+      createdBy: staffId,
+      deleted: true,
+    });
+    const bCategory = uuidv7();
+    await db.admin.query(
+      `insert into categories (id, tenant_id, name, kind, dre_group)
+       values ($1, $2, 'Exclusiva da empresa B', 'expense', 'outras')`,
+      [bCategory, b.tenantId],
+    );
+    tenantBExportEntry = await insertEntry({
+      tenant: b,
+      occurredOn: `${EXPORT_MONTH}-02`,
+      amountCents: 4200,
+      description: "Só da empresa B",
+      categoryId: bCategory,
+    });
+  });
+
+  const MAIN_FILTERS = { from: "2026-03-01", to: "2026-03-31" };
+
+  it("paridade com os totais da lista: contagem e soma por tipo (CA01)", async () => {
+    const unitScope: EntryScope = { unitIds: [unit2], ownerUserId: null, includeSensitive: true };
+    const cases: Array<[string, EntryScope, Record<string, unknown>]> = [
+      ["período", OWNER, MAIN_FILTERS],
+      ["período e tipo", OWNER, { ...MAIN_FILTERS, type: "revenue" }],
+      ["período e unidade", unitScope, MAIN_FILTERS],
+      ["gerente sem folha, período", managerNoPayroll, MAIN_FILTERS],
+      ["lançador, período", staff, MAIN_FILTERS],
+    ];
+    for (const [label, scope, filters] of cases) {
+      const rows = await exportRows(a.tenantId, scope, filters);
+      const t = await totals(a.tenantId, scope, queryFor("2026-03", filters));
+      const sum = (type: string) =>
+        rows.filter((r) => r.type === type).reduce((acc, r) => acc + r.amountCents, 0);
+      expect(rows.length, label).toBe(t.count);
+      expect(sum("revenue"), label).toBe(t.revenueCents);
+      expect(sum("expense"), label).toBe(t.expenseCents);
+      expect(rows.length, label).toBeGreaterThan(0);
+    }
+  });
+
+  it("gerente sem VER_FOLHA nunca recebe linha sensível; o contador recebe", async () => {
+    const manager = await exportRows(a.tenantId, managerNoPayroll, MAIN_FILTERS);
+    const descriptions = manager.map((r) => r.description);
+    expect(descriptions).not.toContain("Salário cozinha");
+    expect(descriptions).not.toContain("Vale da equipe");
+    expect(descriptions).toContain("Compra de carne");
+
+    const accountant = await exportRows(a.tenantId, OWNER, MAIN_FILTERS);
+    expect(accountant.map((r) => r.description)).toEqual(
+      expect.arrayContaining(["Salário cozinha", "Vale da equipe"]),
+    );
+  });
+
+  it("o limite vale depois do filtro de sensibilidade", async () => {
+    const all = await exportRows(a.tenantId, managerNoPayroll, MAIN_FILTERS);
+    const limited = await exportRows(a.tenantId, managerNoPayroll, MAIN_FILTERS, { limit: 2 });
+    expect(limited).toHaveLength(2);
+    expect(limited.map((r) => r.description)).toEqual(all.slice(0, 2).map((r) => r.description));
+  });
+
+  it("lançador só recebe os próprios lançamentos", async () => {
+    const rows = await exportRows(a.tenantId, staff, MAIN_FILTERS);
+    expect(rows.map((r) => r.description).sort()).toEqual(
+      ["Gás 100% natural", "taxa_extra <script>alert(1)</script>"].sort(),
+    );
+    expect(rows.every((r) => r.createdBy === "Lançadora")).toBe(true);
+  });
+
+  it("includeDeleted: false exclui a lixeira; true inclui, com deletedAt", async () => {
+    const filters = { from: `${EXPORT_MONTH}-01`, to: `${EXPORT_MONTH}-31` };
+    const without = await exportRows(a.tenantId, OWNER, filters);
+    expect(without.map((r) => r.description)).not.toContain("Excluído do mês");
+    expect(without.every((r) => r.deletedAt === null)).toBe(true);
+
+    const withDeleted = await exportRows(a.tenantId, OWNER, filters, { includeDeleted: true });
+    const trashed = withDeleted.find((r) => r.description === "Excluído do mês");
+    expect(trashed?.deletedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(withDeleted.find((r) => r.description === "Picanha")?.deletedAt).toBeNull();
+    // A lixeira do mês tem dois excluídos: o comum e a folha (o dono vê os dois).
+    expect(withDeleted).toHaveLength(without.length + 2);
+  });
+
+  it("folha na lixeira com includeDeleted: só dono e contador a recebem, com deletedAt", async () => {
+    const filters = { from: `${EXPORT_MONTH}-01`, to: `${EXPORT_MONTH}-31` };
+    const withTrash = { includeDeleted: true };
+    const owner = await exportRows(a.tenantId, OWNER, filters, withTrash);
+    const payroll = owner.find((r) => r.id === ids.deletedPayroll);
+    expect(payroll?.deletedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    for (const scope of [managerNoPayroll, staff]) {
+      const rows = await exportRows(a.tenantId, scope, filters, withTrash);
+      expect(rows.map((r) => r.id)).not.toContain(ids.deletedPayroll);
+      expect(rows.map((r) => r.description)).not.toContain("Folha excluída");
+      // A contagem também não os inclui (o limite vale depois do filtro).
+      const limited = await exportRows(a.tenantId, scope, filters, { ...withTrash, limit: 1000 });
+      expect(limited).toHaveLength(rows.length);
+    }
+  });
+
+  it("a ordem é competência, criação e id", async () => {
+    const rows = await exportRows(a.tenantId, OWNER, {
+      from: `${PAGING}-01`,
+      to: `${PAGING}-31`,
+    });
+    const expected = await db.admin.query<{ id: string }>(
+      `select id from entries where tenant_id = $1 and occurred_on between $2 and $3
+        and deleted_at is null order by occurred_on, created_at, id`,
+      [a.tenantId, `${PAGING}-01`, `${PAGING}-31`],
+    );
+    expect(rows.map((r) => r.id)).toEqual(expected.rows.map((r) => r.id));
+  });
+
+  it("subcategoria, pai, grupo do DRE, natureza e documento do fornecedor vêm preenchidos", async () => {
+    const rows = await exportRows(a.tenantId, OWNER, {
+      from: `${EXPORT_MONTH}-01`,
+      to: `${EXPORT_MONTH}-31`,
+    });
+    const child = rows.find((r) => r.id === ids.child);
+    expect(child).toMatchObject({
+      category: "Carnes",
+      categoryParentName: "Insumos",
+      dreGroup: "cmv",
+      nature: "variable",
+      supplier: "Frigorífico Sul",
+      supplierDocument: "12345678000195",
+      amountCents: 10000,
+      unit: expect.any(String),
+    });
+    const parentOnly = rows.find((r) => r.id === ids.parentOnly);
+    expect(parentOnly).toMatchObject({ category: "Insumos", categoryParentName: null });
+  });
+
+  it("dados de outra empresa não vazam (o RLS isola os lançamentos e as junções)", async () => {
+    const filters = { from: `${EXPORT_MONTH}-01`, to: `${EXPORT_MONTH}-31` };
+    const ownerA = await exportRows(a.tenantId, OWNER, filters);
+    expect(ownerA.map((r) => r.id)).not.toContain(tenantBExportEntry);
+    expect(JSON.stringify(ownerA)).not.toContain("empresa B");
+    const ownerB = await exportRows(b.tenantId, OWNER, filters);
+    expect(ownerB.map((r) => r.id)).toEqual([tenantBExportEntry]);
+    expect(ownerB[0]?.category).toBe("Exclusiva da empresa B");
+    expect(JSON.stringify(ownerB)).not.toContain("Frigorífico");
+    expect(JSON.stringify(ownerB)).not.toContain("Insumos");
+  });
+
+  it("as versões vêm com o entryId, por lançamento e versão", async () => {
+    const result = await withTenant(appDb, a.tenantId, (tx) =>
+      entryReader.exportVersions(tx, [ids.versioned, ids.child]),
+    );
+    expect(result.map((v) => [v.entryId, v.version])).toEqual(
+      [
+        [ids.child, 1],
+        [ids.versioned, 1],
+        [ids.versioned, 2],
+      ].sort((x, y) => String(x[0]).localeCompare(String(y[0])) || Number(x[1]) - Number(y[1])),
+    );
+    const v2 = result.find((v) => v.version === 2);
+    expect(v2).toMatchObject({ action: "update", channel: "web", after: { amountCents: 350 } });
+    expect(await withTenant(appDb, a.tenantId, (tx) => entryReader.exportVersions(tx, []))).toEqual(
+      [],
+    );
+  });
+
+  it("os nomes do histórico são os mesmos de names()", async () => {
+    const [viaExport, viaNames] = await withTenant(appDb, a.tenantId, async (tx) => [
+      await entryReader.exportVersionNames(tx),
+      await entryReader.names(tx),
+    ]);
+    expect(viaExport).toEqual(viaNames);
+    expect(viaExport.categories.get(childCategoryId)?.name).toBe("Carnes");
   });
 });

@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 23/11/2026 (F5 feita, DD-42, requisitos 1.20); 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -29,7 +29,7 @@ Legenda de confiança, usada em todo o documento:
 | F3 Lançamentos | **Feita: F3a (14/11/2026) e F3b (16/11/2026)** | F3a ("ver"): lista com filtros na URL, ordenação pelo servidor (DD-35), totais do servidor, detalhe, origem (texto, transcrição, chave) e histórico; contrato em `@app/core/contracts`, leitor `entryReader`, rotas `/api/entries*` com `requireEntryAction`, `features/entries` no web, migration 0018 (índices). F3b ("mudar"): edição com versão esperada e aviso de conflito (RF23), exclusão com motivo, exclusão em lote só de dono e gerente com quantidade e soma do servidor, lixeira de 30 dias com restauração em `/lancamentos/lixeira` (RF24); `PATCH`, `DELETE`, `restore`, `batch/*` e `GET /api/trash`, `preparePanelEdit` no core, `MoneyInput` e API falsa com escrita no E2E. Desenho: `docs/superpowers/specs/2026-11-13-f3-lancamentos-design.md`; planos: `docs/superpowers/plans/2026-11-13-f3a-lancamentos-ver.md` e `2026-11-13-f3b-lancamentos-mudar.md` |
 | F3c Lançamento manual (RF26) | **Feita (16/11/2026)** | Formulário em `/lancamentos/novo` ("Salvar" e "Salvar e lançar outro"), `POST /api/entries` com idempotência por tentativa (`entries.client_request_id`, migration 0019), sinais `possible_duplicate` (função única `isPossibleDuplicate` no core, candidatos no recorte do ator) e `old_date`, criação com canal `web` (versão 1 é a origem), opções com cadastro ativo, canal padrão e fuso da unidade, aba Origem do canal web, unidade de medida em lista fechada também na edição. DD-37; desenho em `docs/superpowers/specs/2026-11-16-f3c-lancamento-manual-design.md`, plano em `docs/superpowers/plans/2026-11-16-f3c-lancamento-manual.md` |
 | F4 Dashboard | **Feita (17/11/2026)** | Dashboard do RF27 com três rotas de agregação `GET /api/reports/summary`, `/monthly` e `/breakdown` (guarda `report:view`, recorte por papel, `reportReader` com `FILTER` e `GROUP BY`, sem migration), contas dos indicadores em `packages/core/src/reports` e contrato `.strict()` em `@app/core/contracts`. Cartões, quatro gráficos com tabela alternativa, filtros e estado na URL, estado vazio com link para o WhatsApp, `/` redireciona por permissão e axe no E2E. Desempenho medido com 100 mil lançamentos: bloco mais lento em 105 ms. DD-41, requisitos 1.19; desenho em `docs/superpowers/specs/2026-11-17-f4-dashboard-design.md`, plano em `docs/superpowers/plans/2026-11-17-f4-dashboard.md` |
-| F5 Exportação Excel/CSV | A fazer | Escolher a biblioteca de planilha (D-F7) |
+| F5 Exportação Excel/CSV | Feita (23/11/2026) | write-excel-file e fflate (D-F7, DD-42); roteiro à mão em `f5-roteiro.md` |
 | F6 Configurações | A fazer | |
 | F7 PWA e responsividade | A fazer | |
 | F8 Endurecimento e lançamento | A fazer | Herda da F1a: `trustProxy` e o IP real atrás do rewrite do Next (limites de envio e auditoria usam o IP); produção só sobe com `DATABASE_AUTH_URL` e e-mail real configurados; trocar o envio falso por serviço real (DD-21) com fila persistente |
@@ -197,7 +197,7 @@ A explicação de cada decisão (motivo, onde vale e situação) está em [`deci
 | D-F4 | Dinheiro no JSON como `number` inteiro | Decidida (13/11/2026, DD-36) |
 | D-F5 | Acesso por senha ou código no e-mail; WhatsApp e 2º fator na v1.1 | Decidida, **ampliada em 29/10/2026** (DN-03) |
 | D-F6 | Lançamento manual é o RF26 (v1.1); no MVP só edição, lixeira e restauração | Decidida, **ampliada em 29/10/2026**; **revisada em 16/11/2026 pelo DD-37** (RF26 no MVP, F3c) |
-| D-F7 | Biblioteca de planilha Excel, decidir na F5 | Aberta |
+| D-F7 | Biblioteca de planilha Excel, decidir na F5 | Decidida em 23/11/2026 (DD-42) |
 | D-F8 | F0 sem identidade visual: tema neutro do shadcn e fonte do sistema | Decidida (06/11/2026) |
 | D-F9 | E2E do web em `:3100` com API falsa em `:4010`; `rewrites()` por `API_URL` | Decidida (06/11/2026) |
 
@@ -388,6 +388,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 **Entrega os requisitos:** RF29 (exportação em XLSX e CSV). Critérios: RF29.CA01 a CA05.
 
 **Regras do RF29 que a etapa cumpre:** CSV com `;` e UTF-8 com BOM (R1); filtros e permissões da lista (R2); conteúdo LANCAMENTOS ou COMPLETO, este só para o Dono (R3); geração em segundo plano com situação NA_FILA, GERANDO, PRONTO e FALHOU (R4); **link válido por 1 hora, arquivo apagado em 7 dias, só o usuário que pediu baixa** (R5); permissão: Dono sempre, Gerente com EXPORTAR_DADOS (Obs1); toda exportação na trilha de auditoria. O pacote mensal para o contador é v1.1 (RF29.Obs2).
+
+**Decisões:** DD-42.
 
 **Entregas**
 - Exportação como **job** em fila (pg-boss, ver a skill `novo-worker-pgboss`), arquivo no S3 e link assinado; a tela mostra estado e a lista das exportações dos últimos 7 dias do próprio usuário.

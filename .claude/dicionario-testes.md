@@ -58,6 +58,8 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Autocadastro (F1b, RF01): validação (obrigatórios, celular, senha fraca, CNPJ, UF, termos), padrões da conta (formas, canais, teste de 14 dias, versões dos termos, situações) e fuso por UF | `packages/core/src/signup/*.test.ts` | `pnpm --filter @app/core test signup` |
 | Erros de domínio tipados | `packages/core/src/errors/errors.test.ts` | `pnpm --filter @app/core test errors` |
 | Core não importa infra; sem ciclos (ArchUnitTS) | `packages/core/src/architecture.test.ts` | `pnpm --filter @app/core test architecture` |
+| Exportação no core (F5, RF29, DD-42): contrato `.strict()` e permissão `export:full`, colunas na ordem do RF29.R3, CSV (BOM, `;`, `
+`, aspas), dinheiro em centavos sem float, injeção de fórmula só em colunas de texto, fuso de São Paulo, histórico com falha fechado (`includeSensitive`) | `packages/core/src/exports/*.test.ts`, `packages/core/src/contracts/exports.test.ts` | `pnpm --filter @app/core test -- exports` |
 
 ### Banco (`@app/db`)
 
@@ -85,6 +87,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Contexto do painel no banco (F2, DD-31): GRANT por coluna do `app_auth` em `tenants` e `units` (migration 0017), `listPanelMemberships` (vínculos ativos com painel, unidades ativas, só do usuário), `hasActiveMembership` igual a `resolvePanelContext` em todas as personas, `panelEntry` (full, restrito, recusado; DD-33), `hasAnyActiveMembership` e `listActiveUnits` sob `withTenant` | `packages/db/test/panel-access-store.int.test.ts` | `pnpm --filter @app/db exec vitest run panel-access-store` |
 | Imposto estimado: configuração, auditoria e regras (`TaxRepo`) | `packages/db/test/tax-repo.int.test.ts` | `pnpm --filter @app/db exec vitest run tax-repo` |
 | Sem ciclos entre arquivos (ArchUnitTS, unitário) | `packages/db/src/architecture.test.ts` | `pnpm --filter @app/db test architecture` |
+| Repositório de exportações (F5): transições com guarda de estado, `listForUser`, `countPending`, RLS, auditoria, `isExportAvailable` (7 dias estrito) | `packages/db/src/exports-repo.test.ts`, `packages/db/test/exports-repo.int.test.ts` | `pnpm --filter @app/db exec vitest run exports-repo` |
 
 ### API, webhook e workers (`@app/api`)
 
@@ -97,7 +100,11 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | `process-inbound` e `route-inbound` (unitário) | `apps/api/src/modules/inbound/*.test.ts` | `pnpm --filter @app/api test inbound` |
 | Chat de desenvolvimento e sender fake | `apps/api/src/dev/chat-session.test.ts`, `apps/api/src/infra/dev-message-sender.test.ts` | `pnpm --filter @app/api test dev` |
 | Webhook ponta a ponta (assinatura, 200 rápido, fila) | `apps/api/test/whatsapp-webhook.int.test.ts` | `pnpm --filter @app/api exec vitest run whatsapp-webhook` |
+| Prova das bibliotecas de exportação (spike da F5, fora da suíte: 100 mil linhas no XLSX, zip) | `apps/api/test/spikes/export-libs.spike.test.ts` | `RUN_SPIKE=1 pnpm --filter @app/api exec vitest run export-libs.spike` |
 | Worker pg-boss (retry, DLQ) | `apps/api/test/process-inbound-worker.int.test.ts` | `pnpm --filter @app/api exec vitest run process-inbound-worker` |
+| Workers de exportação (generate-export, delete-export-file; ator recalculado, folha) | `apps/api/test/exports-worker.int.test.ts` | `pnpm --filter @app/api exec vitest run exports-worker` |
+| Filas de exportação (DLQ, retenção, worker pg-boss real) | `apps/api/test/exports-queue.int.test.ts` | `pnpm --filter @app/api exec vitest run exports-queue` |
+| Rotas `/api/exports` (matriz por papel, idempotência e corrida, link e download, duas empresas) | `apps/api/test/exports-routes.int.test.ts` | `pnpm --filter @app/api exec vitest run exports-routes` |
 | Roteamento de mensagem com banco | `apps/api/test/route-inbound.int.test.ts` | `pnpm --filter @app/api exec vitest run route-inbound` |
 | Fluxo completo: texto, pergunta, desfazer, correção, áudio, foto, limites, lida/digitando | `apps/api/test/entries-flow.int.test.ts` | `pnpm --filter @app/api exec vitest run entries-flow` |
 | Envio de e-mail do código de acesso e do aviso de conta existente (adaptadores de memória e de arquivo) | `apps/api/src/infra/email/email-sender.test.ts` | `pnpm --filter @app/api test email-sender` |
@@ -126,6 +133,7 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Mensagens de erro do autocadastro em pt-BR (`signupError`) | `apps/api/src/http/signup/signup-messages.test.ts` | `pnpm --filter @app/api test signup-messages` |
 | Município fora da lista oficial da UF no autocadastro e em "Criar outra empresa" (`citiesForForm`, `city_invalid`, nada gravado) | `apps/api/src/modules/signup/cities-for-form.test.ts` | `pnpm --filter @app/api test cities-for-form` |
 | Relógio, mídia (disco, downloader de dev, conversor ffmpeg, leitor de QR) | `apps/api/src/infra/clock.test.ts`, `apps/api/src/infra/media/media-infra.test.ts` | `pnpm --filter @app/api test infra` |
+| Porta de arquivo, serializadores (XLSX relido por unzip, CSV com BOM, zip) e token de 1 hora do link de exportação (F5) | `apps/api/src/infra/exports/*.test.ts` | `pnpm --filter @app/api exec vitest run infra/exports` |
 
 ### WhatsApp, config, IA, web
 
@@ -154,6 +162,8 @@ Comandos sempre a partir da raiz do repo. Nunca `npx`, `vitest` ou `tsc` avulsos
 | Dashboard ponta a ponta (Playwright, API falsa `e2e/fake-reports.mjs`: valores exatos do dono, gerente sem folha sem o cartão e com "Pessoal (restrito)", lançador em `/` vai para os lançamentos, estado vazio com `wa.me`, "Comparar com" na URL, celular de 360 px sem rolagem, axe sem violação séria ou crítica) | `apps/web/e2e/dashboard.spec.ts` | `CI=true pnpm --filter @app/web exec playwright test dashboard` |
 | Lançamento manual ponta a ponta (Playwright, API falsa com `POST /api/entries`: criar e ver origem e histórico do Painel, três notas em sequência com "Salvar e lançar outro", contador e conta somente leitura sem botão, celular sem rolagem horizontal) | `apps/web/e2e/entries-create.spec.ts` | `pnpm --filter @app/web exec playwright test entries-create` (um worker: a API falsa guarda estado; porta do `next dev` livre) |
 | Lançamento manual (F3c, RF26): formulário (CA01 sem valor, CA07 líquido do servidor, CA08 mantém tipo, data e unidade; duplo clique e a mesma chave no reenvio; categoria só do tipo; quantidade escondida descartada; 422 com `field`, 409 `already_submitted`, `context_changed`, conta somente leitura; avisos de repetição e data antiga), valores e corpo (`create-form-values`), botão "Novo lançamento" na lista, `create` e `isAlreadySubmitted` no cliente, aba Origem do canal web e unidade de medida da edição em lista fechada | `apps/web/features/entries/entry-create-form.test.tsx`, `create-form-values.test.ts`, `entries-view.test.tsx`, `entries-api.test.ts`, `use-entries.test.tsx`, `entry-drawer.test.tsx`, `entry-form.test.tsx` | `pnpm --filter @app/web test features/entries` |
+| Painel: exportação (F5, RF29): diálogo (filtros sem `sort`, chave de tentativa, 429/503), tela `/exportacoes`, aviso de pronta na casca (só a transição), polling só com pendente, permissão do botão | `apps/web/features/exports/*.test.ts(x)`, `apps/web/components/app-shell.test.tsx` | `pnpm --filter @app/web exec vitest run features/exports` |
+| Exportação ponta a ponta (Playwright, API falsa `e2e/fake-exports.mjs`: dono exporta e baixa com BOM, COMPLETO só do dono, lançador sem botão, conta somente leitura exporta, falha, celular de 360 px, axe; a fila leva cerca de 6 s por pedido) | `apps/web/e2e/exports.spec.ts` | `pnpm --filter @app/web exec playwright test exports --project="Desktop Chrome" --workers=1` |
 
 ## Qual conjunto rodar, por tipo de mudança
 
