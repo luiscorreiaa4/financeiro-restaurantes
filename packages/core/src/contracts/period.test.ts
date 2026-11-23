@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   addMonthsToBusinessDate,
+  COMPARISON_KINDS,
+  comparisonPeriod,
   MAX_PERIOD_MONTHS,
+  monthsOf,
+  monthsWindow,
   PERIOD_PRESETS,
   periodWithinLimit,
   resolvePeriod,
@@ -111,5 +115,75 @@ describe("limite de 24 meses por consulta (RF22.R1)", () => {
 
   it("aceita um único dia", () => {
     expect(periodWithinLimit("2026-11-13", "2026-11-13")).toBe(true);
+  });
+});
+
+describe("período de comparação do dashboard (RF27.R2)", () => {
+  it("oferece período anterior, mesmo período do ano anterior e nenhum", () => {
+    expect(COMPARISON_KINDS).toEqual(["previous_period", "previous_year", "none"]);
+  });
+
+  it("previous_period é o mesmo número de dias imediatamente antes", () => {
+    expect(comparisonPeriod({ from: "2026-10-01", to: "2026-10-17" }, "previous_period")).toEqual({
+      from: "2026-09-14",
+      to: "2026-09-30",
+    });
+  });
+
+  it("previous_period atravessa a virada de ano", () => {
+    expect(comparisonPeriod({ from: "2027-01-01", to: "2027-01-10" }, "previous_period")).toEqual({
+      from: "2026-12-22",
+      to: "2026-12-31",
+    });
+  });
+
+  it("previous_period de um mês cheio usa os 31 dias anteriores, não o mês anterior", () => {
+    expect(comparisonPeriod({ from: "2026-10-01", to: "2026-10-31" }, "previous_period")).toEqual({
+      from: "2026-08-31",
+      to: "2026-09-30",
+    });
+  });
+
+  it("previous_period de um dia só é o dia anterior, inclusive sobre 29/02", () => {
+    expect(comparisonPeriod({ from: "2028-03-01", to: "2028-03-01" }, "previous_period")).toEqual({
+      from: "2028-02-29",
+      to: "2028-02-29",
+    });
+  });
+
+  it("previous_year anda 12 meses nos dois extremos, e 29/02 vira 28/02", () => {
+    expect(comparisonPeriod({ from: "2028-02-01", to: "2028-02-29" }, "previous_year")).toEqual({
+      from: "2027-02-01",
+      to: "2027-02-28",
+    });
+    expect(comparisonPeriod({ from: "2028-02-29", to: "2028-02-29" }, "previous_year")).toEqual({
+      from: "2027-02-28",
+      to: "2027-02-28",
+    });
+  });
+
+  it("none não tem período de comparação", () => {
+    expect(comparisonPeriod({ from: "2026-10-01", to: "2026-10-17" }, "none")).toBeNull();
+  });
+});
+
+describe("janela de meses do dashboard", () => {
+  it("monthsWindow termina em `to` e começa no dia 1 do primeiro mês", () => {
+    expect(monthsWindow("2026-11-17", 6)).toEqual({ from: "2026-06-01", to: "2026-11-17" });
+  });
+
+  it("monthsWindow atravessa a virada de ano", () => {
+    expect(monthsWindow("2026-02-10", 6)).toEqual({ from: "2025-09-01", to: "2026-02-10" });
+  });
+
+  it("monthsOf lista os meses em ordem crescente", () => {
+    expect(monthsOf("2026-02-10", 6)).toEqual([
+      "2025-09",
+      "2025-10",
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+    ]);
   });
 });

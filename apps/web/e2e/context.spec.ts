@@ -100,30 +100,16 @@ test("o cookie fr_ctx existe depois de abrir a casca (o rewrite repassa o Set-Co
 const MENU = [
   {
     persona: "default",
-    links: [
-      "Início",
-      "Lançamentos",
-      "Dashboard",
-      "Exportações",
-      "Configurações",
-      "Criar outra empresa",
-    ],
+    links: ["Lançamentos", "Dashboard", "Exportações", "Configurações", "Criar outra empresa"],
   },
   {
     persona: "manager",
-    links: ["Início", "Lançamentos", "Dashboard", "Configurações", "Criar outra empresa"],
+    links: ["Lançamentos", "Dashboard", "Configurações", "Criar outra empresa"],
   },
-  { persona: "staff", links: ["Início", "Lançamentos", "Criar outra empresa"] },
+  { persona: "staff", links: ["Lançamentos", "Criar outra empresa"] },
   {
     persona: "accountant",
-    links: [
-      "Início",
-      "Lançamentos",
-      "Dashboard",
-      "Exportações",
-      "Configurações",
-      "Criar outra empresa",
-    ],
+    links: ["Lançamentos", "Dashboard", "Exportações", "Configurações", "Criar outra empresa"],
   },
 ];
 

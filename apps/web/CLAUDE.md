@@ -41,6 +41,16 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - O seletor de unidade da casca também se chama "Unidade": no E2E use `#create-unit` para o do formulário. Specs que escrevem rodam com **um worker** (a API falsa guarda estado e o `__reset` de um derruba o outro).
 - O botão "Novo lançamento" exige `entry:create` **e** `accountAllows(accountStatus, role).write` (`allowedActions` não considera a situação da conta).
 
+## Dashboard (`features/dashboard`, F4)
+
+- Contrato em `@app/core/contracts` (`reports.ts`, `.strict()`); cliente `reports-api.ts`, hooks `use-reports.ts` (`ReportsProvider`, `useSummary`, `useMonthly`, `useBreakdown`, chave `tenantKey(ctx, "reports", ...)`). **A tela só formata**: cartões, gráficos e tabelas usam `formatCents` e `formatPermille` (123 é "12,3%", `null` é "—"); os mapeadores (`chart-mappers.ts`) só copiam e rotulam. Quem decide a cor de "bom" ou "ruim" é um mapa fixo por indicador (`indicator-cards.tsx`), não conta.
+- O estado mora na URL (`from`, `to`, `unitIds`, `compare`), lido e escrito só por `parseDashboardParams` e `serializeDashboardParams`. O padrão é o dia 1 do mês até hoje; parâmetro inválido volta ao padrão.
+- **`useSuspenseQuery` roda no SSR** do componente de cliente: com `baseUrl` vazio ele tenta `fetch` de URL relativa no servidor e loga "API indisponível". Por isso o corpo do dashboard só renderiza depois de montar (`useIsClient` em `dashboard-screen.tsx`). Bloco novo que busca dado de tenant com `useSuspenseQuery` segue o mesmo caminho.
+- Cada bloco tem a sua fronteira de erro e `Suspense` (`BlockBoundary`, componente de classe próprio, sem `react-error-boundary`). Os gráficos começam a buscar junto com o resumo (`prefetchChartBlocks`) para o estado vazio não criar fila.
+- O cartão de folha só existe se `indicators.payrollRatio` vier na resposta; a API omite a chave para quem não vê folha (RF27.R5). Não esconda por CSS nem por papel no web.
+- `pnpm dlx shadcn@latest add chart` **pode trocar a versão do `recharts`** no `package.json`: confira o `git diff package.json` e o lockfile e desfaça. O `chart.tsx` gerado ganhou `biome-ignore` justificados; no jsdom o `ChartContainer` precisa de `initialDimension`.
+- `/` não renderiza página: redireciona por `allowedActions` (`report:view` vai a `/dashboard`, o resto a `/lancamentos`). O item "Início" saiu do menu.
+
 ## Estrutura e UI
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
