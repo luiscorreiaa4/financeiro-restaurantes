@@ -302,6 +302,13 @@ describe("permissões adicionais", () => {
     expect(can(actor("manager", { permissions: ["EXPORTAR_DADOS"] }), "export:data")).toBe(true);
   });
 
+  it("só o dono faz a exportação completa (RF29.Obs1)", () => {
+    expect(can(actor("owner"), "export:full")).toBe(true);
+    expect(can(actor("manager", { permissions: ["EXPORTAR_DADOS"] }), "export:full")).toBe(false);
+    expect(can(actor("accountant"), "export:full")).toBe(false);
+    expect(can(actor("staff"), "export:full")).toBe(false);
+  });
+
   it("gerente com RECEBER_RESUMO_SEMANAL recebe o resumo", () => {
     const manager = actor("manager", { permissions: ["RECEBER_RESUMO_SEMANAL"] });
     expect(can(manager, "summary:weekly")).toBe(true);

@@ -380,6 +380,7 @@ describe("allowedActions", () => {
 
   it("dono pode gerenciar a assinatura", () => {
     expect(allowedActions(actor({}))).toContain("subscription:manage");
+    expect(allowedActions(actor({}))).toContain("export:full");
   });
 
   it("lançador com painel tem só entry:* e panel:access", () => {
@@ -427,7 +428,7 @@ describe("allowedActions", () => {
   it("segue a ordem de ACTIONS", () => {
     const acoes = allowedActions(actor({}));
     expect(acoes).toEqual(ACTIONS.filter((a) => acoes.includes(a)));
-    expect(ACTIONS).toHaveLength(18);
+    expect(ACTIONS).toHaveLength(19);
   });
 });
 

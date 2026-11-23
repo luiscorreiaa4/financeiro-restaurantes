@@ -110,9 +110,9 @@ export const businessDateSchema = z.iso.date();
 export const centsSchema = z.int().min(0);
 /** Centavos que podem ser negativos (resultado). */
 const signedCentsSchema = z.int();
-const idSchema = z.uuid();
+export const idSchema = z.uuid();
 /** Instante ISO 8601 com `Z` ou deslocamento. */
-const timestampSchema = z.iso.datetime({ offset: true });
+export const timestampSchema = z.iso.datetime({ offset: true });
 const refSchema = z.object({ id: idSchema, name: z.string() });
 
 const entryTypeSchema = z.enum(ENTRY_TYPES);
@@ -149,35 +149,45 @@ function codePoints(text: string): number {
   return [...text].length;
 }
 
+/** Período obrigatório e dentro do limite: vale para a lista e para a exportação. */
+function periodRefine(query: { from: string; to: string }, ctx: z.RefinementCtx): void {
+  // As checagens do objeto rodam mesmo com campo inválido; a data ruim já tem o seu erro.
+  if (!isValidDate(query.from) || !isValidDate(query.to)) return;
+  if (query.from > query.to) {
+    ctx.addIssue({ code: "custom", path: ["to"], message: "period_inverted" });
+  } else if (!periodWithinLimit(query.from, query.to)) {
+    ctx.addIssue({ code: "custom", path: ["to"], message: "period_too_long" });
+  }
+}
+
+/** Forma dos filtros (sem ordenação nem paginação), compartilhada com a exportação (RF29). */
+const entryFiltersShape = {
+  /** Período sobre a data de competência (`occurred_on`), obrigatório (RF22.R1). */
+  from: businessDateSchema,
+  to: businessDateSchema,
+  type: entryTypeSchema.optional(),
+  unitIds: queryList(idSchema),
+  categoryIds: queryList(idSchema),
+  supplierId: idSchema.optional(),
+  paymentMethodId: idSchema.optional(),
+  salesChannelId: idSchema.optional(),
+  createdBy: idSchema.optional(),
+  originChannel: originChannelSchema.optional(),
+  flags: queryList(entryFlagSchema),
+  q: z.string().trim().min(1).max(ENTRY_SEARCH_MAX).optional(),
+};
+
+export const entryFiltersSchema = z.strictObject(entryFiltersShape).superRefine(periodRefine);
+
 export const entryListQuerySchema = z
   .object({
-    /** Período sobre a data de competência (`occurred_on`), obrigatório (RF22.R1). */
-    from: businessDateSchema,
-    to: businessDateSchema,
-    type: entryTypeSchema.optional(),
-    unitIds: queryList(idSchema),
-    categoryIds: queryList(idSchema),
-    supplierId: idSchema.optional(),
-    paymentMethodId: idSchema.optional(),
-    salesChannelId: idSchema.optional(),
-    createdBy: idSchema.optional(),
-    originChannel: originChannelSchema.optional(),
-    flags: queryList(entryFlagSchema),
-    q: z.string().trim().min(1).max(ENTRY_SEARCH_MAX).optional(),
+    ...entryFiltersShape,
     sort: z.enum(ENTRY_SORTS).default("created_at"),
     dir: z.enum(SORT_DIRECTIONS).default("desc"),
     cursor: cursorSchema,
     limit: limitSchema,
   })
-  .superRefine((query, ctx) => {
-    // As checagens do objeto rodam mesmo com campo inválido; a data ruim já tem o seu erro.
-    if (!isValidDate(query.from) || !isValidDate(query.to)) return;
-    if (query.from > query.to) {
-      ctx.addIssue({ code: "custom", path: ["to"], message: "period_inverted" });
-    } else if (!periodWithinLimit(query.from, query.to)) {
-      ctx.addIssue({ code: "custom", path: ["to"], message: "period_too_long" });
-    }
-  });
+  .superRefine(periodRefine);
 
 export const trashQuerySchema = z
   .object({
@@ -511,6 +521,7 @@ export type EntryChangeField = (typeof ENTRY_CHANGE_FIELDS)[number];
 
 /** Consulta já validada, com os padrões aplicados. */
 export type EntryListQuery = z.infer<typeof entryListQuerySchema>;
+export type EntryFilters = z.infer<typeof entryFiltersSchema>;
 /**
  * O que a tela informa para montar a URL da lista: os campos de `EntryListQuery`, com
  * `sort`, `dir` e `limit` opcionais (o servidor aplica os padrões) e as listas como lista.
