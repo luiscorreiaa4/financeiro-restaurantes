@@ -8,6 +8,7 @@ export * from "./error-field";
 export * from "./extraction";
 export * from "./group-receipt";
 export * from "./interpret";
+export * from "./labels";
 export * from "./panel-create";
 export * from "./panel-edit";
 export * from "./quantity";
