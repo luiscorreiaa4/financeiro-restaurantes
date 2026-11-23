@@ -18,11 +18,15 @@ beforeEach(() => {
   // O seletor e o SessionKeeper chamam a API pelo navegador; aqui a resposta é sempre mínima.
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string) =>
-      String(url).includes("/api/units")
-        ? new Response(JSON.stringify({ units: [] }), { status: 200 })
-        : new Response(JSON.stringify(meFixture()), { status: 200 }),
-    ),
+    vi.fn(async (url: string) => {
+      if (String(url).includes("/api/units")) {
+        return new Response(JSON.stringify({ units: [] }), { status: 200 });
+      }
+      if (String(url).includes("/api/exports")) {
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }
+      return new Response(JSON.stringify(meFixture()), { status: 200 });
+    }),
   );
 });
 
@@ -179,5 +183,31 @@ describe("casca: menu do usuário", () => {
       expect(link).toHaveAttribute("href", "/perfil");
     }
     expect(NAV_ITEMS.some((item) => item.href === "/perfil")).toBe(false);
+  });
+});
+
+describe("casca: aviso de exportação (RF29.R4)", () => {
+  const exportsCalls = () =>
+    vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("/api/exports"));
+
+  it("com export:data e sessão completa, a casca acompanha as exportações", async () => {
+    renderShell(meFixture());
+    await waitFor(() => expect(exportsCalls().length).toBe(1));
+  });
+
+  it("sem export:data não consulta exportações", async () => {
+    const base = meFixture();
+    renderShell(
+      meFixture({ context: { ...base.context, allowedActions: ["entry:view", "panel:access"] } }),
+    );
+    // Espera a casca assentar (o SessionKeeper chama a API) antes de afirmar a ausência.
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    expect(exportsCalls()).toHaveLength(0);
+  });
+
+  it("sem o contexto vindo do cookie (casca ainda gravando), não consulta", async () => {
+    renderShell(meFixture({ contextSource: "fallback" }));
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    expect(exportsCalls()).toHaveLength(0);
   });
 });

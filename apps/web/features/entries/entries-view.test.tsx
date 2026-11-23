@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { exportFixture, fakeExportsApi, scopeOf } from "@/features/exports/exports-test-helpers";
 import type { EntriesApi } from "./entries-api";
 import {
   CATEGORY,
@@ -361,5 +362,49 @@ describe("botão de novo lançamento (RF26)", () => {
     );
     await screen.findByRole("heading", { name: "Lançamentos" });
     expect(screen.getAllByRole("link", { name: "Novo lançamento" })).toHaveLength(1);
+  });
+});
+
+describe("botão de exportar (RF29)", () => {
+  it("sem export:data (sem escopo de exportação) não há botão", async () => {
+    const role = "staff";
+    renderWithEntries(<EntriesView today={TODAY} role={role} />);
+    await screen.findByText(EMPTY_MESSAGE);
+    expect(screen.queryByRole("button", { name: "Exportar" })).toBeNull();
+  });
+
+  it("com export:data o botão leva os filtros da URL, sem a ordenação da tela", async () => {
+    const role = "accountant";
+    nav.search = `${MONTH}&type=expense&sort=amount&dir=asc`;
+    const create = vi.fn(() => Promise.resolve(exportFixture()));
+    const user = userEvent.setup();
+    renderWithEntries(
+      <EntriesView today={TODAY} role={role} exportScope={scopeOf(fakeExportsApi({ create }))} />,
+    );
+    await screen.findByText(EMPTY_MESSAGE);
+    await user.click(screen.getByRole("button", { name: "Exportar" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("radio", { name: /Completo/ })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Exportar" }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    const [body] = create.mock.calls[0] as unknown as [{ filters: Record<string, unknown> }];
+    expect(body.filters).toEqual({ from: "2026-11-01", to: "2026-11-30", type: "expense" });
+  });
+
+  it("só quem tem export:full vê o conteúdo COMPLETO", async () => {
+    const role = "owner";
+    const user = userEvent.setup();
+    renderWithEntries(
+      <EntriesView
+        today={TODAY}
+        role={role}
+        exportScope={scopeOf(fakeExportsApi())}
+        canExportFull
+      />,
+    );
+    await screen.findByText(EMPTY_MESSAGE);
+    await user.click(screen.getByRole("button", { name: "Exportar" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("radio", { name: /Completo/ })).toBeInTheDocument();
   });
 });

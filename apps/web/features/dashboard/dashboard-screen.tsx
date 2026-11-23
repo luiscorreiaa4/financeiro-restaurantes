@@ -2,12 +2,13 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { entriesApi } from "@/features/entries/entries-api";
 import { browserApi } from "@/lib/api/browser-client";
 import { contextHeaderOf, type FullMe } from "@/lib/api/me-contract";
 import { tenantKey } from "@/lib/query/keys";
+import { useIsClient } from "@/lib/use-is-client";
 import { BlockBoundary } from "./block-boundary";
 import { BreakdownChart, breakdownTitle } from "./breakdown-chart";
 import { DashboardFilters } from "./dashboard-filters";
@@ -17,16 +18,6 @@ import { ResultChart, RevenueExpenseChart } from "./monthly-chart";
 import { reportsApi } from "./reports-api";
 import { type DashboardParams, parseDashboardParams, serializeDashboardParams } from "./url-state";
 import { prefetchChartBlocks, ReportsProvider, useSummary } from "./use-reports";
-
-const noopSubscribe = () => () => {};
-/** Falso no servidor e na hidratação, verdadeiro depois: os blocos só buscam dados no navegador. */
-function useIsClient(): boolean {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false,
-  );
-}
 
 function Body({ params, whatsappNumber }: { params: DashboardParams; whatsappNumber?: string }) {
   const { data: summary } = useSummary(params);

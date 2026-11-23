@@ -10,6 +10,8 @@ import { SessionKeeper } from "@/components/session-keeper";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
+import { exportAccess } from "@/features/exports/export-access";
+import { ExportNotifier } from "@/features/exports/export-notifier";
 import type { FullMe } from "@/lib/api/me-contract";
 import { visibleNavItems } from "@/lib/navigation";
 
@@ -106,6 +108,10 @@ export function AppShell({ children, me }: { children: ReactNode; me: FullMe }) 
         </header>
 
         <AccountBanner status={me.context.accountStatus} userRole={me.context.role} />
+        {/* Aviso de exportação pronta (RF29.R4): só com sessão completa e export:data. A chave refaz o aviso ao trocar de empresa ou unidade. */}
+        {ready && exportAccess(me.context.allowedActions).canExport && (
+          <ExportNotifier key={`${me.context.tenantId}.${me.context.unitId}`} me={me} />
+        )}
         {accessRemoved && (
           <p role="status" className="border-b bg-muted px-4 py-2 text-sm">
             Você não tem mais acesso à empresa ou unidade anterior.
