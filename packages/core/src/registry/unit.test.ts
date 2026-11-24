@@ -4,10 +4,15 @@ import {
   ensureNotLastActiveUnit,
   formatCnpj,
   isValidCnpj,
+  isValidTimezone,
   normalizeCnpj,
   type UnitInput,
   type UnitRecord,
   validateUnit,
+  validateUnitAliases,
+  validateUnitCnpj,
+  validateUnitLocation,
+  validateUnitName,
 } from "./unit";
 
 const CENTRO: UnitRecord = {
@@ -177,5 +182,65 @@ describe("unidade inativa (RF04.R5)", () => {
       error: { code: "UnitInactive", unitId: "u-praia" },
     });
     expect(assertUnitAcceptsEntries(praia).ok).toBe(true);
+  });
+});
+
+describe("validadores parciais da unidade (PATCH, F6a)", () => {
+  it("validateUnitName limpa o nome e recusa duplicado ou fora do tamanho", () => {
+    expect(validateUnitName("  Praia ", [CENTRO])).toEqual({ ok: true, value: "Praia" });
+    expect(validateUnitName("centro", [CENTRO])).toMatchObject({
+      ok: false,
+      error: { code: "InvalidUnit", field: "name", reason: "duplicate" },
+    });
+    expect(validateUnitName("A", [])).toMatchObject({ ok: false, error: { reason: "invalid" } });
+  });
+
+  it("validateUnitAliases recusa apelido igual ao nome da própria unidade e de outra unidade", () => {
+    expect(validateUnitAliases({ name: "Praia", aliases: ["litoral"], others: [CENTRO] })).toEqual({
+      ok: true,
+      value: ["litoral"],
+    });
+    expect(validateUnitAliases({ name: "Praia", aliases: ["praia"], others: [] })).toMatchObject({
+      ok: false,
+      error: { field: "aliases", reason: "duplicate" },
+    });
+    expect(
+      validateUnitAliases({ name: "Praia", aliases: ["Centro"], others: [CENTRO] }),
+    ).toMatchObject({ ok: false, error: { field: "aliases", reason: "duplicate" } });
+    expect(
+      validateUnitAliases({ name: "Praia", aliases: ["LOJA 1"], others: [CENTRO] }),
+    ).toMatchObject({ ok: false, error: { reason: "duplicate" } });
+  });
+
+  it("validateUnitCnpj guarda só os dígitos e aceita nulo", () => {
+    expect(validateUnitCnpj(null)).toEqual({ ok: true, value: null });
+    expect(validateUnitCnpj("  ")).toEqual({ ok: true, value: null });
+    expect(validateUnitCnpj("11.222.333/0001-81")).toEqual({ ok: true, value: "11222333000181" });
+    expect(validateUnitCnpj("11.222.333/0001-82")).toMatchObject({
+      ok: false,
+      error: { field: "cnpj", reason: "invalid" },
+    });
+  });
+
+  it("validateUnitLocation confere UF e município oficial", () => {
+    expect(validateUnitLocation({ city: "maceio", uf: "al", cities: ["Maceió"] })).toEqual({
+      ok: true,
+      value: { city: "Maceió", uf: "AL" },
+    });
+    expect(validateUnitLocation({ city: "", uf: "AL" })).toMatchObject({
+      ok: false,
+      error: { field: "city", reason: "required" },
+    });
+    expect(validateUnitLocation({ city: "X", uf: "ZZ" })).toMatchObject({
+      ok: false,
+      error: { field: "uf", reason: "invalid" },
+    });
+  });
+
+  it("isValidTimezone aceita só fuso IANA", () => {
+    expect(isValidTimezone("America/Sao_Paulo")).toBe(true);
+    expect(isValidTimezone("America/Manaus")).toBe(true);
+    expect(isValidTimezone("Marte/Olympus")).toBe(false);
+    expect(isValidTimezone("")).toBe(false);
   });
 });

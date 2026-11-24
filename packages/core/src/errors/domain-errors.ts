@@ -62,7 +62,7 @@ export type DomainError =
   | { readonly code: "InvalidDeleteReason" }
   | {
       readonly code: "InvalidUnit";
-      readonly field: "name" | "aliases" | "cnpj" | "city" | "uf";
+      readonly field: "name" | "aliases" | "cnpj" | "city" | "uf" | "timezone";
       readonly reason: "invalid" | "duplicate" | "too_many" | "required";
     }
   | {
@@ -77,6 +77,14 @@ export type DomainError =
         | "inactive";
     }
   | { readonly code: "LastActiveUnit" }
+  | { readonly code: "InvalidName"; readonly min: number; readonly max: number }
+  | { readonly code: "AliasesTooMany"; readonly max: number }
+  | { readonly code: "AliasTooLong"; readonly maxLength: number }
+  | { readonly code: "NameTaken"; readonly conflictId: string }
+  | { readonly code: "DefaultCardType" }
+  | { readonly code: "DefaultCardInactive" }
+  | { readonly code: "SystemCatalogReadOnly" }
+  | { readonly code: "ChannelIsUnitDefault" }
   | { readonly code: "UnitInactive"; readonly unitId: string }
   | { readonly code: "PayrollNoticeNotAccepted" }
   | { readonly code: "InvalidPhone"; readonly reason: "empty" | "length" | "area_code" | "number" }

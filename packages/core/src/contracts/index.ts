@@ -3,3 +3,4 @@ export * from "./entries";
 export * from "./exports";
 export * from "./period";
 export * from "./reports";
+export * from "./settings";
