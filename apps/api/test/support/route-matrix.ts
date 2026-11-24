@@ -315,3 +315,212 @@ export const EXPORT_ROUTE_MATRIX: readonly ExportRouteCase[] = [
     expected: EXPORT_ALLOWED,
   },
 ];
+
+export interface SettingsRouteCase {
+  readonly name: string;
+  readonly method: "GET" | "POST" | "PATCH";
+  readonly url: () => string;
+  readonly body?: () => unknown;
+  readonly expected: Readonly<Record<Persona, number>>;
+}
+
+/** Id que não existe em empresa nenhuma: quem pode escrever chega ao 404 sem gravar nada. */
+const MISSING_UNIT_ID = "01900000-0000-7000-8000-000000000001";
+
+/**
+ * Leitura do catálogo (`catalog:view`): dono, gerente, contador e a conta somente leitura leem; o
+ * lançador não tem a ação (403). Escrita (`catalog:manage`): só o dono (RF04.CA05); a conta somente
+ * leitura é barrada depois da permissão (`account_read_only`, RF37). Roda em
+ * `settings-units.int.test.ts`, com cenário próprio.
+ */
+const SETTINGS_READ: SettingsRouteCase["expected"] = {
+  owner: 200,
+  manager: 200,
+  managerNoPayroll: 200,
+  staff: 403,
+  accountant: 200,
+  restricted: 401,
+  readOnly: 200,
+  staffNoPanel: 401,
+};
+
+const settingsWrite = (ownerStatus: number): SettingsRouteCase["expected"] => ({
+  owner: ownerStatus,
+  manager: 403,
+  managerNoPayroll: 403,
+  staff: 403,
+  accountant: 403,
+  restricted: 401,
+  readOnly: 403,
+  staffNoPanel: 401,
+});
+
+export const SETTINGS_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "GET /api/settings/units",
+    method: "GET",
+    url: () => "/api/settings/units",
+    expected: SETTINGS_READ,
+  },
+  {
+    name: "POST /api/settings/units",
+    method: "POST",
+    url: () => "/api/settings/units",
+    // Município inexistente: quem pode criar chega ao 422 sem gravar nada.
+    body: () => ({
+      name: "Matriz da matriz",
+      aliases: [],
+      cnpj: null,
+      uf: "AL",
+      city: "Cidade Inexistente",
+      timezone: "America/Sao_Paulo",
+      status: "active",
+      defaultSalesChannelId: null,
+    }),
+    expected: settingsWrite(422),
+  },
+  {
+    name: "PATCH /api/settings/units/:id",
+    method: "PATCH",
+    url: () => `/api/settings/units/${MISSING_UNIT_ID}`,
+    body: () => ({ name: "Qualquer" }),
+    expected: settingsWrite(404),
+  },
+  {
+    name: "POST /api/settings/units/:id/deactivate",
+    method: "POST",
+    url: () => `/api/settings/units/${MISSING_UNIT_ID}/deactivate`,
+    expected: settingsWrite(404),
+  },
+  {
+    name: "POST /api/settings/units/:id/reactivate",
+    method: "POST",
+    url: () => `/api/settings/units/${MISSING_UNIT_ID}/reactivate`,
+    expected: settingsWrite(404),
+  },
+];
+
+const MISSING_CATALOG_ID = "01900000-0000-7000-8000-000000000002";
+
+/**
+ * Formas de pagamento, canais de venda e prévia de taxa (F6a, RF08, RF09): leitura com
+ * `catalog:view` (a prévia também), escrita só do dono e com a conta gravável. Roda em
+ * `settings-catalog.int.test.ts`.
+ */
+export const CATALOG_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "GET /api/settings/payment-methods",
+    method: "GET",
+    url: () => "/api/settings/payment-methods",
+    expected: SETTINGS_READ,
+  },
+  {
+    name: "POST /api/settings/payment-methods",
+    method: "POST",
+    url: () => "/api/settings/payment-methods",
+    // Nome do cadastro do sistema: quem pode criar chega ao 422 sem gravar nada.
+    body: () => ({
+      name: "Não informada",
+      type: "other",
+      feePercentBp: 0,
+      feeFixedCents: 0,
+      aliases: [],
+      status: "active",
+      isDefaultCard: false,
+    }),
+    expected: settingsWrite(422),
+  },
+  {
+    name: "PATCH /api/settings/payment-methods/:id",
+    method: "PATCH",
+    url: () => `/api/settings/payment-methods/${MISSING_CATALOG_ID}`,
+    body: () => ({ name: "Qualquer" }),
+    expected: settingsWrite(404),
+  },
+  {
+    name: "GET /api/settings/sales-channels",
+    method: "GET",
+    url: () => "/api/settings/sales-channels",
+    expected: SETTINGS_READ,
+  },
+  {
+    name: "POST /api/settings/sales-channels",
+    method: "POST",
+    url: () => "/api/settings/sales-channels",
+    body: () => ({
+      name: "Não informado",
+      type: "other",
+      feePercentBp: 0,
+      aliases: [],
+      status: "active",
+    }),
+    expected: settingsWrite(422),
+  },
+  {
+    name: "PATCH /api/settings/sales-channels/:id",
+    method: "PATCH",
+    url: () => `/api/settings/sales-channels/${MISSING_CATALOG_ID}`,
+    body: () => ({ name: "Qualquer" }),
+    expected: settingsWrite(404),
+  },
+  {
+    name: "GET /api/settings/fee-preview",
+    method: "GET",
+    url: () => "/api/settings/fee-preview?feePercentBp=320&feeFixedCents=0",
+    expected: SETTINGS_READ,
+  },
+];
+
+const MISSING_TARGET_ID = "01900000-0000-7000-8000-000000000003";
+
+/** Só o dono (catalog:manage); a conta somente leitura chega até a gravação, que ela não faz. */
+const ownerOnly = (ownerStatus: number, readOnlyStatus: number): SettingsRouteCase["expected"] => ({
+  owner: ownerStatus,
+  manager: 403,
+  managerNoPayroll: 403,
+  staff: 403,
+  accountant: 403,
+  restricted: 401,
+  readOnly: readOnlyStatus,
+  staffNoPanel: 401,
+});
+
+/**
+ * Reaplicação de taxa (F6a, RF08 e RF09): só `catalog:manage`. A prévia e a consulta não gravam e a
+ * conta somente leitura as acessa; a confirmação grava e é barrada (`account_read_only`). Alvo
+ * inexistente: 404 sem criar linha. Roda em `settings-fee-reapply.int.test.ts`.
+ */
+export const FEE_REAPPLY_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "POST /api/settings/fee-reapplications/preview",
+    method: "POST",
+    url: () => "/api/settings/fee-reapplications/preview",
+    body: () => ({
+      targetKind: "payment_method",
+      targetId: MISSING_TARGET_ID,
+      from: "2026-10-01",
+      to: "2026-10-31",
+    }),
+    expected: ownerOnly(404, 404),
+  },
+  {
+    name: "POST /api/settings/fee-reapplications",
+    method: "POST",
+    url: () => "/api/settings/fee-reapplications",
+    body: () => ({
+      targetKind: "payment_method",
+      targetId: MISSING_TARGET_ID,
+      from: "2026-10-01",
+      to: "2026-10-31",
+      clientRequestId: "6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+    }),
+    expected: ownerOnly(404, 403),
+  },
+  {
+    name: "GET /api/settings/fee-reapplications",
+    method: "GET",
+    url: () =>
+      `/api/settings/fee-reapplications?targetKind=payment_method&targetId=${MISSING_TARGET_ID}`,
+    expected: ownerOnly(200, 200),
+  },
+];
