@@ -179,10 +179,18 @@ export function OnboardingScreen({ scope }: { scope: SettingsScope }) {
       {step === 3 && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Cadastrar quem lança pelo WhatsApp fica disponível em breve.
+            Cadastre quem lança pelo WhatsApp. Você pode pular e fazer isso depois em Configurações.
           </p>
-          <Button disabled>Cadastrar colaborador</Button>
-          <Link href="/" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+          <Link
+            href="/configuracoes/colaboradores?novo=1"
+            className={buttonVariants({ className: "w-full sm:w-auto" })}
+          >
+            Cadastrar colaborador
+          </Link>
+          <Link
+            href="/"
+            className={buttonVariants({ variant: "outline", className: "w-full sm:w-auto" })}
+          >
             Ir para o painel
           </Link>
         </div>

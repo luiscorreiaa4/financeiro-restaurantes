@@ -32,7 +32,7 @@ describe("OnboardingScreen", () => {
     });
   });
 
-  it("pode pular cada passo e o passo 3 fica desabilitado, 'em breve'", async () => {
+  it("pode pular cada passo e o passo 3 leva ao cadastro de colaborador", async () => {
     renderWithQuery(<OnboardingScreen scope={scopeOf(api())} />);
     await screen.findByLabelText("Canal padrão de Centro");
     await userEvent.click(screen.getByRole("button", { name: "Pular" }));
@@ -42,8 +42,11 @@ describe("OnboardingScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pular" }));
     const step3 = await screen.findByRole("heading", { name: /Colaboradores/ });
     expect(step3).toBeInTheDocument();
-    expect(screen.getByText(/em breve/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Cadastrar colaborador/ })).toBeDisabled();
+    expect(screen.queryByText(/em breve/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cadastrar colaborador" })).toHaveAttribute(
+      "href",
+      "/configuracoes/colaboradores?novo=1",
+    );
     expect(screen.getByRole("link", { name: "Ir para o painel" })).toHaveAttribute("href", "/");
   });
 
