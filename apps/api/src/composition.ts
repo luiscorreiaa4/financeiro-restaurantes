@@ -13,6 +13,7 @@ import {
   type JobQueue,
   type MediaDownloader,
   type MessageSender,
+  normalizeBrazilianPhone,
   type Transcriber,
 } from "@app/core";
 import {
@@ -26,6 +27,8 @@ import {
   createInboundMediaRepo,
   createInboundProcessingRepo,
   createInboundSenderRepo,
+  createMemberDirectory,
+  createMembersRepo,
   createOutboundMessageRepo,
   createOwnedUnitsStore,
   createPanelAccessStore,
@@ -263,6 +266,13 @@ function composeAuth(
       queue,
       clock,
       newId: uuidv7,
+      // Colaboradores (F6b): usuários globais pelo `app_auth`, vínculos pelo `app` sob RLS.
+      members: createMembersRepo(appDb),
+      directory: createMemberDirectory(authDb),
+      productPhoneE164: productPhoneOf(env.PRODUCT_WHATSAPP_NUMBER),
+      email,
+      loginUrl: new URL("/login", env.APP_URL).toString(),
+      deleteSessionsExcept: (userId, keep) => store.deleteSessionsExcept(userId, keep),
     },
     // Reativar unidade no acesso restrito (F6a): lê pelo `app_auth`, grava pelo `app`.
     restricted: {
@@ -284,6 +294,13 @@ function composeAuth(
       await Promise.all([pool.end(), appPool.end()]);
     },
   };
+}
+
+/** Número do produto em E.164 canônico; ausente (ou ilegível) = checagem pulada (RF05.R2). */
+function productPhoneOf(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const phone = normalizeBrazilianPhone(raw);
+  return phone.ok ? phone.value.e164 : null;
 }
 
 /** E-mail do código de acesso. O envio real (domínio, SPF, DKIM) chega na F8. */

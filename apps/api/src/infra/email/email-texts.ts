@@ -34,3 +34,8 @@ function formatSaoPaulo(at: Date): string {
 export function passwordChangedText(at: Date): string {
   return `A senha da sua conta foi alterada em ${formatSaoPaulo(at)} (horário de Brasília). Se não foi você, fale com o suporte o quanto antes.`;
 }
+
+/** Convite do colaborador com acesso ao painel (RF05.Obs2). O link vem da configuração (`APP_URL`). */
+export function memberInviteText(tenantName: string, loginUrl: string): string {
+  return `Você foi convidado(a) para acessar o painel financeiro de ${tenantName}. Entre em ${loginUrl} com este e-mail: o código de acesso chega por aqui. Se não esperava este convite, ignore a mensagem.`;
+}

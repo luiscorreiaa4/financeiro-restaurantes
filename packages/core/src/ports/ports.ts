@@ -69,8 +69,17 @@ export interface PasswordResetLinkMessage {
   url: string;
 }
 
+export interface MemberInviteMessage {
+  to: string;
+  tenantName: string;
+  /** Link do login do painel, da configuração de URL pública (nunca da requisição). */
+  loginUrl: string;
+}
+
 export interface EmailSender {
   sendAccessCode(message: AccessCodeMessage): Promise<void>;
+  /** Convite do colaborador com acesso ao painel (F6b, RF05.Obs2). */
+  sendMemberInvite(message: MemberInviteMessage): Promise<void>;
   sendPasswordResetLink(message: PasswordResetLinkMessage): Promise<void>;
   sendSecurityNotice(message: SecurityNoticeMessage): Promise<void>;
 }
