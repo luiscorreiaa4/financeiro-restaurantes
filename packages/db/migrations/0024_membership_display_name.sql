@@ -1,0 +1,2 @@
+ALTER TABLE "memberships" ADD COLUMN "display_name" text;--> statement-breakpoint
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_display_name_check" CHECK (display_name is null or char_length(display_name) between 2 and 120);
