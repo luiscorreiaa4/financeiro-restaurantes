@@ -62,6 +62,27 @@ const UNIT_KEYS = [
   "status",
   "defaultSalesChannelId",
 ];
+const MEMBER_INPUT_KEYS = [
+  "displayName",
+  "phone",
+  "email",
+  "role",
+  "allUnits",
+  "unitIds",
+  "defaultUnitId",
+  "panelAccess",
+  "permissions",
+];
+const MEMBER_PATCH_KEYS = [...MEMBER_INPUT_KEYS, "confirmPhoneChange"];
+const MEMBER_ROLE_LIST = ["owner", "manager", "staff"];
+const PERMISSION_LIST = [
+  "VER_FOLHA",
+  "EXPORTAR_DADOS",
+  "RECEBER_RESUMO_SEMANAL",
+  "CONSULTAR_RELATORIOS_WHATSAPP",
+];
+// Mesmo formato de e-mail do core (registry/member.ts): sem espaço e com domínio.
+const EMAIL_FORMAT = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 const isBp = (v) => Number.isInteger(v) && v >= 0 && v <= MAX_FEE_BP;
 const isCents = (v) => Number.isInteger(v) && v >= 0;
@@ -79,6 +100,16 @@ const FIELD_CHECKS = {
   isDefaultCard: (v) => typeof v === "boolean",
   cnpj: (v) => v === null || typeof v === "string",
   defaultSalesChannelId: (v) => v === null || typeof v === "string",
+  displayName: (v) => typeof v === "string" && v.trim().length >= 2 && v.length <= 120,
+  phone: nonEmpty,
+  email: (v) => v === null || (typeof v === "string" && v.length <= 254 && EMAIL_FORMAT.test(v)),
+  role: (v) => MEMBER_ROLE_LIST.includes(v),
+  allUnits: (v) => typeof v === "boolean",
+  unitIds: (v) => Array.isArray(v) && v.every(nonEmpty),
+  defaultUnitId: (v) => v === null || nonEmpty(v),
+  panelAccess: (v) => typeof v === "boolean",
+  permissions: (v) => Array.isArray(v) && v.every((x) => PERMISSION_LIST.includes(x)),
+  confirmPhoneChange: (v) => v === true,
 };
 
 // Corpo válido: só chaves permitidas (o contrato é estrito), com o tipo certo, e com as obrigatórias.
@@ -140,12 +171,69 @@ function unitSeed(company) {
 
 const stateByTenant = new Map();
 
+// Colaboradores de partida (F6b, RF05): dono, gerente e lançador; os dois últimos na primeira unidade.
+function memberSeed(units) {
+  const first = units[0].id;
+  return [
+    {
+      id: fixedId(31),
+      displayName: "Dono Demo",
+      phone: "+5511988880001",
+      email: "dono@exemplo.com.br",
+      role: "owner",
+      allUnits: true,
+      unitIds: [],
+      defaultUnitId: null,
+      panelAccess: true,
+      permissions: [],
+      status: "active",
+      invitedAt: null,
+      deactivatedAt: null,
+      previousStatus: "active",
+    },
+    {
+      id: fixedId(32),
+      displayName: "Gerente Demo",
+      phone: "+5511988880002",
+      email: "gerente@exemplo.com.br",
+      role: "manager",
+      allUnits: false,
+      unitIds: [first],
+      defaultUnitId: first,
+      panelAccess: true,
+      permissions: [],
+      status: "active",
+      invitedAt: FIXED_TIME,
+      deactivatedAt: null,
+      previousStatus: "active",
+    },
+    {
+      id: fixedId(33),
+      displayName: "Lançador Demo",
+      phone: "+5511988880003",
+      email: null,
+      role: "staff",
+      allUnits: false,
+      unitIds: [first],
+      defaultUnitId: first,
+      panelAccess: false,
+      permissions: [],
+      status: "invited",
+      invitedAt: FIXED_TIME,
+      deactivatedAt: null,
+      previousStatus: "invited",
+    },
+  ];
+}
+
 function stateOf(company) {
   if (!stateByTenant.has(company.tenantId)) {
+    const units = unitSeed(company);
     stateByTenant.set(company.tenantId, {
       paymentMethods: paymentSeed(),
       salesChannels: channelSeed(),
-      units: unitSeed(company),
+      units,
+      members: memberSeed(units),
       reapplications: [],
       createdUnitIds: new Set(),
       next: FIRST_CREATED_N,
@@ -382,6 +470,139 @@ function reapplyStatus(s, searchParams) {
   return ok({ item: snapshot });
 }
 
+// Colaborador: o estado guarda `previousStatus` (interno, para reativar); a resposta não o leva.
+const maskPhone = (phone) => `•••• ${phone.replace(/\D/g, "").slice(-4)}`;
+const inviteTextFor = (name) =>
+  `Oi, ${name}! Salve este número e mande um Oi para começar a lançar.`;
+const emailRequired = {
+  status: 422,
+  body: { code: "validation", field: "email", reason: "required" },
+};
+const alreadyMember = { status: 409, body: { code: "already_member" } };
+const lastActiveOwner = { status: 422, body: { code: "last_active_owner" } };
+
+// Telefone e e-mail só para o dono (o gerente vê só o mascarado); o dono também os recebe na lista.
+function publicMember(m, full) {
+  const base = {
+    id: m.id,
+    displayName: m.displayName,
+    phoneMasked: maskPhone(m.phone),
+    role: m.role,
+    allUnits: m.allUnits,
+    unitIds: m.unitIds,
+    defaultUnitId: m.defaultUnitId,
+    panelAccess: m.panelAccess,
+    permissions: m.permissions,
+    status: m.status,
+    invitedAt: m.invitedAt,
+    deactivatedAt: m.deactivatedAt,
+  };
+  return full ? { ...base, phone: m.phone, email: m.email } : base;
+}
+
+function isActiveOwner(m) {
+  return m.role === "owner" && m.status === "active";
+}
+
+// Único dono ativo: não pode ser rebaixado nem desativado (a API real também recusa).
+function isLastActiveOwner(s, m) {
+  return isActiveOwner(m) && s.members.filter(isActiveOwner).length <= 1;
+}
+
+function listMembers(s, searchParams, company) {
+  const full = company.role === "owner";
+  const search = searchParams.get("search");
+  const role = searchParams.get("role");
+  const status = searchParams.get("status");
+  const items = s.members
+    .filter((m) => full || m.allUnits || m.unitIds.some((u) => company.unitIds.includes(u)))
+    .filter((m) => !role || m.role === role)
+    .filter((m) => !status || m.status === status)
+    .filter((m) => !search || nameKey(m.displayName).includes(nameKey(search)))
+    .map((m) => publicMember(m, full));
+  return ok({ items });
+}
+
+function createMember(s, input) {
+  if (!bodyIsValid(input, MEMBER_INPUT_KEYS, MEMBER_INPUT_KEYS)) return invalidRequest;
+  const phone = input.phone.trim();
+  if (s.members.some((m) => m.phone === phone)) return alreadyMember;
+  if (input.panelAccess && input.email === null) return emailRequired;
+  const item = {
+    id: nextId(s),
+    displayName: input.displayName.trim(),
+    phone,
+    email: input.email === null ? null : input.email.trim().toLowerCase(),
+    role: input.role,
+    allUnits: input.allUnits,
+    unitIds: input.unitIds,
+    defaultUnitId: input.defaultUnitId,
+    panelAccess: input.panelAccess,
+    permissions: input.permissions,
+    status: "invited",
+    invitedAt: FIXED_TIME,
+    deactivatedAt: null,
+    previousStatus: "invited",
+  };
+  s.members.push(item);
+  return created({ member: publicMember(item, true), inviteText: inviteTextFor(item.displayName) });
+}
+
+// Patch parcial: só as chaves enviadas mudam. Telefone exige confirmPhoneChange: true.
+function patchMember(s, id, input) {
+  const item = s.members.find((m) => m.id === id);
+  if (!item) return notFound;
+  if (!bodyIsValid(input, MEMBER_PATCH_KEYS, [])) return invalidRequest;
+  if ("phone" in input && input.confirmPhoneChange !== true) return invalidRequest;
+  const changes = {};
+  for (const key of MEMBER_INPUT_KEYS) if (key in input) changes[key] = input[key];
+  if (typeof changes.displayName === "string") changes.displayName = changes.displayName.trim();
+  if (typeof changes.phone === "string") changes.phone = changes.phone.trim();
+  if (typeof changes.email === "string") changes.email = changes.email.trim().toLowerCase();
+  if (typeof changes.phone === "string") {
+    const phone = changes.phone;
+    if (s.members.some((m) => m.id !== id && m.phone === phone)) return alreadyMember;
+  }
+  const merged = { ...item, ...changes };
+  if (isLastActiveOwner(s, item) && !isActiveOwner(merged)) return lastActiveOwner;
+  if (merged.panelAccess && merged.email === null) return emailRequired;
+  Object.assign(item, changes);
+  return ok(publicMember(item, true));
+}
+
+// Desativar guarda o estado anterior; reativar volta a `active` só se era ativo, senão `invited`.
+function setMemberStatus(s, id, action) {
+  const item = s.members.find((m) => m.id === id);
+  if (!item) return notFound;
+  if (action === "deactivate") {
+    if (isLastActiveOwner(s, item)) return lastActiveOwner;
+    if (item.status !== "deactivated") item.previousStatus = item.status;
+    item.status = "deactivated";
+    item.deactivatedAt = FIXED_TIME;
+  } else if (item.status === "deactivated") {
+    item.status = item.previousStatus === "active" ? "active" : "invited";
+    item.deactivatedAt = null;
+  }
+  return ok(publicMember(item, true));
+}
+
+// Leitura: dono e gerente (o gerente só vê quem tem unidade em comum). Escrita: só o dono.
+function answerMembers(method, id, action, searchParams, input, company) {
+  if (method === "GET" && id) return notFound;
+  if (method === "POST" && id && !action) return notFound;
+  if (method === "PATCH" && (!id || action)) return notFound;
+  if (!["GET", "POST", "PATCH"].includes(method)) return notFound;
+
+  const denied = gateFor(company, method !== "GET");
+  if (denied) return denied;
+
+  const s = stateOf(company);
+  if (method === "GET") return listMembers(s, searchParams, company);
+  if (method === "POST" && action) return setMemberStatus(s, id, action);
+  if (method === "POST") return createMember(s, input);
+  return patchMember(s, id, input);
+}
+
 function answerRestricted(method, pathname) {
   if (method === "GET" && pathname === "/api/restricted/units") return ok({ units: [] });
   return notFound;
@@ -393,6 +614,14 @@ export function answerSettings(method, url, body, company) {
   const input = body && typeof body === "object" ? body : {};
 
   if (pathname.startsWith("/api/restricted")) return answerRestricted(method, pathname);
+
+  const memberMatch = /^\/api\/settings\/members(?:\/([^/]+)(?:\/(deactivate|reactivate))?)?$/.exec(
+    pathname,
+  );
+  if (memberMatch) {
+    const [, memberId, memberAction] = memberMatch;
+    return answerMembers(method, memberId, memberAction, searchParams, input, company);
+  }
 
   if (method === "GET" && pathname === "/api/settings/fee-preview") {
     return gateFor(company, false) ?? feePreview(searchParams);

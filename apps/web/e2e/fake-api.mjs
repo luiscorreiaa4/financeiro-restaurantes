@@ -123,6 +123,8 @@ const ACTIONS_BY_ROLE = {
     "export:full",
     "catalog:view",
     "catalog:manage",
+    "user:view",
+    "user:manage",
     "panel:access",
   ],
   manager: [
@@ -131,6 +133,7 @@ const ACTIONS_BY_ROLE = {
     "entry:restore",
     "report:view",
     "catalog:view",
+    "user:view",
     "panel:access",
   ],
   staff: ["entry:view", "entry:create", "entry:restore", "panel:access"],

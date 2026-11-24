@@ -13,6 +13,7 @@ const ROUTES = [
   "/configuracoes/formas-de-pagamento",
   "/configuracoes/canais-de-venda",
   "/configuracoes/unidades",
+  "/configuracoes/colaboradores",
   "/configuracoes/primeiros-passos",
   "/perfil",
   "/nova-empresa",
