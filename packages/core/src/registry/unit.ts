@@ -38,10 +38,10 @@ export const BRAZILIAN_STATES = [
   "TO",
 ] as const;
 
-const NAME_MIN = 2;
-const NAME_MAX = 60;
-const ALIASES_MAX = 5;
-const ALIAS_MAX_LENGTH = 30;
+export const UNIT_NAME_MIN = 2;
+export const UNIT_NAME_MAX = 60;
+export const UNIT_ALIASES_MAX = 5;
+export const UNIT_ALIAS_MAX_LENGTH = 30;
 
 /** Outra unidade da empresa (a que está sendo editada não entra em `others`). */
 export interface UnitRecord {
@@ -108,34 +108,55 @@ export function isValidCnpj(value: string): boolean {
   return check(12) === Number(cnpj[12]) && check(13) === Number(cnpj[13]);
 }
 
-/** Confere os dados da unidade (RF04.R1 a R3 e município/UF) antes de gravar. */
-export function validateUnit(input: UnitInput): Result<ValidUnit, DomainError> {
-  const name = input.name.trim();
-  if (name.length < NAME_MIN || name.length > NAME_MAX) return invalid("name", "invalid");
+/** Nome da unidade: tamanho e unicidade na empresa (RF04.R1). */
+export function validateUnitName(
+  rawName: string,
+  others: readonly UnitRecord[],
+): Result<string, DomainError> {
+  const name = rawName.trim();
+  if (name.length < UNIT_NAME_MIN || name.length > UNIT_NAME_MAX) return invalid("name", "invalid");
   const key = normalizeName(name);
-  if (input.others.some((other) => normalizeName(other.name) === key)) {
+  if (others.some((other) => normalizeName(other.name) === key)) {
     return invalid("name", "duplicate");
   }
+  return ok(name);
+}
 
-  if (input.aliases.length > ALIASES_MAX) return invalid("aliases", "too_many");
+/** Apelidos (RF04.R2): limites e colisão com o nome da unidade e com nome ou apelido das outras. */
+export function validateUnitAliases(input: {
+  readonly name: string;
+  readonly aliases: readonly string[];
+  readonly others: readonly UnitRecord[];
+}): Result<readonly string[], DomainError> {
+  if (input.aliases.length > UNIT_ALIASES_MAX) return invalid("aliases", "too_many");
   const aliases = input.aliases.map((alias) => alias.trim());
-  if (aliases.some((alias) => alias === "" || alias.length > ALIAS_MAX_LENGTH)) {
+  if (aliases.some((alias) => alias === "" || alias.length > UNIT_ALIAS_MAX_LENGTH)) {
     return invalid("aliases", "invalid");
   }
   const aliasKeys = aliases.map(normalizeName);
   if (new Set(aliasKeys).size !== aliasKeys.length) return invalid("aliases", "duplicate");
   // Apelido não pode coincidir com apelido nem com nome de outra unidade (a IA se confundiria).
+  const key = normalizeName(input.name);
   const taken = new Set(input.others.flatMap((o) => [o.name, ...o.aliases]).map(normalizeName));
   if (aliasKeys.some((aliasKey) => taken.has(aliasKey) || aliasKey === key)) {
     return invalid("aliases", "duplicate");
   }
+  return ok(aliases);
+}
 
-  let cnpj: string | null = null;
-  if (input.cnpj !== null && input.cnpj.trim() !== "") {
-    if (!isValidCnpj(input.cnpj)) return invalid("cnpj", "invalid");
-    cnpj = normalizeCnpj(input.cnpj);
-  }
+/** CNPJ (RF04.R3): opcional; guardado só normalizado (dígitos). */
+export function validateUnitCnpj(cnpj: string | null): Result<string | null, DomainError> {
+  if (cnpj === null || cnpj.trim() === "") return ok(null);
+  if (!isValidCnpj(cnpj)) return invalid("cnpj", "invalid");
+  return ok(normalizeCnpj(cnpj));
+}
 
+/** Município (grafia oficial quando a lista é dada, DD-29) e UF. */
+export function validateUnitLocation(input: {
+  readonly city: string;
+  readonly uf: string;
+  readonly cities?: readonly string[];
+}): Result<{ city: string; uf: string }, DomainError> {
   let city = input.city.trim();
   if (city === "") return invalid("city", "required");
   if (input.cities) {
@@ -145,8 +166,35 @@ export function validateUnit(input: UnitInput): Result<ValidUnit, DomainError> {
   }
   const uf = input.uf.trim().toUpperCase();
   if (!(BRAZILIAN_STATES as readonly string[]).includes(uf)) return invalid("uf", "invalid");
+  return ok({ city, uf });
+}
 
-  return ok({ name, aliases, cnpj, city, uf });
+/** Fuso IANA conhecido pelo runtime (ex.: America/Sao_Paulo). */
+export function isValidTimezone(timezone: string): boolean {
+  if (timezone.trim() === "") return false;
+  try {
+    new Intl.DateTimeFormat("pt-BR", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Confere os dados da unidade (RF04.R1 a R3 e município/UF) antes de gravar. */
+export function validateUnit(input: UnitInput): Result<ValidUnit, DomainError> {
+  const name = validateUnitName(input.name, input.others);
+  if (!name.ok) return name;
+  const aliases = validateUnitAliases({
+    name: name.value,
+    aliases: input.aliases,
+    others: input.others,
+  });
+  if (!aliases.ok) return aliases;
+  const cnpj = validateUnitCnpj(input.cnpj);
+  if (!cnpj.ok) return cnpj;
+  const location = validateUnitLocation({ city: input.city, uf: input.uf, cities: input.cities });
+  if (!location.ok) return location;
+  return ok({ name: name.value, aliases: aliases.value, cnpj: cnpj.value, ...location.value });
 }
 
 /** Não é possível inativar a última unidade ativa da empresa (RF04.R5, CA02). */

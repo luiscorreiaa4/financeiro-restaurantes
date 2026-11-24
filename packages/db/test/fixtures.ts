@@ -27,6 +27,7 @@ export const TABLES = [
   "entries",
   "entry_versions",
   "exports",
+  "fee_reapplications",
   "fiscal_documents",
   "inbound_messages",
   "membership_units",
@@ -188,6 +189,11 @@ export async function createTenant(admin: pg.Pool, name = "Restaurante"): Promis
     [uuidv7(), f.tenantId, f.userId, uuidv7()],
   );
   await run(
+    `insert into fee_reapplications (id, tenant_id, target_kind, target_id, from_date, to_date, fee_percent_bp, fee_fixed_cents, status, created_by)
+     values ($1, $2, 'payment_method', $3, '2026-10-01', '2026-10-31', 320, 0, 'done', $4)`,
+    [uuidv7(), f.tenantId, f.paymentMethodId, f.userId],
+  );
+  await run(
     `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)
      values ($1, $2, '2026-01-01', true, 'simples_nacional', '{"rbt12Cents": 24000000}', $3)`,
     [uuidv7(), f.tenantId, f.userId],
@@ -305,6 +311,11 @@ export function insertsFor(f: TenantFixture): Record<string, { sql: string; para
       sql: `insert into exports (id, tenant_id, requested_by, unit_choice, format, content, filters, status, client_request_id)
             values ($1, $2, $3, 'all', 'xlsx', 'entries', '{}', 'queued', $4)`,
       params: [id(), f.tenantId, f.userId, id()],
+    },
+    fee_reapplications: {
+      sql: `insert into fee_reapplications (id, tenant_id, target_kind, target_id, from_date, to_date, fee_percent_bp, fee_fixed_cents, status, created_by)
+            values ($1, $2, 'sales_channel', $3, '2026-10-01', '2026-10-31', 100, 0, 'done', $4)`,
+      params: [id(), f.tenantId, f.salesChannelId, f.userId],
     },
     tax_settings: {
       sql: `insert into tax_settings (id, tenant_id, valid_from, enabled, regime, params, created_by)

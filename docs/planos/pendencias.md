@@ -2,7 +2,7 @@
 
 > **Só índice.** Cada linha aponta para o arquivo que explica a pendência; o texto, o contexto e a decisão moram lá. Ao fechar uma pendência, marque na fonte e **tire a linha daqui**. Pendência nova entra primeiro na fonte e depois ganha uma linha aqui, na etapa de origem.
 >
-> Atualizado em 23/11/2026 (DD-42: entraram F5-1 e F5-2). Antes, em 17/11/2026 (DD-40: saiu F3b-6). Antes, em 17/11/2026 (DD-39: saíram F3-3, F3-4, F3-6, F3b-2, F3b-3, F3b-4, F3c-5 e E11-2; F3-5 reduzida; entrou F3b-6). Antes, em 17/11/2026 (entrou F3c-8). Antes, em 16/11/2026 (pendências da F3 fechadas: saíram F3b-1, F3c-3, F3c-4 e F3c-7, DD-38). Antes, em 16/11/2026 (F3b feita: saiu F2-3; entraram F3b-1 a F3b-5; F3-5 passa para a F3c). Antes, em 16/11/2026 (DD-37, RF26 no MVP: entraram F3c-1, F3c-2 e E11-2). Antes, em 14/11/2026 (F3a feita: entraram F3-3 a F3-6). Antes, em 13/11/2026 (DD-36: saiu F0-3; F0-4 sem o TanStack Table; entraram F3-1 e F3-2). Antes, em 13/11/2026 (DD-34: saíram PF2-1, PF2-2, PF2-3, PF2-4, PF2-6, PF2-7 e PF2-8, e a PF2-9, corrigida no teste; fica PF2-5). Antes, em 11/11/2026 (fechamento do bloco pós-F2, DD-33: saíram F1b-8, F1b-14, F1c-8, F1c-9, F1c-10, F1c-12, F1c-17, F2-1, F2-2, F2-6 e F2-7; entraram PF2-1 a PF2-9). Antes, em 11/11/2026 (entrevista de pendências, DD-32: F0-2 e F1c-11 saíram; "pós-F2" é o bloco de código antes da F3). Antes, em 10/11/2026 (F2 feita: F1a-1, F1b-12 e F1c-6 saíram daqui). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
+> Atualizado em 23/11/2026 (F6a feita: saiu F2-2). Antes, em 23/11/2026 (DD-43: entrou F6-1; F2-2 entrou com destino F6a; F2-4 passa para F6b). Antes, em 23/11/2026 (DD-42: entraram F5-1 e F5-2). Antes, em 17/11/2026 (DD-40: saiu F3b-6). Antes, em 17/11/2026 (DD-39: saíram F3-3, F3-4, F3-6, F3b-2, F3b-3, F3b-4, F3c-5 e E11-2; F3-5 reduzida; entrou F3b-6). Antes, em 17/11/2026 (entrou F3c-8). Antes, em 16/11/2026 (pendências da F3 fechadas: saíram F3b-1, F3c-3, F3c-4 e F3c-7, DD-38). Antes, em 16/11/2026 (F3b feita: saiu F2-3; entraram F3b-1 a F3b-5; F3-5 passa para a F3c). Antes, em 16/11/2026 (DD-37, RF26 no MVP: entraram F3c-1, F3c-2 e E11-2). Antes, em 14/11/2026 (F3a feita: entraram F3-3 a F3-6). Antes, em 13/11/2026 (DD-36: saiu F0-3; F0-4 sem o TanStack Table; entraram F3-1 e F3-2). Antes, em 13/11/2026 (DD-34: saíram PF2-1, PF2-2, PF2-3, PF2-4, PF2-6, PF2-7 e PF2-8, e a PF2-9, corrigida no teste; fica PF2-5). Antes, em 11/11/2026 (fechamento do bloco pós-F2, DD-33: saíram F1b-8, F1b-14, F1c-8, F1c-9, F1c-10, F1c-12, F1c-17, F2-1, F2-2, F2-6 e F2-7; entraram PF2-1 a PF2-9). Antes, em 11/11/2026 (entrevista de pendências, DD-32: F0-2 e F1c-11 saíram; "pós-F2" é o bloco de código antes da F3). Antes, em 10/11/2026 (F2 feita: F1a-1, F1b-12 e F1c-6 saíram daqui). Só entram itens abertos. Não entram: `escopo-por-fase.md` (é escopo, não pendência) e os planos das etapas.
 
 **Fontes:** [`andamento.md`](andamento.md) (pendências técnicas, quem está travado e documentação) · [`requisitos.md` §5](../requisitos.md#5-pendências-e-decisões-em-aberto) (pendências de negócio P01 a P18) · [`contingencia-canal.md`](contingencia-canal.md) · [`politica-meta-whatsapp.md`](../politica-meta-whatsapp.md) · `matheus.md` e `luis.md` (locais, fora do git).
 
@@ -96,7 +96,7 @@
 | ID | Pendência | Resolver em | Detalhe |
 |---|---|---|---|
 | F2-3 | Filtro de categoria sensível na resposta (RF06.R3, CA02) e matriz papel × ação por rota: acrescentar linha a cada rota nova | F3 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
-| F2-4 | Encerrar sessões ao rebaixar papel ou desativar vínculo (RF05 Alteração, CA09 "sessão encerrada") | F6 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
+| F2-4 | Encerrar sessões ao rebaixar papel ou desativar vínculo (RF05 Alteração, CA09 "sessão encerrada") | F6b | [andamento §6](andamento.md#6-painel) · bloco "F2" |
 | F2-5 | Lista de empresas do contador com busca e convite com aviso de folha (RF36) | F13 | [andamento §6](andamento.md#6-painel) · bloco "F2" |
 
 ### F3
@@ -128,6 +128,12 @@
 | F5-5 | Reenvio da mesma chave após 503 devolve o pedido `failed` (cliente precisa queimar a chave) | quando houver outro cliente da API | [andamento §6](andamento.md#6-painel) · bloco "F5" |
 | F5-6 | `filters.q` (texto da busca) fica na linha do pedido após os 7 dias | antes do piloto | [andamento §6](andamento.md#6-painel) · bloco "F5" |
 | F5-7 | Lista mostra como disponível o arquivo que o autor já não pode baixar (403 após perder folha ou unidade) | F5 (ajuste de tela) | [andamento §6](andamento.md#6-painel) · bloco "F5" |
+
+### F6
+
+| ID | Pendência | Resolver em | Detalhe |
+|---|---|---|---|
+| F6-1 | Tela de histórico de cadastro (leitura do `audit_log`; DD-43) | sem etapa | [andamento §6](andamento.md#6-painel) · bloco "F6" |
 
 ### Pós-F2
 

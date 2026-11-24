@@ -154,10 +154,10 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 
 | Tabela | O que falta | RF | Etapa |
 |---|---|---|---|
-| `categories` (tem `kind` com investment/deduction, `nature`, `dre_group`, `is_sensitive`) | Exige Quantidade; palavras de apoio (até 30); status ATIVA/INATIVA; origem SISTEMA/EMPRESA (hoje `tenant_id` nulo); herança de tipo, grupo e sensível pela subcategoria; no máximo dois níveis; categoria própria sempre filha de uma padrão. A lista do seed é provisória (P01, P02, P05). | RF07 | E6 (palavras de apoio e Exige Quantidade para a IA), F6 (edição) |
+| `categories` (tem `kind` com investment/deduction, `nature`, `dre_group`, `is_sensitive`) | Exige Quantidade; palavras de apoio (até 30); status ATIVA/INATIVA; origem SISTEMA/EMPRESA (hoje `tenant_id` nulo); herança de tipo, grupo e sensível pela subcategoria; no máximo dois níveis; categoria própria sempre filha de uma padrão. A lista do seed é provisória (P01, P02, P05). | RF07 | E6 (palavras de apoio e Exige Quantidade para a IA), F6c (edição e realinhamento das categorias do sistema, DD-43) |
 | `payment_methods` | Tipo (DINHEIRO, PIX, DEBITO, CREDITO, VOUCHER, BOLETO, TRANSFERENCIA, OUTRO); apelidos (até 10); status; "forma de cartão padrão" da empresa (usada por "cartão" sem especificar); forma "Não informada". | RF08, RF12.R8 | E6 (padrão e apelidos), F6 |
 | `sales_channels` | Tipo (SALAO, DELIVERY_PROPRIO, APLICATIVO, RETIRADA, OUTRO); apelidos; status; regra: canal APLICATIVO com comissão substitui a taxa da forma de pagamento (P06); canal "Não informado". | RF09 | E7 (cálculo), F6 |
-| `suppliers` (tem `aliases`) | Categoria habitual; origem MENSAGEM/NOTA_FISCAL/PAINEL/IMPORTACAO; status; CPF mascarado; mesclagem; unicidade do documento na empresa. | RF10 | E7 (criação automática), F6 (mesclagem) |
+| `suppliers` (tem `aliases`) | Categoria habitual; origem MENSAGEM/NOTA_FISCAL/PAINEL/IMPORTACAO; status; CPF mascarado; mesclagem; unicidade do documento na empresa. | RF10 | E7 (criação automática), F6c (mesclagem, DD-43) |
 
 ### Lançamento e histórico
 
@@ -181,6 +181,7 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 | `tax_settings` (por empresa) e `tax_rules` (tabela do sistema, versionada por vigência) | Regime, data de início, parâmetros e opção "ver imposto estimado"; regras com `valid_from` e `valid_to`, nunca editadas (linha nova a cada mudança). A tabela de regras é global (sem `tenant_id`), com leitura apenas; `tax_settings` segue a regra de tabela nova (`tenant_id` e RLS). | RF39, DD-05 | E11 (dados), F12 (tela) |
 | Aceite do aviso de folha | Registro de que o dono confirmou "este acesso inclui folha" ao convidar o contador (na trilha `audit_log` ou em coluna de `memberships`). | RF36, DD-04 | E11 |
 | `exports` | Pedido de exportação, situação, link assinado de 1 hora, arquivo apagado em 7 dias. | RF29 | F5 |
+| `fee_reapplications` | Pedido de reaplicação de taxa a um período passado: alvo (forma ou canal), período, taxa vista na prévia, estado (`queued`, `running`, `done`, `failed`) e contagens; um só ativo por alvo; chave de tentativa por autor. | RF08 e RF09 (Alteração), DD-43 | F6a |
 | Notas por XML (`fiscal_documents` já existe) | Enviadas manualmente (painel e WhatsApp como documento); deduplicação pela chave de acesso. **Sem** endereço de e-mail por empresa nem quarentena (DD-10). | RF31 | E14 |
 | `notification_preferences` e histórico de envios | Resumo semanal, alertas por exceção e preferências por colaborador. | RF34 | E13 (v1.1) |
 | `subscriptions` e cobranças | Plano, ciclo, situação do pagamento, encerramento e eliminação de dados. | RF37 | F9 |

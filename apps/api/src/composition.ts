@@ -17,20 +17,24 @@ import {
 } from "@app/core";
 import {
   createAuthStore,
+  createCatalogSettingsRepo,
   createChoiceStore,
   createDatabase,
   createEntryStore,
+  createFeeReapplyRepo,
   createInboundIngestRepo,
   createInboundMediaRepo,
   createInboundProcessingRepo,
   createInboundSenderRepo,
   createOutboundMessageRepo,
+  createOwnedUnitsStore,
   createPanelAccessStore,
   createPool,
   createSenderDirectory,
   createSignupRepo,
   createSignupStore,
   createTenantConversationRepo,
+  createUnitSettingsRepo,
   createUsageGuardStore,
   uuidv7,
 } from "@app/db";
@@ -44,6 +48,7 @@ import { createFileEmailSender } from "./infra/email/file-email-sender";
 import { createExportLinkSigner } from "./infra/exports/export-link";
 import { createLocalExportStore } from "./infra/exports/local-export-store";
 import { type ExportWorker, startExportWorker } from "./infra/exports-worker";
+import { type FeeReapplyWorker, startFeeReapplyWorker } from "./infra/fee-reapply-worker";
 import { createLogger, type JobLogger } from "./infra/logger";
 import { createDevFileMediaDownloader } from "./infra/media/dev-file-media-downloader";
 import { createFfmpegAudioConverter } from "./infra/media/ffmpeg-audio-converter";
@@ -56,6 +61,10 @@ import { createEntryHandlers } from "./modules/entries/entry-handlers";
 import { createDeleteExportFile } from "./modules/exports/delete-export-file";
 import { createFailStuckExport } from "./modules/exports/fail-stuck-export";
 import { createGenerateExport } from "./modules/exports/generate-export";
+import {
+  createFailStuckFeeReapply,
+  createRunFeeReapply,
+} from "./modules/fee-reapply/run-fee-reapply";
 import { createIngestWebhook } from "./modules/inbound/ingest-webhook";
 import { createFailureNotifier } from "./modules/inbound/notify-failure";
 import { createProcessInbound } from "./modules/inbound/process-inbound";
@@ -103,6 +112,8 @@ export async function compose(
       panel: auth.panel,
       entries: auth.entries,
       exports: auth.exports,
+      settings: auth.settings,
+      restricted: auth.restricted,
     },
     async close() {
       await queue.stop();
@@ -126,6 +137,8 @@ function composeAuth(
   panel: NonNullable<AppDeps["panel"]>;
   entries: NonNullable<AppDeps["entries"]>;
   exports: NonNullable<AppDeps["exports"]>;
+  settings: NonNullable<AppDeps["settings"]>;
+  restricted: NonNullable<AppDeps["restricted"]>;
   close(): Promise<void>;
 } {
   if (env.DATABASE_AUTH_URL === undefined) {
@@ -240,6 +253,23 @@ function composeAuth(
     // Lançamentos (F3a, F3b): os mesmos guards e o mesmo banco do painel, mais o relógio, o
     // cadastro e a gravação da edição (o mesmo `EntryStore` do canal, pelo papel `app`).
     entries: { ...panel, clock, store: createEntryStore(appDb), newId: uuidv7 },
+    // Configurações (F6a): os mesmos guards e o banco do papel `app`.
+    settings: {
+      ...panel,
+      unitSettings: createUnitSettingsRepo(appDb),
+      catalogSettings: createCatalogSettingsRepo(appDb),
+      // Reaplicação de taxa: a linha é gravada aqui e o job `fee-reapply` enfileirado depois do commit.
+      feeReapply: createFeeReapplyRepo(appDb),
+      queue,
+      clock,
+      newId: uuidv7,
+    },
+    // Reativar unidade no acesso restrito (F6a): lê pelo `app_auth`, grava pelo `app`.
+    restricted: {
+      checkEntry,
+      ownedUnits: createOwnedUnitsStore(authDb),
+      unitSettings: createUnitSettingsRepo(appDb),
+    },
     // Exportação (F5): a mesma pasta de arquivos do worker; o link é assinado com o AUTH_SECRET.
     exports: {
       ...panel,
@@ -277,6 +307,7 @@ export async function composeWorker(
 ): Promise<{
   worker: ProcessInboundWorker;
   exportWorker: ExportWorker;
+  feeReapplyWorker: FeeReapplyWorker;
   close(): Promise<void>;
 }> {
   if (env.DATABASE_INGEST_URL === undefined) {
@@ -385,11 +416,27 @@ export async function composeWorker(
     onError: onQueueError,
   });
 
+  const feeReapplyRepo = createFeeReapplyRepo(appDb);
+  const feeReapplyWorker = await startFeeReapplyWorker({
+    connectionString: env.DATABASE_ADMIN_URL,
+    runFeeReapply: createRunFeeReapply({
+      repo: feeReapplyRepo,
+      store: createEntryStore(appDb),
+      access: createPanelAccessStore(createDatabase(authPool)),
+      clock,
+      logger,
+    }),
+    failStuck: createFailStuckFeeReapply({ repo: feeReapplyRepo, logger }),
+    logger,
+    onError: onQueueError,
+  });
+
   return {
     worker,
     exportWorker,
+    feeReapplyWorker,
     async close() {
-      await Promise.all([worker.stop(), exportWorker.stop()]);
+      await Promise.all([worker.stop(), exportWorker.stop(), feeReapplyWorker.stop()]);
       await queue.stop();
       await Promise.all([ingestPool.end(), appPool.end(), authPool.end()]);
     },

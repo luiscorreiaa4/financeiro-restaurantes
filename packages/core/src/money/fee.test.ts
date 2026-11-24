@@ -31,6 +31,13 @@ describe("taxa e líquido", () => {
     });
   });
 
+  it("RF08.CA02: 3,25% sobre R$ 10,10 dá 32,825 e arredonda a taxa para 33 centavos", () => {
+    expect(computeFee(m(1010), { feePercentBp: 325, feeFixedCents: 0 })).toEqual({
+      ok: true,
+      value: { feeCents: 33, netCents: 977 },
+    });
+  });
+
   it("arredonda a taxa meio para cima: 0,5 centavo vira 1", () => {
     expect(computeFee(m(50), { feePercentBp: 100, feeFixedCents: 0 })).toEqual({
       ok: true,

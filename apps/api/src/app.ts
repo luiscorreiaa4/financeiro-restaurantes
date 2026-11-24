@@ -9,6 +9,13 @@ import { panelRoutes } from "./http/panel/panel-routes";
 import { type ProfileRoutesDeps, profileRoutes } from "./http/profile/profile-routes";
 import { type RecoveryRoutesDeps, recoveryRoutes } from "./http/recovery/recovery-routes";
 import { reportsRoutes } from "./http/reports/reports-routes";
+import {
+  type RestrictedUnitsDeps,
+  restrictedUnitsRoutes,
+} from "./http/restricted/restricted-units-routes";
+import { type CatalogRoutesDeps, catalogRoutes } from "./http/settings/catalog-routes";
+import { type FeeReapplyRoutesDeps, feeReapplyRoutes } from "./http/settings/fee-reapply-routes";
+import { type UnitsRoutesDeps, unitsRoutes } from "./http/settings/units-routes";
 import { type SignupRoutesDeps, signupRoutes } from "./http/signup/signup-routes";
 import { type WhatsAppWebhookDeps, whatsappWebhookRoutes } from "./http/webhooks/whatsapp";
 
@@ -31,6 +38,10 @@ export interface AppDeps {
   readonly entries?: EntriesRoutesDeps;
   /** Exportação Excel/CSV (F5, RF29): `/api/exports*`. */
   readonly exports?: ExportsRoutesDeps;
+  /** Configurações do painel (F6a, RF04): `/api/settings/*`. */
+  readonly settings?: UnitsRoutesDeps & CatalogRoutesDeps & FeeReapplyRoutesDeps;
+  /** Reativar unidade no acesso restrito (F6a, DD-33): `/api/restricted/units*`. */
+  readonly restricted?: RestrictedUnitsDeps;
   /** Destino dos logs; o padrão é stdout. Existe para os testes lerem o que foi registrado. */
   readonly logStream?: { write(line: string): void };
 }
@@ -66,6 +77,10 @@ export function buildApp(env: Pick<Env, "LOG_LEVEL" | "APP_URL">, deps: AppDeps 
   // Relatórios do dashboard (F4, RF27): só precisam do contexto do painel, as mesmas deps.
   if (deps.entries) app.register(reportsRoutes, { deps: deps.entries });
   if (deps.exports) app.register(exportsRoutes, { deps: deps.exports });
+  if (deps.settings) app.register(unitsRoutes, { deps: deps.settings });
+  if (deps.settings) app.register(catalogRoutes, { deps: deps.settings });
+  if (deps.settings) app.register(feeReapplyRoutes, { deps: deps.settings });
+  if (deps.restricted) app.register(restrictedUnitsRoutes, { deps: deps.restricted });
 
   return app;
 }

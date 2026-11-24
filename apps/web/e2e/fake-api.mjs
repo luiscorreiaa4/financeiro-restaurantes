@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { answerEntries, resetEntries } from "./fake-entries.mjs";
 import { answerExports, resetExports } from "./fake-exports.mjs";
 import { answerReports } from "./fake-reports.mjs";
+import { answerSettings, createdUnits, resetSettings } from "./fake-settings.mjs";
 
 const port = Number(process.env.FAKE_API_PORT ?? 4010);
 
@@ -121,6 +122,7 @@ const ACTIONS_BY_ROLE = {
     "export:data",
     "export:full",
     "catalog:view",
+    "catalog:manage",
     "panel:access",
   ],
   manager: [
@@ -349,7 +351,7 @@ createServer(async (req, res) => {
     if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
       return send(res, 409, { code: "context_changed" });
     }
-    return send(res, 200, { units: company.units });
+    return send(res, 200, { units: [...company.units, ...createdUnits(company.tenantId)] });
   }
 
   // Lançamentos (A12, B8): leitura e escrita com as mesmas checagens de /api/units (sessão completa
@@ -399,10 +401,31 @@ createServer(async (req, res) => {
     return send(res, answer.status, answer.body);
   }
 
-  // Rota de teste: volta os lançamentos, os fornecedores e as exportações criadas ao estado inicial.
+  // Configurações (F6a, RF05, RF08, RF09): mesmas checagens de sessão e contexto das exportações.
+  if (pathname.startsWith("/api/settings")) {
+    const body = method === "GET" ? {} : await readJson(req);
+    if (!hasFullSession(req)) return send(res, 401, UNAUTHORIZED);
+    const { company, unitId, source } = resolveContext(req);
+    if (source === "invalid_cookie") return send(res, 403, { code: "context_invalid" });
+    if (req.headers["x-context"] !== `${company.tenantId}.${unitId}`) {
+      return send(res, 409, { code: "context_changed" });
+    }
+    const answer = answerSettings(method, url, body, company);
+    return send(res, answer.status, answer.body);
+  }
+
+  // Rotas da sessão restrita (A5): só com sessão restrita; sem contexto de empresa.
+  if (pathname.startsWith("/api/restricted")) {
+    if (!hasSession(req) || restrictedReason(req) === null) return send(res, 401, UNAUTHORIZED);
+    const answer = answerSettings(method, url, {}, null);
+    return send(res, answer.status, answer.body);
+  }
+
+  // Rota de teste: volta os lançamentos, os fornecedores, as exportações e as configurações ao estado inicial.
   if (method === "POST" && url === "/__reset") {
     resetEntries();
     resetExports();
+    resetSettings();
     res.statusCode = 204;
     return res.end();
   }

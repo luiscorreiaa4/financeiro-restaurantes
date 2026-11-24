@@ -13,6 +13,10 @@ describe("boas-vindas depois do cadastro", () => {
     expect(screen.getByRole("img", { name: /QR Code/ })).toBeInTheDocument();
     expect(screen.getByText("+55 (82) 99999-0000")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir para o painel" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Configurar agora" })).toHaveAttribute(
+      "href",
+      "/configuracoes/primeiros-passos",
+    );
   });
 
   it("without a configured number shows a message instead of a broken link", () => {

@@ -60,6 +60,12 @@ export function Welcome({ whatsappNumber }: Props) {
       )}
 
       <Link
+        href="/configuracoes/primeiros-passos"
+        className={buttonVariants({ className: `${TOUCH} w-full` })}
+      >
+        Configurar agora
+      </Link>
+      <Link
         href="/"
         className={buttonVariants({ variant: "outline", className: `${TOUCH} w-full` })}
       >

@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import {
   createAuthStore,
+  createCatalogSettingsRepo,
   createDatabase,
   createEntryStore,
+  createFeeReapplyRepo,
+  createOwnedUnitsStore,
   createPanelAccessStore,
   createPool,
+  createUnitSettingsRepo,
   seedDevData,
   uuidv7,
 } from "@app/db";
@@ -126,6 +130,17 @@ export async function startAuthHarness(): Promise<AuthHarness> {
     jobs: [],
     failNext: false,
   };
+  /** Fila falsa (exportações e reaplicação de taxa): guarda os jobs e falha sob comando. */
+  const fakeQueue = {
+    async enqueue(queue: string, payload: Readonly<Record<string, unknown>>) {
+      if (exportsKit.failNext) {
+        exportsKit.failNext = false;
+        throw new Error("fila fora do ar");
+      }
+      exportsKit.jobs.push({ queue, payload: { ...payload } });
+      return { jobId: "job" };
+    },
+  };
   const checkSession = createCheckSession({ gateway, access: store, clock });
   const checkEntry = createCheckEntry({ gateway, access: store, clock });
   const panel = {
@@ -153,21 +168,26 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       },
       panel,
       entries: { ...panel, clock, store: createEntryStore(panel.appDb), newId: uuidv7 },
+      settings: {
+        ...panel,
+        unitSettings: createUnitSettingsRepo(panel.appDb),
+        catalogSettings: createCatalogSettingsRepo(panel.appDb),
+        feeReapply: createFeeReapplyRepo(panel.appDb),
+        queue: fakeQueue,
+        clock,
+        newId: uuidv7,
+      },
+      restricted: {
+        checkEntry,
+        ownedUnits: createOwnedUnitsStore(createDatabase(authPool)),
+        unitSettings: createUnitSettingsRepo(panel.appDb),
+      },
       exports: {
         ...panel,
         clock,
         store: exportsKit.store,
         linkSigner: exportsKit.signer,
-        queue: {
-          async enqueue(queue: string, payload: Readonly<Record<string, unknown>>) {
-            if (exportsKit.failNext) {
-              exportsKit.failNext = false;
-              throw new Error("fila fora do ar");
-            }
-            exportsKit.jobs.push({ queue, payload: { ...payload } });
-            return { jobId: "job" };
-          },
-        },
+        queue: fakeQueue,
         newId: uuidv7,
       },
       logStream: { write: (line) => logLines.push(line) },

@@ -6,6 +6,7 @@ export * from "./duplicate";
 export * from "./entry";
 export * from "./error-field";
 export * from "./extraction";
+export * from "./fee-reapply";
 export * from "./group-receipt";
 export * from "./interpret";
 export * from "./labels";

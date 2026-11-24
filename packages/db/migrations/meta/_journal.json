@@ -162,6 +162,13 @@
       "when": 1795442142220,
       "tag": "0022_exports_included_sensitive",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795466444773,
+      "tag": "0023_fee_reapplications",
+      "breakpoints": true
     }
   ]
 }
