@@ -2,6 +2,7 @@ export * from "./auth";
 export * from "./catalog";
 export * from "./entries";
 export * from "./exports";
+export * from "./fee-reapplications";
 export * from "./fiscal";
 export * from "./messages";
 export * from "./operations";

@@ -1,5 +1,5 @@
 import type { AccountStatus, AdditionalPermission, PanelMembership, Role } from "@app/core";
-import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { memberships, membershipUnits, tenants, units } from "../schema";
 import type { Database, Transaction } from "./client";
 
@@ -115,6 +115,75 @@ export async function hasAnyActiveMembership(db: Database, userId: string): Prom
     )
     .limit(1);
   return rows.length > 0;
+}
+
+/** Unidade inativa que o dono pode reativar no acesso restrito (F6a, DD-33). */
+export interface OwnedInactiveUnit {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  accountStatus: AccountStatus;
+}
+
+export interface OwnedUnitsStore {
+  /**
+   * Unidades inativas de empresas em que o usuário é dono ativo, não encerradas e SEM nenhuma
+   * unidade ativa. O nome da unidade não é legível pelo `app_auth` (GRANT só de id, tenant_id e
+   * status): quem precisa dele lê pelo papel `app`, dentro de `withTenant`.
+   */
+  ownedInactiveUnits(userId: string): Promise<OwnedInactiveUnit[]>;
+}
+
+/** Lê com o papel `app_auth`: `memberships`, `tenants` (id, name, status) e `units` (id, tenant_id, status). */
+export async function loadOwnedInactiveUnits(
+  db: Database,
+  userId: string,
+): Promise<OwnedInactiveUnit[]> {
+  const owned = await db
+    .select({
+      tenantId: memberships.tenantId,
+      tenantName: tenants.name,
+      accountStatus: tenants.status,
+    })
+    .from(memberships)
+    .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+    .where(
+      and(
+        eq(memberships.userId, userId),
+        eq(memberships.role, "owner"),
+        eq(memberships.status, "active"),
+        isNull(memberships.deactivatedAt),
+        ne(tenants.status, "closed"),
+      ),
+    );
+  if (owned.length === 0) return [];
+  const rows = await db
+    .select({ id: units.id, tenantId: units.tenantId, status: units.status })
+    .from(units)
+    .where(
+      inArray(
+        units.tenantId,
+        owned.map((o) => o.tenantId),
+      ),
+    );
+  const hasActive = new Set(rows.filter((u) => u.status === "active").map((u) => u.tenantId));
+  const byTenant = new Map(owned.map((o) => [o.tenantId, o]));
+  const result: OwnedInactiveUnit[] = [];
+  for (const u of rows) {
+    const company = byTenant.get(u.tenantId);
+    if (u.status === "active" || hasActive.has(u.tenantId) || company === undefined) continue;
+    result.push({
+      id: u.id,
+      tenantId: u.tenantId,
+      tenantName: company.tenantName,
+      accountStatus: company.accountStatus as AccountStatus,
+    });
+  }
+  return result;
+}
+
+export function createOwnedUnitsStore(db: Database): OwnedUnitsStore {
+  return { ownedInactiveUnits: (userId) => loadOwnedInactiveUnits(db, userId) };
 }
 
 export function createPanelAccessStore(db: Database): PanelAccessStore {
