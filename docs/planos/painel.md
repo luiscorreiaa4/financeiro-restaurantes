@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 23/11/2026 (F5 feita, DD-42, requisitos 1.20); 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 23/11/2026 (F6a feita, DD-43, requisitos 1.21); 23/11/2026 (F5 feita, DD-42, requisitos 1.20); 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -30,7 +30,9 @@ Legenda de confiança, usada em todo o documento:
 | F3c Lançamento manual (RF26) | **Feita (16/11/2026)** | Formulário em `/lancamentos/novo` ("Salvar" e "Salvar e lançar outro"), `POST /api/entries` com idempotência por tentativa (`entries.client_request_id`, migration 0019), sinais `possible_duplicate` (função única `isPossibleDuplicate` no core, candidatos no recorte do ator) e `old_date`, criação com canal `web` (versão 1 é a origem), opções com cadastro ativo, canal padrão e fuso da unidade, aba Origem do canal web, unidade de medida em lista fechada também na edição. DD-37; desenho em `docs/superpowers/specs/2026-11-16-f3c-lancamento-manual-design.md`, plano em `docs/superpowers/plans/2026-11-16-f3c-lancamento-manual.md` |
 | F4 Dashboard | **Feita (17/11/2026)** | Dashboard do RF27 com três rotas de agregação `GET /api/reports/summary`, `/monthly` e `/breakdown` (guarda `report:view`, recorte por papel, `reportReader` com `FILTER` e `GROUP BY`, sem migration), contas dos indicadores em `packages/core/src/reports` e contrato `.strict()` em `@app/core/contracts`. Cartões, quatro gráficos com tabela alternativa, filtros e estado na URL, estado vazio com link para o WhatsApp, `/` redireciona por permissão e axe no E2E. Desempenho medido com 100 mil lançamentos: bloco mais lento em 105 ms. DD-41, requisitos 1.19; desenho em `docs/superpowers/specs/2026-11-17-f4-dashboard-design.md`, plano em `docs/superpowers/plans/2026-11-17-f4-dashboard.md` |
 | F5 Exportação Excel/CSV | Feita (23/11/2026) | write-excel-file e fflate (D-F7, DD-42); roteiro à mão em `f5-roteiro.md` |
-| F6 Configurações | A fazer | |
+| F6a Formas, canais, unidades, assistente inicial e reaplicação de taxa | Feita (23/11/2026) | RF04, RF08, RF09, RF01.Obs3, RF04.R6; reaplicação de taxa em fila (DD-43). Desenho `docs/superpowers/specs/2026-11-23-f6-configuracoes-design.md`, plano `docs/superpowers/plans/2026-11-23-f6a-catalogos-taxas.md` |
+| F6b Colaboradores | A fazer | RF05 e encerramento de sessões (F2-4); `display_name` por vínculo (DD-43). Plano `docs/superpowers/plans/2026-11-23-f6b-colaboradores.md` |
+| F6c Categorias do sistema, subcategorias e fornecedores | A fazer | RF07 e RF10; realinhamento das categorias ao RF07.Obs2 e mesclagem (DD-43). Plano `docs/superpowers/plans/2026-11-23-f6c-categorias-fornecedores.md` |
 | F7 PWA e responsividade | A fazer | |
 | F8 Endurecimento e lançamento | A fazer | Herda da F1a: `trustProxy` e o IP real atrás do rewrite do Next (limites de envio e auditoria usam o IP); produção só sobe com `DATABASE_AUTH_URL` e e-mail real configurados; trocar o envio falso por serviço real (DD-21) com fila persistente |
 | F9 Assinatura, plano e encerramento da conta (RF37) | A fazer (nova, 29/10/2026) | Depende da F1 (conta com plano e situação). Preços e limites: `[PROVISÓRIO – P03]` |
@@ -258,11 +260,14 @@ Cada etapa do front traz o seu pedaço da API. Todos os endpoints validam entrad
 | `GET /api/reports/summary`, `/breakdown`, `/monthly` | F4 | Agregações calculadas no banco |
 | `POST /api/exports` e `GET /api/exports/:id` | F5 | Cria job e informa estado e link assinado |
 | `GET /api/trash` | F3 | `entry:restore`. Filtros: período de exclusão, unidade, quem excluiu; cursor. Lixeira de 30 dias (RF24) |
-| `GET/POST/PATCH /api/members` | F6 | Convite por telefone, papéis, unidades de acesso e permissões adicionais (RF05) |
-| `GET/POST/PATCH /api/units` | F6 | Unidades, apelidos e status (RF04) |
-| `GET/POST/PATCH /api/categories` | F6 | Árvore e subcategorias da empresa (RF07) |
-| `GET/POST/PATCH /api/payment-methods` | F6 | Taxas em pontos-base (RF08) |
-| `GET/POST/PATCH /api/sales-channels` e `/api/suppliers` | F6 | Canais, comissões e fornecedores com mesclagem (RF09, RF10) |
+| `GET/POST/PATCH /api/settings/units` | F6a | Unidades, apelidos, status e canal padrão (RF04). O `GET /api/units` da F2 segue só para o seletor de contexto |
+| `GET/POST/PATCH /api/settings/payment-methods` e `GET /api/settings/fee-preview` | F6a | Taxas em pontos-base e taxa fixa; pré-visualização do líquido (RF08) |
+| `GET/POST/PATCH /api/settings/sales-channels` | F6a | Canais e comissões em pontos-base (RF09) |
+| `/api/settings/fee-reapplications` e `.../preview` | F6a | Prévia e reaplicação de taxa em fila, com estado (RF08 e RF09, Alteração; DD-43) |
+| `POST /api/restricted/units/:id/reactivate` | F6a | Reativação de unidade no acesso restrito (F2-2); fora de `/api/settings` |
+| `GET/POST/PATCH /api/settings/members`, com `POST .../:id/deactivate` e `.../:id/reactivate` | F6b | Colaboradores, papéis, unidades de acesso e permissões adicionais (RF05) |
+| `GET/POST/PATCH /api/settings/categories` | F6c | Árvore e subcategorias da empresa (RF07) |
+| `GET/POST/PATCH /api/settings/suppliers` | F6c | Fornecedores, edição e mesclagem (RF10) |
 | `GET/PATCH /api/subscription` | F9 | Plano, situação e encerramento; só o Dono (RF37) |
 | `/api/internal/*` | F10 | Painel interno; acesso só da equipe, com segundo fator (RF38) |
 
