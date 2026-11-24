@@ -8,6 +8,11 @@ let logError: (error: Error) => void = (error) => console.error(error);
 const composition = await compose(env, (error) => logError(error));
 const app = buildApp(env, composition.deps);
 logError = (error) => app.log.error(error);
+if (env.PRODUCT_WHATSAPP_NUMBER === undefined) {
+  app.log.warn(
+    "PRODUCT_WHATSAPP_NUMBER ausente: a checagem do número do produto no cadastro de colaboradores foi pulada.",
+  );
+}
 
 app.addHook("onClose", async () => {
   await composition.close();

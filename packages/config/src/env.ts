@@ -33,6 +33,14 @@ const baseSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: optionalString,
   WHATSAPP_APP_SECRET: optionalString,
   WHATSAPP_VERIFY_TOKEN: optionalString,
+  // Número do WhatsApp do produto (E.164 sem máscara, com `+` inicial opcional). Ausente = checagem pulada.
+  PRODUCT_WHATSAPP_NUMBER: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^\+?\d{10,15}$/, "use só dígitos, com DDI, opcional + inicial, de 10 a 15 dígitos")
+      .optional(),
+  ),
 
   ANTHROPIC_API_KEY: optionalString,
   AI_MODEL_DEFAULT: z.string().min(1).default("claude-haiku-5-5"),
