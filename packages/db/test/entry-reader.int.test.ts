@@ -2569,3 +2569,110 @@ describe("leitura para exportação (RF29)", () => {
     expect(viaExport.categories.get(childCategoryId)?.name).toBe("Carnes");
   });
 });
+
+describe("nome exibido por empresa (RF05.R2, F6b)", () => {
+  let shared: string;
+  let entryA: string;
+  let entryB: string;
+  let deletedA: string;
+  let noNameUser: string;
+  let noNameEntry: string;
+  const MONTH = "2026-08";
+
+  beforeAll(async () => {
+    shared = uuidv7();
+    await db.admin.query("insert into users (id, name, email) values ($1, 'Nome Global', $2)", [
+      shared,
+      `${shared}@ex.com`,
+    ]);
+    await db.admin.query(
+      `insert into memberships (id, tenant_id, user_id, role, display_name)
+       values ($1, $2, $3, 'staff', 'Ana da Matriz')`,
+      [uuidv7(), a.tenantId, shared],
+    );
+    await db.admin.query(
+      `insert into memberships (id, tenant_id, user_id, role, display_name)
+       values ($1, $2, $3, 'staff', 'Aninha da Filial')`,
+      [uuidv7(), b.tenantId, shared],
+    );
+    entryA = await insertEntry({
+      tenant: a,
+      occurredOn: `${MONTH}-10`,
+      amountCents: 1000,
+      createdBy: shared,
+    });
+    entryB = await insertEntry({
+      tenant: b,
+      occurredOn: `${MONTH}-10`,
+      amountCents: 2000,
+      createdBy: shared,
+    });
+    deletedA = await insertEntry({
+      tenant: a,
+      occurredOn: `${MONTH}-11`,
+      amountCents: 3000,
+      createdBy: shared,
+      deleted: true,
+    });
+    await db.admin.query(
+      "update entries set deleted_by = $2, deleted_at = '2026-05-10T12:00:00Z' where id = $1",
+      [deletedA, shared],
+    );
+    noNameUser = uuidv7();
+    await db.admin.query("insert into users (id, name, email) values ($1, 'Só Global', $2)", [
+      noNameUser,
+      `${noNameUser}@ex.com`,
+    ]);
+    await db.admin.query(
+      "insert into memberships (id, tenant_id, user_id, role) values ($1, $2, $3, 'staff')",
+      [uuidv7(), a.tenantId, noNameUser],
+    );
+    noNameEntry = await insertEntry({
+      tenant: a,
+      occurredOn: `${MONTH}-12`,
+      amountCents: 500,
+      createdBy: noNameUser,
+    });
+  });
+
+  it("lista e detalhe mostram o nome do vínculo de cada empresa; sem nome cai em users.name", async () => {
+    const fromA = await list(a.tenantId, OWNER, queryFor(MONTH));
+    expect(fromA.rows.find((r) => r.id === entryA)?.createdBy.name).toBe("Ana da Matriz");
+    expect(fromA.rows.find((r) => r.id === noNameEntry)?.createdBy.name).toBe("Só Global");
+    const fromB = await list(b.tenantId, OWNER, queryFor(MONTH));
+    expect(fromB.rows.find((r) => r.id === entryB)?.createdBy.name).toBe("Aninha da Filial");
+    const detail = await find(a.tenantId, OWNER, entryA);
+    expect(detail?.createdBy.name).toBe("Ana da Matriz");
+  });
+
+  it("histórico, lixeira, origem e opções usam o nome do vínculo", async () => {
+    const history = await versions(a.tenantId, entryA);
+    expect(history[0]?.changedBy.name).toBe("Ana da Matriz");
+    const historyB = await versions(b.tenantId, entryB);
+    expect(historyB[0]?.changedBy.name).toBe("Aninha da Filial");
+    const trashed = await trash(a.tenantId, OWNER);
+    const trashedRow = trashed.rows.find((r) => r.id === deletedA);
+    expect(trashedRow?.deleted?.by?.name).toBe("Ana da Matriz");
+    const opts = await options(a.tenantId, OWNER);
+    expect(opts.members).toContainEqual({ id: shared, name: "Ana da Matriz" });
+    expect(opts.members).toContainEqual({ id: noNameUser, name: "Só Global" });
+    const optsB = await options(b.tenantId, OWNER);
+    expect(optsB.members).toContainEqual({ id: shared, name: "Aninha da Filial" });
+  });
+
+  it("exportação e versões da exportação usam o nome do vínculo", async () => {
+    const filters = entryFiltersSchema.parse({ from: `${MONTH}-01`, to: `${MONTH}-31` });
+    const rowsA = await withTenant(appDb, a.tenantId, (tx) =>
+      entryReader.exportRows(tx, OWNER, filters, { includeDeleted: false, limit: 100 }),
+    );
+    expect(rowsA.find((r) => r.id === entryA)?.createdBy).toBe("Ana da Matriz");
+    const rowsB = await withTenant(appDb, b.tenantId, (tx) =>
+      entryReader.exportRows(tx, OWNER, filters, { includeDeleted: false, limit: 100 }),
+    );
+    expect(rowsB.find((r) => r.id === entryB)?.createdBy).toBe("Aninha da Filial");
+    const vers = await withTenant(appDb, b.tenantId, (tx) =>
+      entryReader.exportVersions(tx, [entryB]),
+    );
+    expect(vers[0]?.changedBy.name).toBe("Aninha da Filial");
+  });
+});

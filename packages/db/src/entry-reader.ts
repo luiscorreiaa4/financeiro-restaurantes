@@ -339,6 +339,7 @@ const FROM = sql.raw(`
   left join payment_methods pm on pm.tenant_id = e.tenant_id and pm.id = e.payment_method_id
   left join sales_channels sc on sc.tenant_id = e.tenant_id and sc.id = e.sales_channel_id
   left join users cu on cu.id = e.created_by
+  left join memberships cm on cm.user_id = e.created_by and cm.tenant_id = e.tenant_id
   ${FIRST_VERSION_JOIN}
 `);
 
@@ -360,7 +361,7 @@ const ROW_COLUMNS = sql`
   pm.id as payment_method_id, pm.name as payment_method_name,
   sc.id as sales_channel_id, sc.name as sales_channel_name,
   u.id as unit_id, u.name as unit_name,
-  e.created_by, cu.name as created_by_name,
+  e.created_by, coalesce(cm.display_name, cu.name) as created_by_name,
   ${ORIGIN_CHANNEL} as origin_channel,
   e.flags,
   ${sql.raw(CREATED_AT_TEXT)} as created_at,
@@ -698,10 +699,11 @@ export const entryReader = {
       select ${ROW_COLUMNS},
              e.fee_percent_bp, e.fee_fixed_cents::text as fee_fixed_cents,
              ${sql.raw(isoInstant("e.updated_at"))} as updated_at,
-             e.deleted_by, du.name as deleted_by_name, e.delete_reason,
+             e.deleted_by, coalesce(dm.display_name, du.name) as deleted_by_name, e.delete_reason,
              e.restorable_until::text as restorable_until
       ${FROM}
       left join users du on du.id = e.deleted_by
+      left join memberships dm on dm.user_id = e.deleted_by and dm.tenant_id = e.tenant_id
       where ${where}
       limit 1
     `);
@@ -738,11 +740,12 @@ export const entryReader = {
   async versions(tx: Transaction, entryId: string): Promise<EntryVersionRow[]> {
     if (!UUID_VALUE.test(entryId)) return [];
     const result = await tx.execute<RawVersion>(sql`
-      select v.version, v.action, v.channel, v.changed_by, vu.name as changed_by_name,
+      select v.version, v.action, v.channel, v.changed_by, coalesce(vm.display_name, vu.name) as changed_by_name,
              ${sql.raw(isoInstant("v.changed_at"))} as changed_at,
              v.before, v.after
         from entry_versions v
         left join users vu on vu.id = v.changed_by
+        left join memberships vm on vm.user_id = v.changed_by and vm.tenant_id = v.tenant_id
        where v.entry_id = ${entryId}::uuid
        order by v.version asc
     `);
@@ -777,7 +780,7 @@ export const entryReader = {
              (select fd.access_key from fiscal_documents fd
                where fd.tenant_id = e.tenant_id and fd.inbound_message_id = im.id
                order by fd.created_at, fd.id limit 1) as access_key,
-             im.user_id as sent_by, su.name as sent_by_name,
+             im.user_id as sent_by, coalesce(sm.display_name, su.name) as sent_by_name,
              ${sql.raw(isoInstant("im.received_at"))} as sent_at,
              exists (
                select 1 from entries e2
@@ -792,6 +795,7 @@ export const entryReader = {
         left join inbound_messages im
           on im.tenant_id = e.tenant_id and im.id = e.inbound_message_id
         left join users su on su.id = im.user_id
+        left join memberships sm on sm.user_id = im.user_id and sm.tenant_id = im.tenant_id
        where e.id = ${entryId}::uuid
        limit 1
     `);
@@ -900,10 +904,11 @@ export const entryReader = {
 
     const result = await tx.execute<RawTrashRow>(sql`
       select ${ROW_COLUMNS},
-             e.deleted_by, du.name as deleted_by_name, e.delete_reason,
+             e.deleted_by, coalesce(dm.display_name, du.name) as deleted_by_name, e.delete_reason,
              e.restorable_until::text as restorable_until
       ${FROM}
       left join users du on du.id = e.deleted_by
+      left join memberships dm on dm.user_id = e.deleted_by and dm.tenant_id = e.tenant_id
       where ${sql.join(where, sql` and `)}
       order by e.deleted_at desc, e.id desc
       limit ${query.limit + 1}
@@ -1076,11 +1081,12 @@ export const entryReader = {
     const valid = [...new Set(entryIds.filter((id) => UUID_VALUE.test(id)))];
     if (valid.length === 0) return [];
     const result = await tx.execute<RawVersion & { entry_id: string }>(sql`
-      select v.entry_id, v.version, v.action, v.channel, v.changed_by, vu.name as changed_by_name,
+      select v.entry_id, v.version, v.action, v.channel, v.changed_by, coalesce(vm.display_name, vu.name) as changed_by_name,
              ${sql.raw(isoInstant("v.changed_at"))} as changed_at,
              v.before, v.after
         from entry_versions v
         left join users vu on vu.id = v.changed_by
+        left join memberships vm on vm.user_id = v.changed_by and vm.tenant_id = v.tenant_id
        where v.entry_id = any(${arrayLiteral(valid)}::uuid[])
        order by v.entry_id, v.version
     `);
@@ -1140,17 +1146,20 @@ export const entryReader = {
           // outra unidade nem autor que só lançou folha (F3-4, DD-39).
           (
             await tx.execute<RawName>(sql`
-              select mu.id, mu.name
+              select mu.id, coalesce(mm.display_name, mu.name) as name
                 from users mu
+                join memberships mm on mm.user_id = mu.id
+                 and mm.tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid
                where exists (
                  select 1
                    from entries e
                    left join categories c on c.id = e.category_id
                   where e.created_by = mu.id
+                    and e.tenant_id = mm.tenant_id
                     and e.deleted_at is null
                     and ${sql.join([sql`true`, ...scopeConditions(scope, "visible")], sql` and `)}
                )
-               order by mu.name, mu.id
+               order by coalesce(mm.display_name, mu.name), mu.id
             `)
           ).rows;
 

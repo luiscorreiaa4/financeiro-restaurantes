@@ -5,6 +5,8 @@ import {
   createDatabase,
   createEntryStore,
   createFeeReapplyRepo,
+  createMemberDirectory,
+  createMembersRepo,
   createOwnedUnitsStore,
   createPanelAccessStore,
   createPool,
@@ -31,6 +33,8 @@ import {
 } from "../../src/modules/recovery/recover-password";
 
 export const ORIGIN = "http://localhost:3000";
+/** Número do produto nos testes (RF05.R2): cadastrá-lo como colaborador é recusado. */
+export const PRODUCT_PHONE = "+5511900000000";
 const SECRET = "segredo-de-teste-com-mais-de-32-caracteres";
 export const START = new Date("2026-11-09T12:00:00.000Z");
 export const SECOND = 1000;
@@ -176,6 +180,12 @@ export async function startAuthHarness(): Promise<AuthHarness> {
         queue: fakeQueue,
         clock,
         newId: uuidv7,
+        members: createMembersRepo(panel.appDb),
+        directory: createMemberDirectory(createDatabase(authPool)),
+        productPhoneE164: PRODUCT_PHONE,
+        email,
+        loginUrl: `${ORIGIN}/login`,
+        deleteSessionsExcept: (userId, keep) => store.deleteSessionsExcept(userId, keep),
       },
       restricted: {
         checkEntry,
@@ -335,6 +345,7 @@ export async function startAuthHarness(): Promise<AuthHarness> {
       (email.sent as unknown[]).length = 0;
       (email.sentLinks as unknown[]).length = 0;
       (email.sentNotices as unknown[]).length = 0;
+      (email.sentInvites as unknown[]).length = 0;
       ipCounter += 1;
     },
     async stop() {

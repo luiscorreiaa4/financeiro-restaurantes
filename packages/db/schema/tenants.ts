@@ -102,6 +102,11 @@ export const memberships = pgTable(
     permissions: jsonb("permissions").notNull().default(sql`'[]'::jsonb`),
     /** O Dono liberou o painel (RF05.R3); o contador sempre tem. */
     panelAccess: boolean("panel_access").notNull().default(false),
+    /**
+     * Nome que o dono deu a esta pessoa nesta empresa (RF05.R2). O mesmo número pode ter outro
+     * nome em outra empresa; nulo = vale `users.name`. Aparece em "lançado por".
+     */
+    displayName: text("display_name"),
     invitedBy: uuid("invited_by").references(() => users.id),
     invitedAt: timestamp("invited_at", { withTimezone: true }),
     /** Preenchido = acesso retirado. Nada é apagado: o vínculo e o histórico continuam. */
@@ -124,6 +129,10 @@ export const memberships = pgTable(
       sql.raw(
         `jsonb_typeof(permissions) = 'array' and permissions <@ '${JSON.stringify(ADDITIONAL_PERMISSIONS)}'::jsonb`,
       ),
+    ),
+    check(
+      "memberships_display_name_check",
+      sql.raw("display_name is null or char_length(display_name) between 2 and 120"),
     ),
     tenantIsolation("memberships"),
     ingestCanRead("memberships"),

@@ -34,6 +34,12 @@ const CARDS = [
     action: "catalog:view",
   },
   {
+    href: "/configuracoes/colaboradores",
+    title: "Colaboradores",
+    text: "Quem lança pelo WhatsApp e quem acessa o painel.",
+    action: "user:view",
+  },
+  {
     href: "/configuracoes/primeiros-passos",
     title: "Primeiros passos",
     text: "Assistente de configuração inicial.",

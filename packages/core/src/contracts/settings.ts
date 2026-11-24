@@ -1,10 +1,17 @@
 import { z } from "zod";
+import { ADDITIONAL_PERMISSIONS, MEMBERSHIP_STATUSES } from "../permissions/permissions";
 import {
   CATALOG_ALIASES_MAX,
   CATALOG_STATUSES,
   PAYMENT_METHOD_TYPES,
   SALES_CHANNEL_TYPES,
 } from "../registry/catalog-types";
+import {
+  MEMBER_EMAIL_MAX,
+  MEMBER_NAME_MAX,
+  MEMBER_NAME_MIN,
+  MEMBER_ROLES,
+} from "../registry/member";
 import { CATALOG_NAME_MAX, CATALOG_NAME_MIN, MAX_FEE_BP } from "../registry/payment-method";
 import {
   BRAZILIAN_STATES,
@@ -135,6 +142,50 @@ export const restrictedUnitsSchema = z
   })
   .strict();
 
+// Colaborador (F6b, RF05). O contador entra pela F13, não por aqui.
+export const memberInputSchema = z
+  .object({
+    displayName: z.string().min(MEMBER_NAME_MIN).max(MEMBER_NAME_MAX),
+    phone: z.string().min(1),
+    email: z.email().max(MEMBER_EMAIL_MAX).nullable(),
+    role: z.enum(MEMBER_ROLES),
+    allUnits: z.boolean(),
+    unitIds: z.array(idSchema),
+    defaultUnitId: idSchema.nullable(),
+    panelAccess: z.boolean(),
+    permissions: z.array(z.enum(ADDITIONAL_PERMISSIONS)),
+  })
+  .strict();
+export const memberPatchSchema = memberInputSchema
+  .partial()
+  .extend({ confirmPhoneChange: z.literal(true).optional() })
+  .strict()
+  .refine((value) => value.phone === undefined || value.confirmPhoneChange === true, {
+    message: "confirmPhoneChange is required when phone changes",
+    path: ["confirmPhoneChange"],
+  });
+export const memberSettingsSchema = z
+  .object({
+    id: idSchema,
+    displayName: z.string(),
+    phoneMasked: z.string(),
+    phone: z.string().optional(),
+    email: z.string().nullable().optional(),
+    role: z.enum(MEMBER_ROLES),
+    allUnits: z.boolean(),
+    unitIds: z.array(idSchema),
+    defaultUnitId: idSchema.nullable(),
+    panelAccess: z.boolean(),
+    permissions: z.array(z.enum(ADDITIONAL_PERMISSIONS)),
+    status: z.enum(MEMBERSHIP_STATUSES),
+    invitedAt: timestampSchema.nullable(),
+    deactivatedAt: timestampSchema.nullable(),
+  })
+  .strict();
+export const memberCreatedSchema = z
+  .object({ member: memberSettingsSchema, inviteText: z.string() })
+  .strict();
+
 export type PaymentMethodInput = z.infer<typeof paymentMethodInputSchema>;
 export type PaymentMethodPatch = z.infer<typeof paymentMethodPatchSchema>;
 export type PaymentMethodSettings = z.infer<typeof paymentMethodSettingsSchema>;
@@ -150,3 +201,7 @@ export type FeeReapplicationPreview = z.infer<typeof feeReapplicationPreviewSche
 export type FeeReapplicationInput = z.infer<typeof feeReapplicationInputSchema>;
 export type FeeReapplication = z.infer<typeof feeReapplicationSchema>;
 export type RestrictedUnits = z.infer<typeof restrictedUnitsSchema>;
+export type MemberSettingsInput = z.infer<typeof memberInputSchema>;
+export type MemberSettingsPatch = z.infer<typeof memberPatchSchema>;
+export type MemberSettings = z.infer<typeof memberSettingsSchema>;
+export type MemberCreated = z.infer<typeof memberCreatedSchema>;

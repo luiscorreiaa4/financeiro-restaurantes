@@ -2,7 +2,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AccessCodeMessage, EmailSender } from "@app/core";
 import { uuidv7 } from "@app/db";
-import { accountExistsText, passwordChangedText, passwordResetLinkText } from "./email-texts";
+import {
+  accountExistsText,
+  memberInviteText,
+  passwordChangedText,
+  passwordResetLinkText,
+} from "./email-texts";
 
 function bodyOf(message: AccessCodeMessage) {
   if (message.purpose === "account-exists") {
@@ -35,6 +40,21 @@ export function createFileEmailSender(dir: string): EmailSender {
         join(dir, `${Date.now()}-${uuidv7()}.json`),
         JSON.stringify(
           { to: message.to, url: message.url, text: passwordResetLinkText(message.url) },
+          null,
+          2,
+        ),
+      );
+    },
+    async sendMemberInvite(message) {
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(dir, `${Date.now()}-${uuidv7()}.json`),
+        JSON.stringify(
+          {
+            to: message.to,
+            loginUrl: message.loginUrl,
+            text: memberInviteText(message.tenantName, message.loginUrl),
+          },
           null,
           2,
         ),

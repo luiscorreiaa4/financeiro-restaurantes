@@ -67,6 +67,37 @@ describe("loadEnv", () => {
     );
   });
 
+  it("o número do produto é opcional", () => {
+    expect(loadEnv(base).PRODUCT_WHATSAPP_NUMBER).toBeUndefined();
+    expect(
+      loadEnv({ ...base, PRODUCT_WHATSAPP_NUMBER: "" }).PRODUCT_WHATSAPP_NUMBER,
+    ).toBeUndefined();
+  });
+
+  it("o número do produto aceita dígitos com ou sem + inicial, de 10 a 15", () => {
+    expect(
+      loadEnv({ ...base, PRODUCT_WHATSAPP_NUMBER: "5511999999999" }).PRODUCT_WHATSAPP_NUMBER,
+    ).toBe("5511999999999");
+    expect(
+      loadEnv({ ...base, PRODUCT_WHATSAPP_NUMBER: "+5511999999999" }).PRODUCT_WHATSAPP_NUMBER,
+    ).toBe("+5511999999999");
+    expect(
+      loadEnv({ ...base, PRODUCT_WHATSAPP_NUMBER: "1234567890" }).PRODUCT_WHATSAPP_NUMBER,
+    ).toBe("1234567890");
+  });
+
+  it("o número do produto recusa formato inválido", () => {
+    for (const value of [
+      "55 11 99999-9999",
+      "+55abc",
+      "123456789",
+      "1234567890123456",
+      "++5511999999999",
+    ]) {
+      expect(() => loadEnv({ ...base, PRODUCT_WHATSAPP_NUMBER: value })).toThrow(EnvError);
+    }
+  });
+
   it("não vaza valores na mensagem de erro", () => {
     const secret = "valor-secreto-123";
     try {

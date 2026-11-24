@@ -13,6 +13,8 @@ export * from "./inbound-ingest-repo";
 export * from "./inbound-media-repo";
 export * from "./inbound-processing-repo";
 export * from "./inbound-sender-repo";
+export * from "./member-directory";
+export * from "./members-repo";
 export * from "./outbound-message-repo";
 export * from "./panel-access-store";
 export * from "./panel-entry-writer";

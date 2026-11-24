@@ -88,6 +88,9 @@ export type DomainError =
   | { readonly code: "UnitInactive"; readonly unitId: string }
   | { readonly code: "PayrollNoticeNotAccepted" }
   | { readonly code: "InvalidPhone"; readonly reason: "empty" | "length" | "area_code" | "number" }
+  | { readonly code: "InvalidEmail"; readonly field: "email" }
+  | { readonly code: "ProductNumber" }
+  | { readonly code: "ForeignPhone" }
   | { readonly code: "DuplicateMessage"; readonly waMessageId: string }
   | { readonly code: "ExtractionInvalid"; readonly detail: string }
   | { readonly code: "LlmRefused" }

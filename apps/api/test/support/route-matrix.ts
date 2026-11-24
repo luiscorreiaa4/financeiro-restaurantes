@@ -524,3 +524,73 @@ export const FEE_REAPPLY_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
     expected: ownerOnly(200, 200),
   },
 ];
+
+const MISSING_MEMBER_ID = "01900000-0000-7000-8000-000000000003";
+
+/**
+ * Colaboradores (F6b, RF05, RF06.CA06): leitura com `user:view` (dono e gerente; o contador e o
+ * lançador não têm a ação, 403); escrita só do dono (`user:manage`) e com a conta gravável. Roda
+ * em `settings-members.int.test.ts`.
+ */
+const MEMBERS_READ: SettingsRouteCase["expected"] = {
+  owner: 200,
+  manager: 200,
+  managerNoPayroll: 200,
+  staff: 403,
+  accountant: 403,
+  restricted: 401,
+  readOnly: 200,
+  staffNoPanel: 401,
+};
+
+export const MEMBERS_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "GET /api/settings/members",
+    method: "GET",
+    url: () => "/api/settings/members",
+    expected: MEMBERS_READ,
+  },
+  {
+    name: "GET /api/settings/members/:id",
+    method: "GET",
+    url: () => `/api/settings/members/${MISSING_MEMBER_ID}`,
+    expected: { ...MEMBERS_READ, owner: 404, manager: 404, managerNoPayroll: 404, readOnly: 404 },
+  },
+  {
+    name: "POST /api/settings/members",
+    method: "POST",
+    url: () => "/api/settings/members",
+    // Celular inválido: quem pode criar chega ao 422 sem gravar nada.
+    body: () => ({
+      displayName: "Matriz",
+      phone: "123",
+      email: null,
+      role: "staff",
+      allUnits: true,
+      unitIds: [],
+      defaultUnitId: null,
+      panelAccess: false,
+      permissions: [],
+    }),
+    expected: settingsWrite(422),
+  },
+  {
+    name: "PATCH /api/settings/members/:id",
+    method: "PATCH",
+    url: () => `/api/settings/members/${MISSING_MEMBER_ID}`,
+    body: () => ({ displayName: "Qualquer" }),
+    expected: settingsWrite(404),
+  },
+  {
+    name: "POST /api/settings/members/:id/deactivate",
+    method: "POST",
+    url: () => `/api/settings/members/${MISSING_MEMBER_ID}/deactivate`,
+    expected: settingsWrite(404),
+  },
+  {
+    name: "POST /api/settings/members/:id/reactivate",
+    method: "POST",
+    url: () => `/api/settings/members/${MISSING_MEMBER_ID}/reactivate`,
+    expected: settingsWrite(404),
+  },
+];

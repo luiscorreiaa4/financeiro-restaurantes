@@ -8,6 +8,7 @@ export const APP_ROUTES = [
   "/bem-vindo",
   "/configuracoes",
   "/configuracoes/canais-de-venda",
+  "/configuracoes/colaboradores",
   "/configuracoes/formas-de-pagamento",
   "/configuracoes/primeiros-passos",
   "/configuracoes/unidades",

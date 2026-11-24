@@ -21,7 +21,7 @@ export const MEMBERSHIP_STATUSES = ["invited", "active", "deactivated"] as const
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
 /** Em quais papéis cada permissão adicional faz sentido (RF05.R7, RF06). */
-const PERMISSIONS_BY_ROLE: Record<Role, readonly AdditionalPermission[]> = {
+export const PERMISSIONS_BY_ROLE: Record<Role, readonly AdditionalPermission[]> = {
   owner: [],
   manager: ["VER_FOLHA", "EXPORTAR_DADOS", "RECEBER_RESUMO_SEMANAL"],
   staff: ["CONSULTAR_RELATORIOS_WHATSAPP"],

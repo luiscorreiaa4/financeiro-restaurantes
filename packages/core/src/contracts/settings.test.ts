@@ -5,6 +5,10 @@ import {
   feeReapplicationPreviewInputSchema,
   feeReapplicationPreviewSchema,
   feeReapplicationSchema,
+  memberCreatedSchema,
+  memberInputSchema,
+  memberPatchSchema,
+  memberSettingsSchema,
   paymentMethodInputSchema,
   paymentMethodPatchSchema,
   paymentMethodSettingsSchema,
@@ -189,5 +193,68 @@ describe("apelidos de forma e canal", () => {
       isDefaultCard: false,
     };
     expect(paymentMethodInputSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe("colaboradores", () => {
+  const memberBody = {
+    displayName: "Ana Souza",
+    phone: "(11) 98765-5647",
+    email: null,
+    role: "staff",
+    allUnits: false,
+    unitIds: [ID],
+    defaultUnitId: ID,
+    panelAccess: false,
+    permissions: [],
+  };
+
+  it("entrada recusa campo extra, papel contador e permissão desconhecida", () => {
+    expect(memberInputSchema.safeParse(memberBody).success).toBe(true);
+    expect(memberInputSchema.safeParse({ ...memberBody, extra: 1 }).success).toBe(false);
+    expect(memberInputSchema.safeParse({ ...memberBody, role: "accountant" }).success).toBe(false);
+    expect(memberInputSchema.safeParse({ ...memberBody, permissions: ["X"] }).success).toBe(false);
+  });
+
+  it("recusa e-mail malformado ou com mais de 254 caracteres", () => {
+    expect(memberInputSchema.safeParse({ ...memberBody, email: "sem-arroba" }).success).toBe(false);
+    expect(
+      memberInputSchema.safeParse({ ...memberBody, email: `${"a".repeat(250)}@b.com` }).success,
+    ).toBe(false);
+    expect(memberInputSchema.safeParse({ ...memberBody, email: "a@b.com" }).success).toBe(true);
+    expect(memberPatchSchema.safeParse({ email: "x" }).success).toBe(false);
+  });
+
+  it("patch exige confirmPhoneChange quando vem phone", () => {
+    expect(memberPatchSchema.safeParse({ phone: "11987655647" }).success).toBe(false);
+    expect(
+      memberPatchSchema.safeParse({ phone: "11987655647", confirmPhoneChange: false }).success,
+    ).toBe(false);
+    expect(
+      memberPatchSchema.safeParse({ phone: "11987655647", confirmPhoneChange: true }).success,
+    ).toBe(true);
+    expect(memberPatchSchema.safeParse({ displayName: "Ana" }).success).toBe(true);
+    expect(memberPatchSchema.safeParse({ displayName: "Ana", extra: 1 }).success).toBe(false);
+  });
+
+  it("saída e criação são strict", () => {
+    const member = {
+      id: ID,
+      displayName: "Ana Souza",
+      phoneMasked: "•••• 5647",
+      role: "staff",
+      allUnits: false,
+      unitIds: [ID],
+      defaultUnitId: ID,
+      panelAccess: false,
+      permissions: [],
+      status: "invited",
+      invitedAt: "2026-11-23T12:00:00.000Z",
+      deactivatedAt: null,
+    };
+    expect(memberSettingsSchema.safeParse(member).success).toBe(true);
+    expect(memberSettingsSchema.safeParse({ ...member, extra: 1 }).success).toBe(false);
+    expect(memberCreatedSchema.safeParse({ member, inviteText: "Oi" }).success).toBe(true);
+    expect(memberCreatedSchema.safeParse({ member, inviteText: "Oi", x: 1 }).success).toBe(false);
   });
 });
