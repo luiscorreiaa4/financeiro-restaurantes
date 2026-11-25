@@ -6,6 +6,7 @@ import {
   type Entry,
   type EntryDraft,
   editEntry,
+  reassignSupplier,
   restoreEntry,
   softDeleteEntry,
 } from "./entry";
@@ -282,6 +283,44 @@ describe("restaurar lançamento da lixeira (RF25.R4)", () => {
     expect(restoreEntry(created(), whatsapp(t2))).toEqual({
       ok: false,
       error: { code: "EntryNotDeleted" },
+    });
+  });
+});
+
+describe("reassignSupplier (mesclagem de fornecedor, RF10)", () => {
+  it("troca o fornecedor e gera versão update com o contexto", () => {
+    const entry = created({ supplierId: "f-a" });
+    const result = reassignSupplier(entry, "f-b", whatsapp(t2, OTHER_USER_ID));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.entry).toMatchObject({ supplierId: "f-b", version: 2, updatedAt: t2 });
+    expect(result.value.version).toMatchObject({
+      action: "update",
+      version: 2,
+      before: entry,
+      changedBy: OTHER_USER_ID,
+      channel: "whatsapp",
+      changedAt: t2,
+    });
+  });
+
+  it("aceita lançamento excluído e mantém a exclusão", () => {
+    const entry = created({ supplierId: "f-a" });
+    const deleted = softDeleteEntry(entry, whatsapp(t2));
+    if (!deleted.ok) throw new Error("exclusão falhou");
+    const result = reassignSupplier(deleted.value.entry, "f-b", whatsapp(t3));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.entry.supplierId).toBe("f-b");
+    expect(result.value.entry.deletedAt).toEqual(t2);
+    expect(result.value.version.action).toBe("update");
+  });
+
+  it("sem mudança quando o fornecedor já é o mesmo", () => {
+    const entry = created({ supplierId: "f-a" });
+    expect(reassignSupplier(entry, "f-a", whatsapp(t2))).toEqual({
+      ok: false,
+      error: { code: "NothingToChange" },
     });
   });
 });

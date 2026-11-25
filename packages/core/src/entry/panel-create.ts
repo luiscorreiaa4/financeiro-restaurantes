@@ -91,7 +91,13 @@ export function preparePanelCreate(args: {
   const description = sanitizeDescription(input.description);
   if (description === "") return fail("DescriptionEmpty");
 
-  if (input.supplier && !catalog.suppliers.some((item) => item.id === input.supplier?.id)) {
+  // Fornecedor mesclado não recebe lançamento novo: o destino herdou o nome pelo apelido.
+  if (
+    input.supplier &&
+    !catalog.suppliers.some(
+      (item) => item.id === input.supplier?.id && (item.mergedIntoId ?? null) === null,
+    )
+  ) {
     return fail("UnknownReference", { field: "supplier" });
   }
   const paymentMethod =

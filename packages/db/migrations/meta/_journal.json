@@ -176,6 +176,13 @@
       "when": 1795531602407,
       "tag": "0024_membership_display_name",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795628700735,
+      "tag": "0025_supplier_status_merge",
+      "breakpoints": true
     }
   ]
 }

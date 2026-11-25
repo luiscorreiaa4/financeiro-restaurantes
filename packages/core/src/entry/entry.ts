@@ -220,6 +220,25 @@ export function editEntry(
   return ok({ entry: next, version: toVersion("update", entry, next, context) });
 }
 
+/**
+ * Troca o fornecedor do lançamento na mesclagem (RF10). Aceita lançamento excluído (a lixeira
+ * também muda de fornecedor); gera versão `update`. Sem mudança real não gera versão.
+ */
+export function reassignSupplier(
+  entry: Entry,
+  supplierId: string,
+  context: ChangeContext,
+): Result<EntryChange, DomainError> {
+  if (entry.supplierId === supplierId) return fail("NothingToChange");
+  const next: Entry = {
+    ...entry,
+    supplierId,
+    updatedAt: context.at,
+    version: entry.version + 1,
+  };
+  return ok({ entry: next, version: toVersion("update", entry, next, context) });
+}
+
 /** Soft delete: nada é apagado, `deletedAt` é preenchido e a versão fica registrada. */
 export function softDeleteEntry(
   entry: Entry,

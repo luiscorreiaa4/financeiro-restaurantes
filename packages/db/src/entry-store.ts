@@ -178,7 +178,12 @@ export async function loadCatalogIn(tx: Transaction, tenantId: string): Promise<
       .from(categories)
       .where(or(eq(categories.tenantId, tenantId), isNull(categories.tenantId))),
     tx
-      .select({ id: suppliers.id, name: suppliers.name, aliases: suppliers.aliases })
+      .select({
+        id: suppliers.id,
+        name: suppliers.name,
+        aliases: suppliers.aliases,
+        mergedIntoId: suppliers.mergedIntoId,
+      })
       .from(suppliers)
       .where(eq(suppliers.tenantId, tenantId)),
     tx
@@ -332,6 +337,7 @@ export function createEntryStore(db: Database): EntryStore {
               id: supplier.id,
               tenantId,
               name: supplier.name,
+              origin: "message" as const,
             })),
           );
         }
@@ -380,12 +386,14 @@ export function createEntryStore(db: Database): EntryStore {
     async applyChanges(tenantId, changes, extra) {
       return withTenant(db, tenantId, async (tx) => {
         // Fornecedor novo antes dos lançamentos que o citam; a transação desfeita o leva junto.
+        // Só o painel passa `newSuppliers` aqui (edição, RF26): a origem é `panel`.
         if (extra?.newSuppliers && extra.newSuppliers.length > 0) {
           await tx.insert(suppliers).values(
             extra.newSuppliers.map((supplier) => ({
               id: supplier.id,
               tenantId,
               name: supplier.name,
+              origin: "panel" as const,
             })),
           );
         }

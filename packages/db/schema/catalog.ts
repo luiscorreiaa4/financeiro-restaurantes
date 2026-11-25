@@ -8,6 +8,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgPolicy,
@@ -30,6 +31,7 @@ import {
 import { tenantId, tenants } from "./tenant-base";
 
 export const CATEGORY_KINDS = ["revenue", "expense", "investment", "deduction"] as const;
+export const SUPPLIER_ORIGINS = ["message", "invoice", "panel", "import"] as const;
 export const CATEGORY_NATURES = ["fixed", "variable"] as const;
 
 /** `tenant_id` nulo = categoria padrão do sistema (somente leitura para o papel `app`). */
@@ -87,17 +89,35 @@ export const suppliers = pgTable(
     name: text("name").notNull(),
     document: text("document"),
     aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+    /** ATIVO ou INATIVO (RF10); o mesclado fica inativo e aponta para o destino. */
+    status: text("status").notNull().default("active"),
+    /** Destino da mesclagem (RF10); a chave composta mantém o destino na mesma empresa. */
+    mergedIntoId: uuid("merged_into_id"),
+    /** Como nasceu: mensagem, nota, painel ou importação. Nulo nos cadastros anteriores. */
+    origin: text("origin"),
     createdAt: createdAt(),
   },
   (t) => [
     unique("suppliers_tenant_id_id_unique").on(t.tenantId, t.id),
+    foreignKey({
+      name: "suppliers_merged_into_fk",
+      columns: [t.tenantId, t.mergedIntoId],
+      foreignColumns: [t.tenantId, t.id],
+    }),
+    oneOf("suppliers_status_check", "status", CATALOG_STATUSES),
+    oneOf("suppliers_origin_check", "origin", SUPPLIER_ORIGINS),
+    check("suppliers_aliases_check", sql`coalesce(array_length(${t.aliases}, 1), 0) <= 10`),
     index("suppliers_tenant_name_idx").on(t.tenantId, t.name),
     // F3b-1: dois cadastros com o mesmo nome (sem caixa nem espaços repetidos) na empresa não
-    // existem; a corrida de "fornecedor novo" cai neste índice e a rota tenta de novo.
-    uniqueIndex("suppliers_tenant_name_norm_unique").on(
-      t.tenantId,
-      sql`lower(regexp_replace(btrim(${t.name}), '[[:space:]]+', ' ', 'g'))`,
-    ),
+    // existem; a corrida de "fornecedor novo" cai neste índice e a rota tenta de novo. O
+    // mesclado sai do índice (RF10): o nome dele pode voltar a ser usado.
+    uniqueIndex("suppliers_tenant_name_norm_unique")
+      .on(t.tenantId, sql`lower(regexp_replace(btrim(${t.name}), '[[:space:]]+', ' ', 'g'))`)
+      .where(sql`${t.mergedIntoId} is null`),
+    // RF10.R2: o mesmo documento não se repete na empresa (o mesclado não conta).
+    uniqueIndex("suppliers_tenant_document_unique")
+      .on(t.tenantId, t.document)
+      .where(sql`${t.document} is not null and ${t.mergedIntoId} is null`),
     tenantIsolation("suppliers"),
   ],
 );

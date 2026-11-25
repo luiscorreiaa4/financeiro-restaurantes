@@ -76,6 +76,16 @@ export type DomainError =
         | "not_system"
         | "inactive";
     }
+  | { readonly code: "ParentChangeForbidden" }
+  | { readonly code: "SystemCategoryReadOnly" }
+  | { readonly code: "NatureOnlyForExpense" }
+  | { readonly code: "SensitiveLocked" }
+  | { readonly code: "InvalidDocument" }
+  | { readonly code: "DocumentTaken"; readonly conflictId: string }
+  | { readonly code: "AliasesOverflow"; readonly max: number }
+  | { readonly code: "DocumentConflict" }
+  | { readonly code: "SameSupplier" }
+  | { readonly code: "AlreadyMerged" }
   | { readonly code: "LastActiveUnit" }
   | { readonly code: "InvalidName"; readonly min: number; readonly max: number }
   | { readonly code: "AliasesTooMany"; readonly max: number }

@@ -17,6 +17,8 @@ export interface CatalogSupplier {
   readonly id: string;
   readonly name: string;
   readonly aliases: readonly string[];
+  /** Fornecedor mesclado em outro (RF10): some da busca; o destino herda o nome como apelido. */
+  readonly mergedIntoId?: string | null;
 }
 export interface CatalogPaymentMethod extends FeeRule {
   readonly id: string;
@@ -67,7 +69,10 @@ const matches = (name: string, aliases: readonly string[], key: string) =>
 export function findSupplier(catalog: CatalogSnapshot, hint: string): CatalogSupplier | null {
   const key = normalizeName(hint);
   return (
-    catalog.suppliers.find((supplier) => matches(supplier.name, supplier.aliases, key)) ?? null
+    catalog.suppliers.find(
+      (supplier) =>
+        (supplier.mergedIntoId ?? null) === null && matches(supplier.name, supplier.aliases, key),
+    ) ?? null
   );
 }
 

@@ -5,4 +5,5 @@ export * from "./municipalities";
 export * from "./names";
 export * from "./payment-method";
 export * from "./sales-channel";
+export * from "./supplier";
 export * from "./unit";

@@ -127,6 +127,14 @@ describe("findSupplier (RF12.R7)", () => {
   it("sem casamento devolve nulo", () => {
     expect(findSupplier(withSuppliers, "Padaria")).toBeNull();
   });
+
+  it("ignora fornecedor mesclado e resolve o destino pelo apelido herdado (RF10)", () => {
+    const merged = { id: "fa", name: "Atacado A", aliases: [], mergedIntoId: "fb" };
+    const target = { id: "fb", name: "Atacado B", aliases: ["Atacado A"], mergedIntoId: null };
+    const snapshot = { ...catalog([]), suppliers: [merged, target] };
+    expect(findSupplier(snapshot, "atacado a")).toBe(target);
+    expect(findSupplier({ ...snapshot, suppliers: [merged] }, "Atacado A")).toBeNull();
+  });
 });
 
 describe("resolveSupplierChoice (RF12.R7, RF10)", () => {
