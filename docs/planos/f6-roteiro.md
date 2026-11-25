@@ -48,3 +48,18 @@ Critérios: RF05.CA01 a CA09. **Preparação:** aplique a migration 0024 (`displ
 10. **Trocar celular.** Edite a Bia e mude o celular: pede a confirmação "o número antigo deixa de ser reconhecido". Se a pessoa tem vínculo em outra empresa, recusa com "desative e cadastre de novo".
 11. **Gerente (CA08).** Entre como gerente: a lista mostra só quem tem unidade em comum, celular `•••• 0004`, sem e-mail e sem botões.
 12. **Assistente.** Em `/configuracoes/primeiros-passos`, o passo 3 tem **Cadastrar colaborador** e leva ao formulário já aberto (`?novo=1`).
+
+## F6c: categorias e fornecedores
+
+Critérios: RF07.CA01 a CA05, RF10.CA01 a CA03. **Preparação:** aplique a migration 0025 (`status`, `merged_into_id` e `origin` do fornecedor): exporte `DATABASE_ADMIN_URL` e rode `pnpm db:migrate`. Depois rode **uma vez** `pnpm db:realign-categories` no banco dev (idempotente: a segunda execução não muda nada). Suba `pnpm dev`, `pnpm dev:worker` e `pnpm dev:chat`; entre como **dono** (`pnpm db:seed:dev`).
+
+1. **Realinhamento.** O comando imprime quantas categorias novas, lançamentos reclassificados e categorias antigas inativadas. Em **Lançamentos**, os de Salão, Delivery e Balcão aparecem em "Vendas" (o canal continua o mesmo); "Folha de pagamento" virou "Salários". Abra um lançamento reclassificado: o histórico tem uma versão a mais, canal "system". Rode o comando de novo: tudo zero.
+2. **Árvore (RF07).** Em **Configurações > Categorias**, as categorias do RF07.Obs2 aparecem com o selo "do sistema" e sem botão de editar. Busque "camarão" e "sal" e filtre por tipo e situação.
+3. **Subcategoria (CA02).** **Nova subcategoria em Carnes**: o diálogo mostra "Herdado de Carnes" (Despesa, CMV, exige quantidade). Crie "Frutos do mar" com palavras de apoio "camarão, lula". No `pnpm dev:chat`, mande "comprei 5 kg de camarão por 200" e confira que o lançamento cai em "Frutos do mar" e pede ou usa quantidade e unidade.
+4. **Folha (CA03).** **Nova subcategoria em Salários**: a caixa "Categoria sensível" aparece marcada e travada. Entre como **gerente sem VER_FOLHA**: "Salários" e suas subcategorias não aparecem, nem na busca "sal".
+5. **Sistema é só leitura (CA01).** Pela tela não há como editar; pela API, `PATCH` em categoria do sistema responde 422.
+6. **Fornecedores (RF10).** Em **Configurações > Fornecedores**, veja o total gasto e a última compra do mês corrente; mude "De" e "Até" (vão para a URL). Entre como gerente: o CPF aparece como `•••.•••.789-01`; como dono ou contador, inteiro. Gerente sem VER_FOLHA não soma a folha no total.
+7. **Mesclar (CA02).** Crie dois fornecedores parecidos pelo chat ("paguei 50 no Ceasa" e "paguei 30 no Ceasa Norte"). Em **Mesclar Ceasa Norte**, escolha "Ceasa": a prévia mostra "N lançamentos" e o aviso "lançamentos que você não vê também passam para o destino". Confirme. "Ceasa Norte" some da lista; os lançamentos estão em "Ceasa" com uma versão nova cada. Mande "paguei 40 pro Ceasa Norte" no chat: vai para "Ceasa", sem criar fornecedor.
+8. **Lixeira.** Exclua um lançamento do fornecedor antes de mesclar; depois da mesclagem, restaure: ele aparece no destino.
+9. **Quem só consulta.** Entre como **contador**: a lista abre sem "Editar" nem "Mesclar". Como **lançador**, a página responde "Você não tem acesso a esta página".
+10. **Evals (pendente, F6c-1).** `pnpm --filter @app/ai eval` (gasta crédito): a taxa de acerto não pode cair em relação ao baseline.
