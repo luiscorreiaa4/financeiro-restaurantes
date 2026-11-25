@@ -123,6 +123,8 @@ const ACTIONS_BY_ROLE = {
     "export:full",
     "catalog:view",
     "catalog:manage",
+    "supplier:view",
+    "supplier:manage",
     "user:view",
     "user:manage",
     "panel:access",
@@ -133,11 +135,20 @@ const ACTIONS_BY_ROLE = {
     "entry:restore",
     "report:view",
     "catalog:view",
+    "supplier:view",
+    "supplier:manage",
     "user:view",
     "panel:access",
   ],
   staff: ["entry:view", "entry:create", "entry:restore", "panel:access"],
-  accountant: ["entry:view", "report:view", "export:data", "catalog:view", "panel:access"],
+  accountant: [
+    "entry:view",
+    "report:view",
+    "export:data",
+    "catalog:view",
+    "supplier:view",
+    "panel:access",
+  ],
 };
 
 function company(tenantId, name, role, units, extra = {}) {

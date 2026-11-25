@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type CategoryRecord, type NewSubcategoryInput, validateSubcategory } from "./category";
+import {
+  type CategoryRecord,
+  type NewSubcategoryInput,
+  validateSubcategory,
+  validateSubcategoryPatch,
+} from "./category";
 
 const CARNES: CategoryRecord = {
   id: "c-carnes",
@@ -123,5 +128,80 @@ describe("validateSubcategory (RF07)", () => {
       ok: false,
       error: { field: "supportWords", reason: "invalid" },
     });
+  });
+});
+
+describe("validateSubcategoryPatch (RF07)", () => {
+  const sub = (overrides: Partial<CategoryRecord> = {}): CategoryRecord => ({
+    ...CARNES,
+    id: "c-frutos",
+    parentId: CARNES.id,
+    origin: "company",
+    name: "Frutos do mar",
+    ...overrides,
+  });
+  const siblings = [
+    { id: "c-frutos", name: "Frutos do mar" },
+    { id: "c-aves", name: "Aves" },
+  ];
+
+  it("aceita renomear, trocar natureza e palavras de apoio", () => {
+    const result = validateSubcategoryPatch(
+      sub(),
+      { name: " Peixes ", nature: "fixed", supportWords: ["  camarão "] },
+      siblings,
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: { name: "Peixes", nature: "fixed", supportWords: ["camarão"] },
+    });
+  });
+
+  it("recusa trocar o pai", () => {
+    expect(validateSubcategoryPatch(sub(), { parentId: "outro" }, siblings)).toEqual({
+      ok: false,
+      error: { code: "ParentChangeForbidden" },
+    });
+  });
+
+  it("categoria do sistema é somente leitura", () => {
+    expect(validateSubcategoryPatch(CARNES, { name: "Outra" }, siblings)).toEqual({
+      ok: false,
+      error: { code: "SystemCategoryReadOnly" },
+    });
+  });
+
+  it("natureza só em despesa", () => {
+    const revenue = sub({ kind: "revenue", nature: null });
+    expect(validateSubcategoryPatch(revenue, { nature: "fixed" }, siblings)).toEqual({
+      ok: false,
+      error: { code: "NatureOnlyForExpense" },
+    });
+  });
+
+  it("sensível não se desmarca (RF07.CA03)", () => {
+    const payroll = sub({ isSensitive: true });
+    expect(validateSubcategoryPatch(payroll, { isSensitive: false }, siblings)).toEqual({
+      ok: false,
+      error: { code: "SensitiveLocked" },
+    });
+    expect(validateSubcategoryPatch(sub(), { isSensitive: true }, siblings).ok).toBe(true);
+  });
+
+  it("nome duplicado entre irmãs, ignorando a própria", () => {
+    const dup = validateSubcategoryPatch(sub(), { name: "AVES" }, siblings);
+    expect(dup).toEqual({
+      ok: false,
+      error: { code: "InvalidCategory", field: "name", reason: "duplicate" },
+    });
+    expect(validateSubcategoryPatch(sub(), { name: "frutos do mar" }, siblings).ok).toBe(true);
+  });
+
+  it("palavras de apoio inválidas", () => {
+    const tooMany = Array.from({ length: 31 }, (_, i) => `p${i}`);
+    expect(validateSubcategoryPatch(sub(), { supportWords: tooMany }, siblings).ok).toBe(false);
+    expect(validateSubcategoryPatch(sub(), { supportWords: ["x".repeat(41)] }, siblings).ok).toBe(
+      false,
+    );
   });
 });

@@ -428,7 +428,7 @@ describe("allowedActions", () => {
   it("segue a ordem de ACTIONS", () => {
     const acoes = allowedActions(actor({}));
     expect(acoes).toEqual(ACTIONS.filter((a) => acoes.includes(a)));
-    expect(ACTIONS).toHaveLength(19);
+    expect(ACTIONS).toHaveLength(21);
   });
 });
 

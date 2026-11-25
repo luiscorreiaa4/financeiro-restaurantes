@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   createAuthStore,
   createCatalogSettingsRepo,
+  createCategoriesSettingsRepo,
   createDatabase,
   createEntryStore,
   createFeeReapplyRepo,
@@ -10,6 +11,7 @@ import {
   createOwnedUnitsStore,
   createPanelAccessStore,
   createPool,
+  createSuppliersSettingsRepo,
   createUnitSettingsRepo,
   seedDevData,
   uuidv7,
@@ -78,6 +80,8 @@ export interface AuthHarness {
     /** Volta o relógio para `START`. */
     reset(): void;
   };
+  /** Teto de lançamentos da mesclagem de fornecedores (RF10); `undefined` volta ao padrão. */
+  setMergeLimit(limit: number | undefined): void;
   /** Limpa tabelas, o e-mail em memória e o contador de IP; devolve o relógio para `START`. */
   reset(): Promise<void>;
   /** Fecha app, pool e banco, e volta os timers ao normal. */
@@ -106,6 +110,7 @@ export interface AuthHarness {
 }
 
 export async function startAuthHarness(): Promise<AuthHarness> {
+  const limits: { mergeLimit: number | undefined } = { mergeLimit: undefined };
   const db = await startTestDatabase();
   const authPool = createPool(db.urls.auth);
   const appPool = createPool(db.urls.app);
@@ -176,6 +181,11 @@ export async function startAuthHarness(): Promise<AuthHarness> {
         ...panel,
         unitSettings: createUnitSettingsRepo(panel.appDb),
         catalogSettings: createCatalogSettingsRepo(panel.appDb),
+        categorySettings: createCategoriesSettingsRepo(panel.appDb),
+        supplierSettings: createSuppliersSettingsRepo(panel.appDb),
+        get mergeLimit() {
+          return limits.mergeLimit;
+        },
         feeReapply: createFeeReapplyRepo(panel.appDb),
         queue: fakeQueue,
         clock,
@@ -322,6 +332,9 @@ export async function startAuthHarness(): Promise<AuthHarness> {
 
   return {
     exports: exportsKit,
+    setMergeLimit: (limit) => {
+      limits.mergeLimit = limit;
+    },
     db,
     authPool,
     appPool,

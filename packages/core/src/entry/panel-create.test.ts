@@ -14,7 +14,10 @@ const catalog = {
     { id: "cat-gas", name: "Gás", kind: "expense" },
     { id: "cat-inativa", name: "Antiga", kind: "expense", status: "inactive" },
   ],
-  suppliers: [{ id: "forn-1", name: "Atacadão", aliases: [] }],
+  suppliers: [
+    { id: "forn-1", name: "Atacadão", aliases: [] },
+    { id: "forn-mesclado", name: "Atacado", aliases: [], mergedIntoId: "forn-1" },
+  ],
   paymentMethods: [
     {
       id: "pix",
@@ -271,6 +274,13 @@ describe("criação pelo painel: categoria, canal e cadastros", () => {
 
   it("fornecedor inexistente vira UnknownReference supplier", () => {
     expect(run(expenseInput({ supplier: { id: "nao-existe" } }))).toMatchObject({
+      ok: false,
+      error: { code: "UnknownReference", field: "supplier" },
+    });
+  });
+
+  it("fornecedor já mesclado vira UnknownReference supplier", () => {
+    expect(run(expenseInput({ supplier: { id: "forn-mesclado" } }))).toMatchObject({
       ok: false,
       error: { code: "UnknownReference", field: "supplier" },
     });

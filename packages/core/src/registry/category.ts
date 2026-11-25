@@ -96,3 +96,60 @@ export function validateSubcategory(
     status: "active",
   });
 }
+
+export interface SubcategoryPatch {
+  readonly name?: string;
+  /** Presente só para ser recusado: o pai não muda (RF07.R2). */
+  readonly parentId?: string | null;
+  readonly nature?: "fixed" | "variable" | null;
+  readonly isSensitive?: boolean;
+  readonly supportWords?: readonly string[];
+  readonly status?: CategoryStatus;
+}
+
+export type ValidSubcategoryPatch = Omit<SubcategoryPatch, "parentId">;
+
+/**
+ * Valida a edição de uma subcategoria da empresa (RF07). Categoria do sistema é somente leitura,
+ * o pai não troca, natureza só em despesa, nome único entre irmãs (a própria é ignorada) e
+ * sensível não se desmarca (RF07.CA03; falha fechado, também fora de pai sensível).
+ */
+export function validateSubcategoryPatch(
+  current: CategoryRecord,
+  patch: SubcategoryPatch,
+  siblings: readonly Pick<CategoryRecord, "id" | "name">[],
+): Result<ValidSubcategoryPatch, DomainError> {
+  if (current.origin === "system") return fail("SystemCategoryReadOnly");
+  if (patch.parentId !== undefined && patch.parentId !== current.parentId) {
+    return fail("ParentChangeForbidden");
+  }
+  const out: { -readonly [K in keyof ValidSubcategoryPatch]: ValidSubcategoryPatch[K] } = {};
+
+  if (patch.name !== undefined) {
+    const name = patch.name.trim();
+    if (name.length < NAME_MIN || name.length > NAME_MAX) return invalid("name", "invalid");
+    const key = normalizeName(name);
+    if (siblings.some((s) => s.id !== current.id && normalizeName(s.name) === key)) {
+      return invalid("name", "duplicate");
+    }
+    out.name = name;
+  }
+  if (patch.nature !== undefined) {
+    if (patch.nature !== null && current.kind !== "expense") return fail("NatureOnlyForExpense");
+    out.nature = patch.nature;
+  }
+  if (patch.isSensitive !== undefined) {
+    if (current.isSensitive && !patch.isSensitive) return fail("SensitiveLocked");
+    out.isSensitive = patch.isSensitive;
+  }
+  if (patch.supportWords !== undefined) {
+    if (patch.supportWords.length > SUPPORT_WORDS_MAX) return invalid("supportWords", "too_many");
+    const words = patch.supportWords.map((word) => word.trim());
+    if (words.some((word) => word === "" || word.length > SUPPORT_WORD_MAX_LENGTH)) {
+      return invalid("supportWords", "invalid");
+    }
+    out.supportWords = words;
+  }
+  if (patch.status !== undefined) out.status = patch.status;
+  return ok(out);
+}

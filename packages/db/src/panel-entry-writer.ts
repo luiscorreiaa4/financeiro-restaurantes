@@ -22,11 +22,14 @@ export async function insertPanelEntry(
   },
 ): Promise<void> {
   if (extra.newSuppliers && extra.newSuppliers.length > 0) {
-    await tx
-      .insert(suppliers)
-      .values(
-        extra.newSuppliers.map((supplier) => ({ id: supplier.id, tenantId, name: supplier.name })),
-      );
+    await tx.insert(suppliers).values(
+      extra.newSuppliers.map((supplier) => ({
+        id: supplier.id,
+        tenantId,
+        name: supplier.name,
+        origin: "panel" as const,
+      })),
+    );
   }
   await tx
     .insert(entries)

@@ -6,6 +6,7 @@ import {
   PAYMENT_METHOD_TYPES,
   SALES_CHANNEL_TYPES,
 } from "../registry/catalog-types";
+import { CATEGORY_ORIGINS, CATEGORY_STATUSES } from "../registry/category";
 import {
   MEMBER_EMAIL_MAX,
   MEMBER_NAME_MAX,
@@ -186,6 +187,95 @@ export const memberCreatedSchema = z
   .object({ member: memberSettingsSchema, inviteText: z.string() })
   .strict();
 
+// Categoria (F6c, RF07): árvore de dois níveis; a subcategoria herda tipo, grupo e sensível do pai.
+const CATEGORY_KIND_VALUES = ["revenue", "expense", "investment", "deduction"] as const;
+const categoryNameSchema = z.string().min(2).max(60);
+const supportWordsSchema = z.array(z.string().min(1).max(40)).max(30);
+const categoryNatureSchema = z.enum(["fixed", "variable"]);
+
+export const categorySettingsSchema = z
+  .object({
+    id: idSchema,
+    name: z.string(),
+    parentId: idSchema.nullable(),
+    kind: z.enum(CATEGORY_KIND_VALUES),
+    nature: categoryNatureSchema.nullable(),
+    dreGroup: z.string(),
+    isSensitive: z.boolean(),
+    requiresQuantity: z.boolean(),
+    supportWords: z.array(z.string()),
+    origin: z.enum(CATEGORY_ORIGINS),
+    status: z.enum(CATEGORY_STATUSES),
+  })
+  .strict();
+export const categoryNodeSchema = categorySettingsSchema
+  .extend({ children: z.array(categorySettingsSchema) })
+  .strict();
+export const categoryTreeSchema = z.object({ items: z.array(categoryNodeSchema) }).strict();
+
+// O pai não troca e "sensível" vem do pai: nem `parentId` nem `isSensitive` entram aqui.
+export const subcategoryInputSchema = z
+  .object({
+    parentId: idSchema,
+    name: categoryNameSchema,
+    nature: categoryNatureSchema.nullable().optional(),
+    supportWords: supportWordsSchema,
+  })
+  .strict();
+export const subcategoryPatchSchema = z
+  .object({
+    name: categoryNameSchema.optional(),
+    nature: categoryNatureSchema.nullable().optional(),
+    supportWords: supportWordsSchema.optional(),
+    status: z.enum(CATEGORY_STATUSES).optional(),
+  })
+  .strict();
+
+// Fornecedor (F6c, RF10). Dinheiro em centavos inteiros; CPF mascarado é decisão do servidor (R2).
+export const SUPPLIER_ORIGINS = ["message", "invoice", "panel", "import"] as const;
+export const SUPPLIER_LIST_STATUSES = ["active", "inactive", "all"] as const;
+const supplierNameSchema = z.string().min(2).max(120);
+const supplierAliasesSchema = z.array(z.string().min(1).max(120)).max(10);
+
+export const supplierSettingsSchema = z
+  .object({
+    id: idSchema,
+    name: z.string(),
+    aliases: z.array(z.string()),
+    /** CNPJ inteiro; CPF mascarado quando o ator não é dono nem tem exportar dados. */
+    document: z.string().nullable(),
+    documentKind: z.enum(["cpf", "cnpj"]).nullable(),
+    status: z.enum(CATALOG_STATUSES),
+    origin: z.enum(SUPPLIER_ORIGINS).nullable(),
+    /** Só despesas do recorte do ator no período (unidades e folha respeitadas). */
+    totalSpentCents: z.number().int().nonnegative(),
+    lastPurchaseOn: businessDateSchema.nullable(),
+  })
+  .strict();
+export const supplierListSchema = z
+  .object({
+    items: z.array(supplierSettingsSchema),
+    from: businessDateSchema,
+    to: businessDateSchema,
+  })
+  .strict();
+export const supplierPatchSchema = z
+  .object({
+    name: supplierNameSchema.optional(),
+    document: z.string().max(30).nullable().optional(),
+    aliases: supplierAliasesSchema.optional(),
+    status: z.enum(CATALOG_STATUSES).optional(),
+  })
+  .strict();
+export const mergeInputSchema = z.object({ targetId: idSchema }).strict();
+export const mergePreviewSchema = z
+  .object({ visibleEntries: z.number().int().nonnegative() })
+  .strict();
+/** Sem contagem: o total movido inclui lançamentos que o ator não vê. */
+export const mergeResultSchema = z
+  .object({ ok: z.literal(true), target: supplierSettingsSchema })
+  .strict();
+
 export type PaymentMethodInput = z.infer<typeof paymentMethodInputSchema>;
 export type PaymentMethodPatch = z.infer<typeof paymentMethodPatchSchema>;
 export type PaymentMethodSettings = z.infer<typeof paymentMethodSettingsSchema>;
@@ -205,3 +295,14 @@ export type MemberSettingsInput = z.infer<typeof memberInputSchema>;
 export type MemberSettingsPatch = z.infer<typeof memberPatchSchema>;
 export type MemberSettings = z.infer<typeof memberSettingsSchema>;
 export type MemberCreated = z.infer<typeof memberCreatedSchema>;
+export type CategorySettings = z.infer<typeof categorySettingsSchema>;
+export type CategoryNode = z.infer<typeof categoryNodeSchema>;
+export type CategoryTree = z.infer<typeof categoryTreeSchema>;
+export type SubcategoryInput = z.infer<typeof subcategoryInputSchema>;
+export type SubcategoryPatch = z.infer<typeof subcategoryPatchSchema>;
+export type SupplierSettings = z.infer<typeof supplierSettingsSchema>;
+export type SupplierList = z.infer<typeof supplierListSchema>;
+export type SupplierPatchInput = z.infer<typeof supplierPatchSchema>;
+export type MergeInput = z.infer<typeof mergeInputSchema>;
+export type MergePreview = z.infer<typeof mergePreviewSchema>;
+export type MergeResult = z.infer<typeof mergeResultSchema>;

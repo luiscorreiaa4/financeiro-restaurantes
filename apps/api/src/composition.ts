@@ -19,6 +19,7 @@ import {
 import {
   createAuthStore,
   createCatalogSettingsRepo,
+  createCategoriesSettingsRepo,
   createChoiceStore,
   createDatabase,
   createEntryStore,
@@ -36,6 +37,7 @@ import {
   createSenderDirectory,
   createSignupRepo,
   createSignupStore,
+  createSuppliersSettingsRepo,
   createTenantConversationRepo,
   createUnitSettingsRepo,
   createUsageGuardStore,
@@ -261,6 +263,8 @@ function composeAuth(
       ...panel,
       unitSettings: createUnitSettingsRepo(appDb),
       catalogSettings: createCatalogSettingsRepo(appDb),
+      categorySettings: createCategoriesSettingsRepo(appDb),
+      supplierSettings: createSuppliersSettingsRepo(appDb),
       // Reaplicação de taxa: a linha é gravada aqui e o job `fee-reapply` enfileirado depois do commit.
       feeReapply: createFeeReapplyRepo(appDb),
       queue,

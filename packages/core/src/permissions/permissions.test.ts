@@ -259,6 +259,22 @@ const MATRIX: readonly Row[] = [
     accountant: true,
   },
   {
+    name: "gerenciar fornecedores",
+    action: "supplier:manage",
+    owner: true,
+    manager: true,
+    staff: false,
+    accountant: false,
+  },
+  {
+    name: "consultar fornecedores",
+    action: "supplier:view",
+    owner: true,
+    manager: true,
+    staff: false,
+    accountant: true,
+  },
+  {
     name: "captura de notas e certificado",
     action: "fiscal:configure",
     owner: true,

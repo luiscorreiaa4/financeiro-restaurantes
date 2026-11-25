@@ -43,7 +43,7 @@ const CATEGORY = {
   },
   insumos: {
     id: fixedId("0190a200", 2),
-    name: "Insumos",
+    name: "Mercearia",
     kind: "expense",
     parentId: null,
     requiresQuantity: false,

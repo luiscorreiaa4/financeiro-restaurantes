@@ -62,7 +62,13 @@ export function preparePanelEdit(input: {
     const unit = catalog.units.find((item) => item.id === patch.unitId);
     if (unit?.status !== "active") return fail("UnknownReference", { field: "unit" });
   }
-  if (patch.supplier && !catalog.suppliers.some((item) => item.id === patch.supplier?.id)) {
+  // Fornecedor mesclado não recebe lançamento: o destino herdou o nome pelo apelido.
+  if (
+    patch.supplier &&
+    !catalog.suppliers.some(
+      (item) => item.id === patch.supplier?.id && (item.mergedIntoId ?? null) === null,
+    )
+  ) {
     return fail("UnknownReference", { field: "supplier" });
   }
   const paymentMethod = catalog.paymentMethods.find(

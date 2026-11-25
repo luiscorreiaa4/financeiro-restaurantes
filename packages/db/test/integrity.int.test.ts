@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { createEntry, type EntryDraft, isUuidV7, money } from "@app/core";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -315,7 +315,7 @@ describe("migrations", () => {
 });
 
 describe("seed das categorias do sistema", () => {
-  it("é idempotente, liga subcategorias ao pai e marca a folha como sensível", async () => {
+  it("é idempotente, grava tudo no primeiro nível e marca a folha como sensível", async () => {
     const adminDb = createDatabase(db.admin);
     await seedSystemCategories(adminDb);
     const count = async () =>
@@ -331,22 +331,16 @@ describe("seed das categorias do sistema", () => {
     await seedSystemCategories(adminDb);
     expect(await count()).toBe(first);
 
-    const [insumos] = await adminDb
-      .select()
-      .from(categories)
-      .where(and(isNull(categories.tenantId), eq(categories.name, "Insumos")));
     const children = await adminDb
-      .select({ name: categories.name })
+      .select({ id: categories.id })
       .from(categories)
-      .where(eq(categories.parentId, insumos?.id ?? ""));
-    expect(children.map((child) => child.name).sort()).toEqual(
-      ["Bebidas", "Carnes", "Descartáveis", "Hortifrúti"].sort(),
-    );
+      .where(and(isNull(categories.tenantId), isNotNull(categories.parentId)));
+    expect(children).toEqual([]);
 
     const [folha] = await adminDb
       .select()
       .from(categories)
-      .where(and(isNull(categories.tenantId), eq(categories.name, "Folha de pagamento")));
+      .where(and(isNull(categories.tenantId), eq(categories.name, "Salários")));
     expect(folha?.isSensitive).toBe(true);
   });
 
@@ -355,13 +349,13 @@ describe("seed das categorias do sistema", () => {
     const visible = await withTenant(database, a.tenantId, (tx) =>
       tx.select({ name: categories.name }).from(categories).where(isNull(categories.tenantId)),
     );
-    expect(visible.map((row) => row.name)).toContain("Salão");
+    expect(visible.map((row) => row.name)).toContain("Vendas");
   });
 
   it("não aceita duas categorias do sistema com o mesmo nome", async () => {
     await expect(
       db.admin.query(
-        "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, null, 'Salão', 'revenue', 'receita_bruta')",
+        "insert into categories (id, tenant_id, name, kind, dre_group) values ($1, null, 'Vendas', 'revenue', 'receita_bruta')",
         [uuidv7()],
       ),
     ).rejects.toMatchObject({ code: UNIQUE_VIOLATION });

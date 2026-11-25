@@ -171,9 +171,28 @@ describe("rótulos do DRE", () => {
   it("traduz grupos conhecidos e cai em Outros", () => {
     expect(dreGroupLabel("cmv")).toBe("CMV");
     expect(dreGroupLabel("ocupacao")).toBe("Ocupação");
-    expect(dreGroupLabel("outras")).toBe("Outras despesas");
+    expect(dreGroupLabel("operacionais")).toBe("Operacionais");
+    expect(dreGroupLabel("receita_bruta")).toBe("Receita bruta");
+    expect(dreGroupLabel("deducoes")).toBe("Deduções");
+    expect(dreGroupLabel("investimentos")).toBe("Investimentos");
+    expect(dreGroupLabel("outras")).toBe("Outros");
+    expect(dreGroupLabel("manutencao")).toBe("Outros");
     expect(dreGroupLabel("xyz")).toBe("Outros");
-    expect(Object.keys(DRE_GROUP_LABELS)).toHaveLength(10);
+    expect(Object.keys(DRE_GROUP_LABELS).sort()).toEqual(
+      [
+        "receita_bruta",
+        "deducoes",
+        "cmv",
+        "pessoal",
+        "ocupacao",
+        "utilidades",
+        "operacionais",
+        "marketing",
+        "financeiras",
+        "impostos",
+        "investimentos",
+      ].sort(),
+    );
   });
 });
 

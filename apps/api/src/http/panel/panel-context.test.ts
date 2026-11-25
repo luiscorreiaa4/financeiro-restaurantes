@@ -427,7 +427,7 @@ describe("matriz de permissões nos guards (RF06.CA06)", () => {
     expect(res.statusCode).toBe(can(actor, action) ? 200 : 403);
   });
 
-  it("cobre 4 papéis x 19 ações", () => {
-    expect(cases).toHaveLength(76);
+  it("cobre 4 papéis x 21 ações", () => {
+    expect(cases).toHaveLength(84);
   });
 });

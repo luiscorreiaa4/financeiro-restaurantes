@@ -226,6 +226,116 @@ function memberSeed(units) {
   ];
 }
 
+// Categorias (F6c, RF08): árvore do sistema de partida; ids 1001+ para não colidir com os criados (100+).
+const CATEGORY_NATURES = ["fixed", "variable"];
+const CATEGORY_STATUS_LIST = ["active", "inactive"];
+const SUPPLIER_STATUS_LIST = ["active", "inactive"];
+const SUPPLIER_LIST_STATUSES = ["active", "inactive", "all"];
+const SUPPLIER_FROM_DEFAULT = "2026-11-01";
+const SUPPLIER_TO_DEFAULT = "2026-11-30";
+const SUPPLIER_ALIASES_MAX = 10;
+
+const sys = (name, kind, nature, dreGroup, flags = {}) => ({
+  name,
+  kind,
+  nature,
+  dreGroup,
+  sensitive: flags.sensitive === true,
+  quantity: flags.quantity === true,
+});
+
+const CATEGORY_SEED = [
+  sys("Vendas", "revenue", null, "receita_bruta"),
+  sys("Outras receitas", "revenue", null, "receita_bruta"),
+  sys("Impostos sobre faturamento", "deduction", null, "deducoes"),
+  sys("Taxas de cartão", "deduction", null, "deducoes"),
+  sys("Comissões de aplicativos", "deduction", null, "deducoes"),
+  sys("Carnes", "expense", "variable", "cmv", { quantity: true }),
+  sys("Hortifrúti", "expense", "variable", "cmv", { quantity: true }),
+  sys("Bebidas", "expense", "variable", "cmv", { quantity: true }),
+  sys("Mercearia", "expense", "variable", "cmv", { quantity: true }),
+  sys("Embalagens e descartáveis", "expense", "variable", "cmv", { quantity: true }),
+  sys("Salários", "expense", "fixed", "pessoal", { sensitive: true }),
+  sys("Encargos", "expense", "fixed", "pessoal", { sensitive: true }),
+  sys("Benefícios", "expense", "fixed", "pessoal", { sensitive: true }),
+  sys("Pró-labore", "expense", "fixed", "pessoal", { sensitive: true }),
+  sys("Extras e freelas", "expense", "variable", "pessoal", { sensitive: true }),
+  sys("Aluguel", "expense", "fixed", "ocupacao"),
+  sys("Condomínio", "expense", "fixed", "ocupacao"),
+  sys("IPTU", "expense", "fixed", "ocupacao"),
+  sys("Energia", "expense", "variable", "utilidades"),
+  sys("Água", "expense", "variable", "utilidades"),
+  sys("Gás", "expense", "variable", "utilidades"),
+  sys("Internet e telefone", "expense", "fixed", "utilidades"),
+  sys("Limpeza", "expense", "variable", "operacionais"),
+  sys("Manutenção", "expense", "variable", "operacionais"),
+  sys("Sistemas e assinaturas", "expense", "fixed", "operacionais"),
+  sys("Contabilidade", "expense", "fixed", "operacionais"),
+  sys("Marketing", "expense", "variable", "marketing"),
+  sys("Juros", "expense", "variable", "financeiras"),
+  sys("Tarifas bancárias", "expense", "variable", "financeiras"),
+  sys("Equipamentos", "investment", null, "investimentos"),
+  sys("Reformas", "investment", null, "investimentos"),
+  sys("Outras despesas", "expense", "variable", "operacionais"),
+];
+
+function categorySeed() {
+  const roots = CATEGORY_SEED.map((c, i) => ({
+    id: fixedId(1001 + i),
+    name: c.name,
+    parentId: null,
+    kind: c.kind,
+    nature: c.nature,
+    dreGroup: c.dreGroup,
+    isSensitive: c.sensitive,
+    requiresQuantity: c.quantity,
+    supportWords: [],
+    origin: "system",
+    status: "active",
+  }));
+  const carnes = roots.find((c) => c.name === "Carnes");
+  roots.push({
+    id: fixedId(1040),
+    name: "Frutos do mar",
+    parentId: carnes.id,
+    kind: carnes.kind,
+    nature: "variable",
+    dreGroup: carnes.dreGroup,
+    isSensitive: carnes.isSensitive,
+    requiresQuantity: carnes.requiresQuantity,
+    supportWords: ["camarão", "lula"],
+    origin: "company",
+    status: "active",
+  });
+  return roots;
+}
+
+// Fornecedores (F6c, RF07): o CPF sai mascarado para quem não é dono nem contador.
+const SUPPLIER_SEED = [
+  ["Atacadão", ["atacado"], "11222333000181", "cnpj", 123456, "2026-11-20", "message"],
+  ["Ceasa", [], null, null, 45000, "2026-11-18", "message"],
+  ["Ambev", ["ambev sp"], "11444777000161", "cnpj", 9900, "2026-11-10", "message"],
+  ["Pessoa Física", [], "52998224725", "cpf", 0, null, "panel"],
+  ["Ceasa Norte", [], null, null, 2000, "2026-11-05", "message"],
+];
+
+function supplierSeed() {
+  return SUPPLIER_SEED.map(
+    ([name, aliases, document, documentKind, totalSpentCents, lastPurchaseOn, origin], i) => ({
+      id: fixedId(1051 + i),
+      name,
+      aliases,
+      document,
+      documentKind,
+      status: "active",
+      origin,
+      totalSpentCents,
+      lastPurchaseOn,
+      mergedIntoId: null,
+    }),
+  );
+}
+
 function stateOf(company) {
   if (!stateByTenant.has(company.tenantId)) {
     const units = unitSeed(company);
@@ -234,6 +344,8 @@ function stateOf(company) {
       salesChannels: channelSeed(),
       units,
       members: memberSeed(units),
+      categories: categorySeed(),
+      suppliers: supplierSeed(),
       reapplications: [],
       createdUnitIds: new Set(),
       next: FIRST_CREATED_N,
@@ -608,6 +720,336 @@ function answerRestricted(method, pathname) {
   return notFound;
 }
 
+// Forma do corpo para categorias e fornecedores: chave fora da lista ou tipo errado vira 400 (contrato estrito).
+function shapeIsValid(body, checks, required) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  for (const key of Object.keys(body)) {
+    if (!Object.hasOwn(checks, key) || !checks[key](body[key])) return false;
+  }
+  return required.every((key) => key in body);
+}
+
+const isText = (v) => typeof v === "string";
+const isStringArray = (v) => Array.isArray(v) && v.every(isText);
+const isWordList = (v) =>
+  Array.isArray(v) &&
+  v.length <= 30 &&
+  v.every((w) => isText(w) && w.length >= 1 && w.length <= 40);
+const isNatureOrNull = (v) => v === null || CATEGORY_NATURES.includes(v);
+const isCategoryStatus = (v) => CATEGORY_STATUS_LIST.includes(v);
+const isSupplierStatus = (v) => SUPPLIER_STATUS_LIST.includes(v);
+const CATEGORY_CREATE_CHECKS = {
+  parentId: isText,
+  name: isText,
+  nature: isNatureOrNull,
+  supportWords: isWordList,
+};
+const CATEGORY_PATCH_CHECKS = {
+  name: isText,
+  nature: isNatureOrNull,
+  supportWords: isWordList,
+  status: isCategoryStatus,
+};
+const SUPPLIER_PATCH_CHECKS = {
+  name: isText,
+  document: (v) => v === null || (isText(v) && v.length <= 30),
+  aliases: isStringArray,
+  status: isSupplierStatus,
+};
+const MERGE_CHECKS = { targetId: isText };
+
+const byName = (a, b) => a.name.localeCompare(b.name, "pt-BR");
+const categoryNameInvalid = {
+  status: 422,
+  body: { code: "validation", field: "name", reason: "invalid" },
+};
+const supplierDocumentInvalid = {
+  status: 422,
+  body: { code: "validation", field: "document", reason: "invalid" },
+};
+const digitsOf = (text) => text.replace(/\D/g, "");
+
+function publicCategory(c) {
+  return {
+    id: c.id,
+    name: c.name,
+    parentId: c.parentId,
+    kind: c.kind,
+    nature: c.nature,
+    dreGroup: c.dreGroup,
+    isSensitive: c.isSensitive,
+    requiresQuantity: c.requiresQuantity,
+    supportWords: [...c.supportWords],
+    origin: c.origin,
+    status: c.status,
+  };
+}
+
+// Sensível só para dono e contador; o filho de uma categoria sensível também some para os demais.
+function categoryVisible(c, all, includeSensitive) {
+  if (includeSensitive) return true;
+  if (c.isSensitive) return false;
+  const parent = c.parentId ? all.find((x) => x.id === c.parentId) : null;
+  return !parent?.isSensitive;
+}
+
+// Nome ou palavra de apoio contém a busca (já sem caixa e sem acento). Busca vazia casa tudo.
+function categoryMatches(c, key) {
+  return nameKey(c.name).includes(key) || c.supportWords.some((w) => nameKey(w).includes(key));
+}
+
+// Mesma regra da API real: se o pai casa, os filhos que passam nos filtros entram todos; senão só os que casam.
+function listCategories(s, searchParams, company) {
+  const includeSensitive = company.role === "owner" || company.role === "accountant";
+  const search = searchParams.get("search") ?? "";
+  const kind = searchParams.get("kind");
+  const status = searchParams.get("status");
+  const key = nameKey(search);
+  const passes = (c) => (!kind || c.kind === kind) && (!status || c.status === status);
+  const visible = s.categories.filter((c) => categoryVisible(c, s.categories, includeSensitive));
+
+  const tree = [];
+  for (const root of visible.filter((c) => c.parentId === null).sort(byName)) {
+    const rootMatches = categoryMatches(root, key);
+    const children = visible
+      .filter(
+        (c) => c.parentId === root.id && passes(c) && (rootMatches || categoryMatches(c, key)),
+      )
+      .sort(byName)
+      .map(publicCategory);
+    if ((passes(root) && rootMatches) || children.length > 0) {
+      tree.push({ ...publicCategory(root), children });
+    }
+  }
+  return ok({ items: tree });
+}
+
+// Subcategoria da empresa: herda kind, dreGroup, isSensitive e requiresQuantity do pai.
+function createCategory(s, input) {
+  if (!shapeIsValid(input, CATEGORY_CREATE_CHECKS, ["parentId", "name", "supportWords"])) {
+    return invalidRequest;
+  }
+  const parent = s.categories.find(
+    (c) => c.id === input.parentId && c.origin === "system" && c.parentId === null,
+  );
+  if (!parent) {
+    return { status: 422, body: { code: "validation", field: "parent_id", reason: "unknown" } };
+  }
+  const name = input.name.trim();
+  if (name.length < 2 || name.length > 60) return categoryNameInvalid;
+  if (input.nature != null && parent.kind !== "expense") {
+    return { status: 422, body: { code: "validation", field: "nature", reason: "invalid" } };
+  }
+  const siblings = s.categories.filter((c) => c.parentId === parent.id);
+  if (isNameTaken(siblings, name)) return nameTaken;
+  const item = {
+    id: nextId(s),
+    name,
+    parentId: parent.id,
+    kind: parent.kind,
+    nature: input.nature ?? parent.nature,
+    dreGroup: parent.dreGroup,
+    isSensitive: parent.isSensitive,
+    requiresQuantity: parent.requiresQuantity,
+    supportWords: [...input.supportWords],
+    origin: "company",
+    status: "active",
+  };
+  s.categories.push(item);
+  return created(publicCategory(item));
+}
+
+// Categoria do sistema não muda (422), como na API real; a ordem segue a rota: forma, depois id.
+function patchCategory(s, id, input) {
+  if (!shapeIsValid(input, CATEGORY_PATCH_CHECKS, [])) return invalidRequest;
+  const item = s.categories.find((c) => c.id === id);
+  if (!item) return notFound;
+  if (item.origin === "system") {
+    return { status: 422, body: { code: "validation", field: "name", reason: "system_read_only" } };
+  }
+  if (typeof input.name === "string") {
+    const name = input.name.trim();
+    if (name.length < 2 || name.length > 60) return categoryNameInvalid;
+    const siblings = s.categories.filter((c) => c.parentId === item.parentId);
+    if (isNameTaken(siblings, name, id)) return nameTaken;
+    item.name = name;
+  }
+  if ("nature" in input) item.nature = input.nature;
+  if ("supportWords" in input) item.supportWords = [...input.supportWords];
+  if ("status" in input) item.status = input.status;
+  return ok(publicCategory(item));
+}
+
+function answerCategories(method, id, searchParams, input, company) {
+  if (method === "GET") {
+    if (id) return notFound;
+    return gateFor(company, false) ?? listCategories(stateOf(company), searchParams, company);
+  }
+  if (method === "POST") {
+    if (id) return notFound;
+    return gateFor(company, true) ?? createCategory(stateOf(company), input);
+  }
+  if (method === "PATCH") {
+    if (!id) return notFound;
+    return gateFor(company, true) ?? patchCategory(stateOf(company), id, input);
+  }
+  return notFound;
+}
+
+// Fornecedor: CPF mascarado para quem não é dono nem contador; CNPJ sai inteiro.
+const maskCpf = (d) => `•••.•••.${d.slice(-5, -2)}-${d.slice(-2)}`;
+function publicSupplier(x, full) {
+  const document =
+    x.document && x.documentKind === "cpf" && !full ? maskCpf(x.document) : x.document;
+  return {
+    id: x.id,
+    name: x.name,
+    aliases: [...x.aliases],
+    document,
+    documentKind: x.documentKind,
+    status: x.status,
+    origin: x.origin,
+    totalSpentCents: x.totalSpentCents,
+    lastPurchaseOn: x.lastPurchaseOn,
+  };
+}
+
+const visibleSuppliers = (s) => s.suppliers.filter((x) => !x.mergedIntoId);
+const fullSupplierView = (company) => company.role === "owner" || company.role === "accountant";
+
+// Leitura: owner, manager e accountant (staff já sai pelo gateFor). Padrão de status: todos os não mesclados.
+function listSuppliers(s, searchParams, company) {
+  const from = searchParams.get("from") ?? SUPPLIER_FROM_DEFAULT;
+  const to = searchParams.get("to") ?? SUPPLIER_TO_DEFAULT;
+  if (from > to) {
+    return { status: 422, body: { code: "validation", field: "to", reason: "before_from" } };
+  }
+  const status = searchParams.get("status");
+  if (status && !SUPPLIER_LIST_STATUSES.includes(status)) return invalidRequest;
+  const search = searchParams.get("search") ?? "";
+  const key = nameKey(search);
+  const digits = digitsOf(search);
+  const full = fullSupplierView(company);
+  const items = visibleSuppliers(s)
+    .filter((x) => !status || status === "all" || x.status === status)
+    .filter(
+      (x) =>
+        !search ||
+        nameKey(x.name).includes(key) ||
+        x.aliases.some((a) => nameKey(a).includes(key)) ||
+        (digits.length > 0 && (x.document ?? "").includes(digits)),
+    )
+    .sort(byName)
+    .map((x) => publicSupplier(x, full));
+  return ok({ items, from, to });
+}
+
+// Escrita de fornecedor: dono e gerente, com a conta ativa (contador e staff saem com 403).
+function supplierWriteGate(company) {
+  if (company.role !== "owner" && company.role !== "manager") return forbidden;
+  if (company.accountStatus !== "active") return accountReadOnly;
+  return null;
+}
+
+function patchSupplier(s, id, input, full) {
+  if (!shapeIsValid(input, SUPPLIER_PATCH_CHECKS, [])) return invalidRequest;
+  const item = visibleSuppliers(s).find((x) => x.id === id);
+  if (!item) return notFound;
+  const others = visibleSuppliers(s).filter((x) => x.id !== id);
+  const name = typeof input.name === "string" ? input.name.trim() : null;
+  if (name !== null && isNameTaken(others, name)) return nameTaken;
+  const document =
+    input.document === undefined || input.document === null
+      ? input.document
+      : digitsOf(input.document);
+  if (typeof document === "string" && others.some((x) => x.document === document)) {
+    return { status: 409, body: { code: "document_taken" } };
+  }
+  if (typeof document === "string" && document.length !== 11 && document.length !== 14) {
+    return supplierDocumentInvalid;
+  }
+  if (input.aliases && input.aliases.length > SUPPLIER_ALIASES_MAX) {
+    return { status: 422, body: { code: "validation", field: "aliases", reason: "too_many" } };
+  }
+  if (name !== null) item.name = name;
+  if (document !== undefined) {
+    item.document = document;
+    item.documentKind = document === null ? null : document.length === 11 ? "cpf" : "cnpj";
+  }
+  if (input.aliases) item.aliases = input.aliases.map((a) => a.trim());
+  if (input.status) item.status = input.status;
+  return ok(publicSupplier(item, full));
+}
+
+// Origem e destino precisam existir e ser diferentes; a ordem segue a prévia da API real.
+function mergePair(s, id, targetId) {
+  const origin = visibleSuppliers(s).find((x) => x.id === id);
+  if (!origin) return { error: notFound };
+  if (targetId === id) {
+    return {
+      error: {
+        status: 422,
+        body: { code: "validation", field: "target_id", reason: "same_supplier" },
+      },
+    };
+  }
+  const target = visibleSuppliers(s).find((x) => x.id === targetId);
+  if (!target) return { error: notFound };
+  return { origin, target };
+}
+
+function previewMerge(s, id, input, company) {
+  if (!shapeIsValid(input, MERGE_CHECKS, ["targetId"])) return invalidRequest;
+  const pair = mergePair(s, id, input.targetId);
+  if (pair.error) return pair.error;
+  // A prévia do gerente não conta o que ele não vê.
+  return ok({ visibleEntries: company.role === "owner" ? 5 : 3 });
+}
+
+function mergeSuppliers(s, id, input, full) {
+  if (!shapeIsValid(input, MERGE_CHECKS, ["targetId"])) return invalidRequest;
+  const pair = mergePair(s, id, input.targetId);
+  if (pair.error) return pair.error;
+  const { origin, target } = pair;
+  if (origin.document && target.document && origin.document !== target.document) {
+    return { status: 422, body: { code: "document_conflict" } };
+  }
+  const aliases = [...new Set([...target.aliases, origin.name, ...origin.aliases])];
+  if (aliases.length > SUPPLIER_ALIASES_MAX) {
+    return { status: 422, body: { code: "aliases_overflow" } };
+  }
+  target.aliases = aliases;
+  if (!target.document && origin.document) {
+    target.document = origin.document;
+    target.documentKind = origin.documentKind;
+  }
+  target.totalSpentCents += origin.totalSpentCents;
+  origin.status = "inactive";
+  origin.mergedIntoId = target.id;
+  return ok({ ok: true, target: publicSupplier(target, full) });
+}
+
+function answerSuppliers(method, id, action, searchParams, input, company) {
+  if (method === "GET") {
+    if (id) return notFound;
+    return gateFor(company, false) ?? listSuppliers(stateOf(company), searchParams, company);
+  }
+  const full = fullSupplierView(company);
+  if (method === "PATCH" && id && !action) {
+    const denied = supplierWriteGate(company);
+    return denied ?? patchSupplier(stateOf(company), id, input, full);
+  }
+  if (method === "POST" && id && action) {
+    const denied = supplierWriteGate(company);
+    if (denied) return denied;
+    const s = stateOf(company);
+    return action === "merge/preview"
+      ? previewMerge(s, id, input, company)
+      : mergeSuppliers(s, id, input, full);
+  }
+  return notFound;
+}
+
 // Roteia /api/settings* e /api/restricted* (GET, POST, PATCH). Sessão e contexto ficam em fake-api.mjs.
 export function answerSettings(method, url, body, company) {
   const { pathname, searchParams } = new URL(url, "http://localhost");
@@ -621,6 +1063,17 @@ export function answerSettings(method, url, body, company) {
   if (memberMatch) {
     const [, memberId, memberAction] = memberMatch;
     return answerMembers(method, memberId, memberAction, searchParams, input, company);
+  }
+
+  const categoryMatch = /^\/api\/settings\/categories(?:\/([^/]+))?$/.exec(pathname);
+  if (categoryMatch)
+    return answerCategories(method, categoryMatch[1], searchParams, input, company);
+
+  const supplierMatch =
+    /^\/api\/settings\/suppliers(?:\/([^/]+)(?:\/(merge\/preview|merge))?)?$/.exec(pathname);
+  if (supplierMatch) {
+    const [, supplierId, supplierAction] = supplierMatch;
+    return answerSuppliers(method, supplierId, supplierAction, searchParams, input, company);
   }
 
   if (method === "GET" && pathname === "/api/settings/fee-preview") {

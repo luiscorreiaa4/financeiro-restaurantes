@@ -154,10 +154,10 @@ Situação conferida contra `packages/db/schema` e `packages/core` em 29/10/2026
 
 | Tabela | O que falta | RF | Etapa |
 |---|---|---|---|
-| `categories` (tem `kind` com investment/deduction, `nature`, `dre_group`, `is_sensitive`) | Exige Quantidade; palavras de apoio (até 30); status ATIVA/INATIVA; origem SISTEMA/EMPRESA (hoje `tenant_id` nulo); herança de tipo, grupo e sensível pela subcategoria; no máximo dois níveis; categoria própria sempre filha de uma padrão. A lista do seed é provisória (P01, P02, P05). | RF07 | E6 (palavras de apoio e Exige Quantidade para a IA), F6c (edição e realinhamento das categorias do sistema, DD-43) |
+| `categories` (tem `kind` com investment/deduction, `nature`, `dre_group`, `is_sensitive`) | Exige Quantidade; palavras de apoio (até 30); status ATIVA/INATIVA; origem SISTEMA/EMPRESA (hoje `tenant_id` nulo); herança de tipo, grupo e sensível pela subcategoria; no máximo dois níveis; categoria própria sempre filha de uma padrão. A lista do seed é provisória (P01, P02, P05). | RF07 | E6 (palavras de apoio e Exige Quantidade para a IA), F6c (edição e realinhamento das categorias do sistema, DD-43): **feita em 25/11/2026**, lista do RF07.Obs2 em `SYSTEM_CATEGORIES`, script `db:realign-categories`, subcategorias do dono com herança |
 | `payment_methods` | Tipo (DINHEIRO, PIX, DEBITO, CREDITO, VOUCHER, BOLETO, TRANSFERENCIA, OUTRO); apelidos (até 10); status; "forma de cartão padrão" da empresa (usada por "cartão" sem especificar); forma "Não informada". | RF08, RF12.R8 | E6 (padrão e apelidos), F6 |
 | `sales_channels` | Tipo (SALAO, DELIVERY_PROPRIO, APLICATIVO, RETIRADA, OUTRO); apelidos; status; regra: canal APLICATIVO com comissão substitui a taxa da forma de pagamento (P06); canal "Não informado". | RF09 | E7 (cálculo), F6 |
-| `suppliers` (tem `aliases`) | Categoria habitual; origem MENSAGEM/NOTA_FISCAL/PAINEL/IMPORTACAO; status; CPF mascarado; mesclagem; unicidade do documento na empresa. | RF10 | E7 (criação automática), F6c (mesclagem, DD-43) |
+| `suppliers` (tem `aliases`) | Categoria habitual; origem MENSAGEM/NOTA_FISCAL/PAINEL/IMPORTACAO; status; CPF mascarado; mesclagem; unicidade do documento na empresa. | RF10 | E7 (criação automática), F6c (mesclagem, DD-43): **feita em 25/11/2026** (migration 0025: `status`, `merged_into_id`, `origin`, único de documento por empresa, CPF mascarado, mesclagem); falta a categoria habitual |
 
 ### Lançamento e histórico
 

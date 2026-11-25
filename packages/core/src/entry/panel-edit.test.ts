@@ -21,7 +21,10 @@ const catalog: CatalogSnapshot = {
     { id: CAT_QTD, name: "Insumos", kind: "expense", requiresQuantity: true },
     { id: CAT_OFF, name: "Antiga", kind: "expense", status: "inactive" },
   ],
-  suppliers: [{ id: "forn-1", name: "Atacadão", aliases: [] }],
+  suppliers: [
+    { id: "forn-1", name: "Atacadão", aliases: [] },
+    { id: "forn-mesclado", name: "Atacado", aliases: [], mergedIntoId: "forn-1" },
+  ],
   paymentMethods: [
     {
       id: "pix",
@@ -311,6 +314,7 @@ describe("edição pelo painel: referências no catálogo", () => {
     ["forma de pagamento inativa", { paymentMethodId: "velha" }, "payment_method"],
     ["canal inexistente", { salesChannelId: "nao-existe" }, "sales_channel"],
     ["fornecedor inexistente", { supplier: { id: "nao-existe" } }, "supplier"],
+    ["fornecedor já mesclado", { supplier: { id: "forn-mesclado" } }, "supplier"],
     ["unidade inexistente", { unitId: "nao-existe" }, "unit"],
   ] as const)("recusa %s", (_nome, patch, field) => {
     expect(run(patch)).toMatchObject({

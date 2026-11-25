@@ -47,6 +47,8 @@ export const ACTIONS = [
   "user:view",
   "catalog:manage",
   "catalog:view",
+  "supplier:manage",
+  "supplier:view",
   "fiscal:configure",
   "subscription:manage",
 ] as const;
@@ -101,6 +103,8 @@ const GRANTS: Record<Role, readonly Action[]> = {
     "user:view",
     "catalog:manage",
     "catalog:view",
+    "supplier:manage",
+    "supplier:view",
     "fiscal:configure",
     "subscription:manage",
   ],
@@ -113,10 +117,19 @@ const GRANTS: Record<Role, readonly Action[]> = {
     "recurring:manage",
     "user:view",
     "catalog:view",
+    "supplier:manage",
+    "supplier:view",
   ],
   // "panel:access" só vale se o Dono liberou (`Actor.panelAccess`).
   staff: [...ENTRY_ACTIONS, "panel:access"],
-  accountant: ["entry:view", "report:view", "panel:access", "export:data", "catalog:view"],
+  accountant: [
+    "entry:view",
+    "report:view",
+    "panel:access",
+    "export:data",
+    "catalog:view",
+    "supplier:view",
+  ],
 };
 
 /** Ações que a permissão adicional libera além do papel. */

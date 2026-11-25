@@ -1,6 +1,8 @@
 import type {
+  CategoryNode,
   PaymentMethodSettings,
   SalesChannelSettings,
+  SupplierSettings,
   UnitSettings,
 } from "@app/core/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -63,6 +65,39 @@ export function unitFixture(overrides: Partial<UnitSettings> = {}): UnitSettings
   };
 }
 
+export function categoryFixture(overrides: Partial<CategoryNode> = {}): CategoryNode {
+  return {
+    id: uuid(10),
+    name: "Carnes",
+    parentId: null,
+    kind: "expense",
+    nature: "variable",
+    dreGroup: "cmv",
+    isSensitive: false,
+    requiresQuantity: true,
+    supportWords: [],
+    origin: "system",
+    status: "active",
+    children: [],
+    ...overrides,
+  };
+}
+
+export function supplierFixture(overrides: Partial<SupplierSettings> = {}): SupplierSettings {
+  return {
+    id: uuid(20),
+    name: "Atacadão",
+    aliases: [],
+    document: null,
+    documentKind: null,
+    status: "active",
+    origin: "message",
+    totalSpentCents: 123456,
+    lastPurchaseOn: "2026-11-20",
+    ...overrides,
+  };
+}
+
 const reject = () => Promise.reject(new Error("rota não preparada neste teste"));
 
 /** API de configurações para teste: o que não for informado responde vazio ou recusa. */
@@ -80,6 +115,13 @@ export function fakeSettingsApi(overrides: Partial<SettingsApi> = {}): SettingsA
     updateUnit: reject,
     deactivateUnit: reject,
     reactivateUnit: reject,
+    listCategories: () => Promise.resolve([]),
+    createSubcategory: reject,
+    updateSubcategory: reject,
+    listSuppliers: () => Promise.resolve({ items: [], from: "2026-11-01", to: "2026-11-30" }),
+    updateSupplier: reject,
+    previewMerge: reject,
+    mergeSuppliers: reject,
     previewReapplication: reject,
     reapply: reject,
     latestReapplication: () => Promise.resolve(null),
@@ -87,8 +129,12 @@ export function fakeSettingsApi(overrides: Partial<SettingsApi> = {}): SettingsA
   };
 }
 
-export function scopeOf(api: SettingsApi, canManage = true): SettingsScope {
-  return { ctx: { tenantId: TENANT, unitId: "all" }, api, canManage };
+export function scopeOf(
+  api: SettingsApi,
+  canManage = true,
+  canManageSuppliers = canManage,
+): SettingsScope {
+  return { ctx: { tenantId: TENANT, unitId: "all" }, api, canManage, canManageSuppliers };
 }
 
 export function renderWithQuery(ui: ReactNode) {

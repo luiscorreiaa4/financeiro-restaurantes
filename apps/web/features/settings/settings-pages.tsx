@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import type { FullMe } from "@/lib/api/me-contract";
+import { CategoriesScreen } from "./categories/categories-screen";
 import { PaymentMethodsScreen } from "./payment-methods/payment-methods-screen";
 import { SalesChannelsScreen } from "./sales-channels/sales-channels-screen";
 import { useSettingsScope } from "./shared/use-settings";
+import { SuppliersPage } from "./suppliers/suppliers-page";
+
+export { SuppliersPage };
 
 export function PaymentMethodsPage({ me }: { me: FullMe }) {
   return <PaymentMethodsScreen scope={useSettingsScope(me)} />;
+}
+
+export function CategoriesPage({ me }: { me: FullMe }) {
+  return <CategoriesScreen scope={useSettingsScope(me)} />;
 }
 
 export function SalesChannelsPage({ me }: { me: FullMe }) {
@@ -26,6 +34,18 @@ const CARDS = [
     title: "Canais de venda",
     text: "Salão, delivery, aplicativos e comissões.",
     action: "catalog:view",
+  },
+  {
+    href: "/configuracoes/categorias",
+    title: "Categorias",
+    text: "Plano de categorias e subcategorias da empresa.",
+    action: "catalog:view",
+  },
+  {
+    href: "/configuracoes/fornecedores",
+    title: "Fornecedores",
+    text: "Edite, veja o total gasto e mescle duplicados.",
+    action: "supplier:view",
   },
   {
     href: "/configuracoes/unidades",

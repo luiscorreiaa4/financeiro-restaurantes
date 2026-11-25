@@ -1123,7 +1123,7 @@ export const entryReader = {
        order by name, id
     `);
     const suppliers = await tx.execute<RawName>(
-      sql`select id, name from suppliers order by name, id`,
+      sql`select id, name from suppliers where merged_into_id is null order by name, id`,
     );
     // Cadastro inativo continua na lista (o filtro precisa achar lançamento antigo); o
     // formulário de criação usa `active` para não oferecê-lo (F3c-2).

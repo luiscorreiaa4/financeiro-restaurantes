@@ -289,7 +289,7 @@ describe("lançamento por mensagem de texto (E7)", () => {
               quantity: 5,
               quantity_unit: "kg",
               payment_method_hint: "pix",
-              category_hint: "Insumos",
+              category_hint: "Carnes",
             }),
           ]),
         },
@@ -456,13 +456,63 @@ describe("lançamento por mensagem de texto (E7)", () => {
   });
 });
 
+describe("fornecedor mesclado e origem pelo WhatsApp (RF10, C4)", () => {
+  const tenant = async () =>
+    (await db.admin.query<{ tenant_id: string }>("select tenant_id from units limit 1")).rows[0]
+      ?.tenant_id;
+
+  it("'paguei 50 pro A' depois de mesclar A em B grava em B, sem criar fornecedor", async () => {
+    const tenantId = await tenant();
+    const target = uuidv7();
+    const source = uuidv7();
+    await db.admin.query("delete from suppliers where tenant_id = $1", [tenantId]);
+    await db.admin.query(
+      "insert into suppliers (id, tenant_id, name, aliases) values ($1, $2, 'Atacadão Central', '{Atacadão A}')",
+      [target, tenantId],
+    );
+    await db.admin.query(
+      "insert into suppliers (id, tenant_id, name, status, merged_into_id) values ($1, $2, 'Atacadão A', 'inactive', $3)",
+      [source, tenantId, target],
+    );
+    const w = world({
+      extractions: [
+        { result: register([extracted({ total_cents: 5000, supplier_hint: "Atacadão A" })]) },
+      ],
+    });
+    await w.say(OWNER, "paguei 50 pro Atacadão A");
+
+    const entry = await db.admin.query<{ supplier_id: string }>(
+      "select supplier_id from entries where deleted_at is null",
+    );
+    expect(entry.rows).toEqual([{ supplier_id: target }]);
+    const count = await db.admin.query("select id from suppliers where tenant_id = $1", [tenantId]);
+    expect(count.rows).toHaveLength(2);
+  });
+
+  it("fornecedor novo criado pela mensagem grava origin = 'message'", async () => {
+    const tenantId = await tenant();
+    await db.admin.query("delete from suppliers where tenant_id = $1", [tenantId]);
+    const w = world({
+      extractions: [
+        { result: register([extracted({ total_cents: 5000, supplier_hint: "Padaria Nova" })]) },
+      ],
+    });
+    await w.say(OWNER, "paguei 50 pra Padaria Nova");
+    const rows = await db.admin.query(
+      "select name, origin, status from suppliers where tenant_id = $1",
+      [tenantId],
+    );
+    expect(rows.rows).toEqual([{ name: "Padaria Nova", origin: "message", status: "active" }]);
+  });
+});
+
 describe("categoria sensível pelo WhatsApp (RF06.R4, E11-2)", () => {
   const payroll = () =>
     world({
       extractions: [
         {
           result: register([
-            extracted({ description: "Salário do João", category_hint: "Folha de pagamento" }),
+            extracted({ description: "Salário do João", category_hint: "Salários" }),
           ]),
         },
       ],
@@ -485,7 +535,7 @@ describe("categoria sensível pelo WhatsApp (RF06.R4, E11-2)", () => {
   it("atendente não move o próprio lançamento para folha de pagamento por correção (RF06.R4)", async () => {
     const w = world({
       extractions: [{ result: register([extracted()]) }],
-      corrections: [correct({ category_hint: "Folha de pagamento" })],
+      corrections: [correct({ category_hint: "Salários" })],
     });
     await w.say(STAFF, "camarão 450");
     const original = (await entryRows())[0];
@@ -868,13 +918,13 @@ describe("lançamento por foto de nota (RF14)", () => {
       extracted({
         description: "Picanha",
         total_cents: 8000,
-        category_hint: "Insumos",
+        category_hint: "Carnes",
         supplier_hint: "Atacadão",
       }),
       extracted({
         description: "Alcatra",
         total_cents: 6000,
-        category_hint: "Insumos",
+        category_hint: "Carnes",
         supplier_hint: "Atacadão",
       }),
       extracted({
