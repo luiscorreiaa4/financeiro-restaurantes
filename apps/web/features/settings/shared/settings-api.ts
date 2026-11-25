@@ -1,4 +1,8 @@
 import {
+  type CategoryNode,
+  type CategorySettings,
+  categorySettingsSchema,
+  categoryTreeSchema,
   type FeePreview,
   type FeeReapplication,
   type FeeReapplicationPreview,
@@ -6,6 +10,10 @@ import {
   feePreviewSchema,
   feeReapplicationPreviewSchema,
   feeReapplicationSchema,
+  type MergePreview,
+  type MergeResult,
+  mergePreviewSchema,
+  mergeResultSchema,
   type PaymentMethodInput,
   type PaymentMethodPatch,
   type PaymentMethodSettings,
@@ -13,7 +21,14 @@ import {
   type SalesChannelPatch,
   type SalesChannelSettings,
   type SalesChannelSettingsInput,
+  type SubcategoryInput,
+  type SubcategoryPatch,
+  type SupplierList,
+  type SupplierPatchInput,
+  type SupplierSettings,
   salesChannelSettingsSchema,
+  supplierListSchema,
+  supplierSettingsSchema,
   type UnitPatch,
   type UnitSettings,
   type UnitSettingsInput,
@@ -26,6 +41,16 @@ const paymentListSchema = z.object({ items: z.array(paymentMethodSettingsSchema)
 const channelListSchema = z.object({ items: z.array(salesChannelSettingsSchema) });
 const unitListSchema = z.object({ items: z.array(unitSettingsSchema) });
 const latestReapplicationSchema = z.object({ item: feeReapplicationSchema.nullable() });
+
+export type CategoryFilters = { search?: string; kind?: string; status?: string };
+export type SupplierFilters = { search?: string; status?: string; from?: string; to?: string };
+
+function paramsOf(filters: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const text = params.toString();
+  return text === "" ? "" : `?${text}`;
+}
 
 export type CatalogFilters = { type?: string; status?: string };
 
@@ -51,6 +76,13 @@ export type SettingsApi = {
   updateUnit(id: string, body: UnitPatch): Promise<UnitSettings>;
   deactivateUnit(id: string): Promise<UnitSettings>;
   reactivateUnit(id: string): Promise<UnitSettings>;
+  listCategories(filters?: CategoryFilters): Promise<CategoryNode[]>;
+  createSubcategory(body: SubcategoryInput): Promise<CategorySettings>;
+  updateSubcategory(id: string, body: SubcategoryPatch): Promise<CategorySettings>;
+  listSuppliers(filters?: SupplierFilters): Promise<SupplierList>;
+  updateSupplier(id: string, body: SupplierPatchInput): Promise<SupplierSettings>;
+  previewMerge(sourceId: string, targetId: string): Promise<MergePreview>;
+  mergeSuppliers(sourceId: string, targetId: string): Promise<MergeResult>;
   previewReapplication(body: FeeReapplicationPreviewInput): Promise<FeeReapplicationPreview>;
   reapply(
     body: FeeReapplicationPreviewInput & { clientRequestId: string },
@@ -87,6 +119,24 @@ export function settingsApi(client: ApiClient): SettingsApi {
       client.post(`/api/settings/units/${id(uid)}/deactivate`, {}, unitSettingsSchema),
     reactivateUnit: (uid) =>
       client.post(`/api/settings/units/${id(uid)}/reactivate`, {}, unitSettingsSchema),
+    listCategories: async (filters = {}) =>
+      (await client.get(`/api/settings/categories${paramsOf(filters)}`, categoryTreeSchema)).items,
+    createSubcategory: (body) =>
+      client.post("/api/settings/categories", body, categorySettingsSchema),
+    updateSubcategory: (cid, body) =>
+      client.patch(`/api/settings/categories/${id(cid)}`, body, categorySettingsSchema),
+    listSuppliers: (filters = {}) =>
+      client.get(`/api/settings/suppliers${paramsOf(filters)}`, supplierListSchema),
+    updateSupplier: (sid, body) =>
+      client.patch(`/api/settings/suppliers/${id(sid)}`, body, supplierSettingsSchema),
+    previewMerge: (sourceId, targetId) =>
+      client.post(
+        `/api/settings/suppliers/${id(sourceId)}/merge/preview`,
+        { targetId },
+        mergePreviewSchema,
+      ),
+    mergeSuppliers: (sourceId, targetId) =>
+      client.post(`/api/settings/suppliers/${id(sourceId)}/merge`, { targetId }, mergeResultSchema),
     previewReapplication: (body) =>
       client.post("/api/settings/fee-reapplications/preview", body, feeReapplicationPreviewSchema),
     reapply: (body) =>

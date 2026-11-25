@@ -10,7 +10,13 @@ import { type SettingsApi, settingsApi } from "./settings-api";
 type TenantCtx = { tenantId: string; unitId: string };
 
 /** Empresa e unidade ativas (para a chave de query), o cliente da API e o que a pessoa pode fazer. */
-export type SettingsScope = { ctx: TenantCtx; api: SettingsApi; canManage: boolean };
+export type SettingsScope = {
+  ctx: TenantCtx;
+  api: SettingsApi;
+  canManage: boolean;
+  /** Editar e mesclar fornecedores (`supplier:manage`: dono e gerente). A API confere de novo. */
+  canManageSuppliers: boolean;
+};
 
 /** Monta o escopo a partir da sessão. `canManage` é conforto: a API confere `catalog:manage`. */
 export function useSettingsScope(me: FullMe): SettingsScope {
@@ -18,9 +24,11 @@ export function useSettingsScope(me: FullMe): SettingsScope {
   const { tenantId, unitId, allowedActions } = me.context;
   const canManage =
     allowedActions.includes("catalog:manage") && me.context.accountStatus === "active";
+  const canManageSuppliers =
+    allowedActions.includes("supplier:manage") && me.context.accountStatus === "active";
   return useMemo(
-    () => ({ ctx: { tenantId, unitId }, api, canManage }),
-    [tenantId, unitId, api, canManage],
+    () => ({ ctx: { tenantId, unitId }, api, canManage, canManageSuppliers }),
+    [tenantId, unitId, api, canManage, canManageSuppliers],
   );
 }
 

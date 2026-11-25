@@ -23,3 +23,12 @@ export const STATUS_LABELS: Record<CatalogStatus, string> = {
   active: "Ativa",
   inactive: "Inativa",
 };
+
+export const CATEGORY_KIND_LABELS = {
+  revenue: "Receita",
+  expense: "Despesa",
+  investment: "Investimento",
+  deduction: "Dedução",
+} as const;
+
+export const CATEGORY_NATURE_LABELS = { fixed: "Fixa", variable: "Variável" } as const;
