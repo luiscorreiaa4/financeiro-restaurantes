@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  categorySettingsSchema,
+  categoryTreeSchema,
   feePreviewSchema,
   feeReapplicationInputSchema,
   feeReapplicationPreviewInputSchema,
@@ -9,6 +11,9 @@ import {
   memberInputSchema,
   memberPatchSchema,
   memberSettingsSchema,
+  mergeInputSchema,
+  mergePreviewSchema,
+  mergeResultSchema,
   paymentMethodInputSchema,
   paymentMethodPatchSchema,
   paymentMethodSettingsSchema,
@@ -16,6 +21,11 @@ import {
   salesChannelInputSchema,
   salesChannelPatchSchema,
   salesChannelSettingsSchema,
+  subcategoryInputSchema,
+  subcategoryPatchSchema,
+  supplierListSchema,
+  supplierPatchSchema,
+  supplierSettingsSchema,
   unitInputSchema,
   unitPatchSchema,
   unitSettingsSchema,
@@ -256,5 +266,93 @@ describe("colaboradores", () => {
     expect(memberSettingsSchema.safeParse({ ...member, extra: 1 }).success).toBe(false);
     expect(memberCreatedSchema.safeParse({ member, inviteText: "Oi" }).success).toBe(true);
     expect(memberCreatedSchema.safeParse({ member, inviteText: "Oi", x: 1 }).success).toBe(false);
+  });
+});
+
+describe("contrato de categorias (F6c, RF07)", () => {
+  const node = {
+    id: ID,
+    name: "Salários",
+    parentId: null,
+    kind: "expense",
+    nature: "fixed",
+    dreGroup: "pessoal",
+    isSensitive: true,
+    requiresQuantity: false,
+    supportWords: [],
+    origin: "system",
+    status: "active",
+  };
+
+  it("categoria e árvore recusam campo extra", () => {
+    expect(categorySettingsSchema.safeParse(node).success).toBe(true);
+    expect(categorySettingsSchema.safeParse({ ...node, tenantId: ID }).success).toBe(false);
+    const tree = { items: [{ ...node, children: [{ ...node, parentId: ID, origin: "company" }] }] };
+    expect(categoryTreeSchema.safeParse(tree).success).toBe(true);
+    expect(categoryTreeSchema.safeParse({ items: [{ ...node }] }).success).toBe(false);
+    expect(categoryTreeSchema.safeParse({ ...tree, extra: 1 }).success).toBe(false);
+  });
+
+  it("subcategoria: entrada exige pai e palavras; natureza é opcional", () => {
+    const input = { parentId: ID, name: "Diaristas", supportWords: ["diária"] };
+    expect(subcategoryInputSchema.safeParse(input).success).toBe(true);
+    expect(subcategoryInputSchema.safeParse({ ...input, nature: "variable" }).success).toBe(true);
+    expect(subcategoryInputSchema.safeParse({ ...input, nature: "x" }).success).toBe(false);
+    expect(subcategoryInputSchema.safeParse({ ...input, isSensitive: false }).success).toBe(false);
+    expect(subcategoryInputSchema.safeParse({ name: "Sem pai", supportWords: [] }).success).toBe(
+      false,
+    );
+  });
+
+  it("subcategoria: o patch não aceita parentId nem campo extra", () => {
+    expect(subcategoryPatchSchema.safeParse({ name: "Novo nome" }).success).toBe(true);
+    expect(subcategoryPatchSchema.safeParse({ status: "inactive" }).success).toBe(true);
+    expect(subcategoryPatchSchema.safeParse({ nature: null }).success).toBe(true);
+    expect(subcategoryPatchSchema.safeParse({ parentId: ID }).success).toBe(false);
+    expect(subcategoryPatchSchema.safeParse({ isSensitive: false }).success).toBe(false);
+  });
+});
+
+describe("contrato de fornecedores (F6c, RF10)", () => {
+  const supplier = {
+    id: ID,
+    name: "Frigorífico Alfa",
+    aliases: ["alfa"],
+    document: "•••.•••.789-01",
+    documentKind: "cpf",
+    status: "active",
+    origin: "message",
+    totalSpentCents: 12345,
+    lastPurchaseOn: "2026-11-10",
+  };
+
+  it("fornecedor e lista recusam campo extra e dinheiro quebrado", () => {
+    expect(supplierSettingsSchema.safeParse(supplier).success).toBe(true);
+    expect(supplierSettingsSchema.safeParse({ ...supplier, tenantId: ID }).success).toBe(false);
+    expect(supplierSettingsSchema.safeParse({ ...supplier, totalSpentCents: 1.5 }).success).toBe(
+      false,
+    );
+    expect(supplierSettingsSchema.safeParse({ ...supplier, lastPurchaseOn: null }).success).toBe(
+      true,
+    );
+    const list = { items: [supplier], from: "2026-11-01", to: "2026-11-30" };
+    expect(supplierListSchema.safeParse(list).success).toBe(true);
+    expect(supplierListSchema.safeParse({ ...list, extra: 1 }).success).toBe(false);
+  });
+
+  it("edição aceita só nome, documento, apelidos e status", () => {
+    expect(supplierPatchSchema.safeParse({ name: "Novo nome", document: null }).success).toBe(true);
+    expect(supplierPatchSchema.safeParse({ mergedIntoId: ID }).success).toBe(false);
+    expect(supplierPatchSchema.safeParse({ aliases: Array(11).fill("a") }).success).toBe(false);
+  });
+
+  it("mesclagem: prévia só com a contagem do recorte e resultado sem total movido", () => {
+    expect(mergeInputSchema.safeParse({ targetId: ID }).success).toBe(true);
+    expect(mergeInputSchema.safeParse({ targetId: "x" }).success).toBe(false);
+    expect(mergePreviewSchema.safeParse({ visibleEntries: 3 }).success).toBe(true);
+    expect(mergeResultSchema.safeParse({ ok: true, target: supplier }).success).toBe(true);
+    expect(mergeResultSchema.safeParse({ ok: true, target: supplier, moved: 9 }).success).toBe(
+      false,
+    );
   });
 });

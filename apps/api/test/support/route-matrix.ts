@@ -471,6 +471,34 @@ export const CATALOG_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
   },
 ];
 
+/**
+ * Categorias e subcategorias (F6c, RF07): leitura com `catalog:view`, escrita só do dono
+ * (`catalog:manage`) e com a conta gravável. Pai inexistente: quem pode criar chega ao 422 sem
+ * gravar nada. Roda em `settings-categories.int.test.ts`.
+ */
+export const CATEGORIES_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "GET /api/settings/categories",
+    method: "GET",
+    url: () => "/api/settings/categories",
+    expected: SETTINGS_READ,
+  },
+  {
+    name: "POST /api/settings/categories",
+    method: "POST",
+    url: () => "/api/settings/categories",
+    body: () => ({ parentId: MISSING_CATALOG_ID, name: "Matriz", supportWords: [] }),
+    expected: settingsWrite(422),
+  },
+  {
+    name: "PATCH /api/settings/categories/:id",
+    method: "PATCH",
+    url: () => `/api/settings/categories/${MISSING_CATALOG_ID}`,
+    body: () => ({ name: "Qualquer" }),
+    expected: settingsWrite(404),
+  },
+];
+
 const MISSING_TARGET_ID = "01900000-0000-7000-8000-000000000003";
 
 /** Só o dono (catalog:manage); a conta somente leitura chega até a gravação, que ela não faz. */
@@ -592,5 +620,52 @@ export const MEMBERS_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
     method: "POST",
     url: () => `/api/settings/members/${MISSING_MEMBER_ID}/reactivate`,
     expected: settingsWrite(404),
+  },
+];
+
+/** Dono e gerente (com ou sem VER_FOLHA) escrevem fornecedores; contador só lê (RF10, RF06.CA06). */
+const supplierWrite = (status: number): SettingsRouteCase["expected"] => ({
+  owner: status,
+  manager: status,
+  managerNoPayroll: status,
+  staff: 403,
+  accountant: 403,
+  restricted: 401,
+  readOnly: 403,
+  staffNoPanel: 401,
+});
+
+/**
+ * Fornecedores e mesclagem (F6c, RF10): leitura com `supplier:view`, escrita com
+ * `supplier:manage` e conta gravável; id inexistente chega ao 404 sem gravar nada. Roda em
+ * `settings-suppliers.int.test.ts`.
+ */
+export const SUPPLIERS_ROUTE_MATRIX: readonly SettingsRouteCase[] = [
+  {
+    name: "GET /api/settings/suppliers",
+    method: "GET",
+    url: () => "/api/settings/suppliers",
+    expected: SETTINGS_READ,
+  },
+  {
+    name: "PATCH /api/settings/suppliers/:id",
+    method: "PATCH",
+    url: () => `/api/settings/suppliers/${MISSING_CATALOG_ID}`,
+    body: () => ({ name: "Qualquer" }),
+    expected: supplierWrite(404),
+  },
+  {
+    name: "POST /api/settings/suppliers/:id/merge/preview",
+    method: "POST",
+    url: () => `/api/settings/suppliers/${MISSING_CATALOG_ID}/merge/preview`,
+    body: () => ({ targetId: MISSING_TARGET_ID }),
+    expected: supplierWrite(404),
+  },
+  {
+    name: "POST /api/settings/suppliers/:id/merge",
+    method: "POST",
+    url: () => `/api/settings/suppliers/${MISSING_CATALOG_ID}/merge`,
+    body: () => ({ targetId: MISSING_TARGET_ID }),
+    expected: supplierWrite(404),
   },
 ];
