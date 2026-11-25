@@ -1,14 +1,14 @@
 # Casos inventados (E8). Trocar/acrescentar pelos reais coletados pelo Matheus, já anonimizados.
 # Hoje é 2026-10-30 (sexta). "ready" = o que deve sair pronto para gravar; "asks" = o sistema deve perguntar.
-{"id":"f01","category":"easy","text":"camarão 5kg 450 no pix","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":45000,"quantity":5,"payment":"Pix","category":"Carnes e peixes"}]}}
-{"id":"f02","category":"easy","text":"paguei 350 por 10kg de carne no débito","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":35000,"quantity":10,"payment":"Débito","category":"Carnes e peixes"}]}}
+{"id":"f01","category":"easy","text":"camarão 5kg 450 no pix","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":45000,"quantity":5,"payment":"Pix","category":"Carnes"}]}}
+{"id":"f02","category":"easy","text":"paguei 350 por 10kg de carne no débito","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":35000,"quantity":10,"payment":"Débito","category":"Carnes"}]}}
 {"id":"f03","category":"easy","text":"gás 80","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":8000,"category":"Gás"}]}}
 {"id":"f04","category":"easy","text":"paguei 1200 de aluguel","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":120000,"category":"Aluguel"}]}}
 {"id":"f05","category":"easy","text":"vendi 2300 no salão hoje","expected":{"intent":"register","ready":[{"type":"revenue","amount_cents":230000,"channel":"Salão"}]}}
 {"id":"f06","category":"easy","text":"comprei 3 caixas de cerveja por 360 na Ambev, paguei no crédito","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":36000,"quantity":3,"supplier":"Ambev","payment":"Crédito"}]}}
 {"id":"f07","category":"easy","text":"paguei a conta de luz, 420 reais","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":42000,"category":"Energia"}]}}
 {"id":"f08","category":"easy","text":"recebi 800 do ifood","expected":{"intent":"register","ready":[{"type":"revenue","amount_cents":80000,"channel":"iFood"}]}}
-{"id":"f09","category":"easy","text":"tomate 10kg a 6 reais o quilo","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":6000,"quantity":10,"category":"Hortifruti"}]}}
+{"id":"f09","category":"easy","text":"tomate 10kg a 6 reais o quilo","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":6000,"quantity":10,"category":"Hortifrúti"}]}}
 {"id":"f10","category":"easy","text":"ontem paguei 150 de internet no pix","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":15000,"occurred_on":"2026-10-29","payment":"Pix"}]}}
 {"id":"f11","category":"easy","text":"dia 28 comprei 6kg de cebola por 60 reais na Ceasa em dinheiro","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":6000,"quantity":6,"occurred_on":"2026-10-28","supplier":"Ceasa","payment":"Dinheiro"}]}}
 {"id":"f12","category":"easy","text":"paguei o freelancer 250 no pix","expected":{"intent":"register","ready":[{"type":"expense","amount_cents":25000,"payment":"Pix"}]}}

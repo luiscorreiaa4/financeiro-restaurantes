@@ -52,7 +52,7 @@ test("o gerente sem VER_FOLHA não vê o cartão de folha e vê Pessoal (restrit
   const region = page.getByRole("region", { name: "Despesas por categoria" });
   await region.getByRole("tab", { name: "Tabela" }).click();
   await expect(region.getByRole("table")).toContainText("Pessoal (restrito)");
-  await expect(region.getByRole("table")).not.toContainText("Folha de pagamento");
+  await expect(region.getByRole("table")).not.toContainText("Salários");
 });
 
 test("o lançador em / vai para os lançamentos e o dashboard é negado", async ({ page }) => {

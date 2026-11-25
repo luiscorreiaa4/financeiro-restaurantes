@@ -50,7 +50,7 @@ async function pickUnit(page: Page) {
 async function fillExpense(page: Page, description: string, amount: string) {
   await page.getByLabel("Valor", { exact: true }).fill(amount);
   await page.getByLabel("Descrição").fill(description);
-  await page.getByLabel("Categoria").selectOption({ label: "Insumos" });
+  await page.getByLabel("Categoria").selectOption({ label: "Mercearia" });
   await pickUnit(page);
 }
 

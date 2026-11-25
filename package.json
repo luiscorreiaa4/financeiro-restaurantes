@@ -19,6 +19,7 @@
     "db:migrate": "pnpm --filter @app/db db:migrate",
     "db:seed": "pnpm --filter @app/db db:seed",
     "db:seed:dev": "pnpm --filter @app/db db:seed:dev",
+    "db:realign-categories": "pnpm --filter @app/db db:realign-categories",
     "dev:chat": "pnpm --filter @app/api dev:chat",
     "test:e2e": "turbo run test:e2e"
   },

@@ -78,14 +78,14 @@ test("filtros de tipo e categoria ficam na URL e sobrevivem a recarregar e ao vo
   await filters.getByLabel("Tipo").selectOption("expense");
   await expect(page).toHaveURL(/type=expense/);
   await filters.locator("summary", { hasText: "Categorias" }).click();
-  await filters.getByLabel("Insumos", { exact: true }).check();
+  await filters.getByLabel("Mercearia", { exact: true }).check();
   await expect(page).toHaveURL(/categoryIds=0190a200-0000-7000-8000-000000000002/);
   await closeFilters(page, isMobile);
 
   await waitForList(page, isMobile);
   const filtered = await descriptions(page, isMobile).allTextContents();
   expect(filtered.length).toBeGreaterThan(0);
-  expect(filtered.every((text) => text.startsWith("Insumos"))).toBe(true);
+  expect(filtered.every((text) => text.startsWith("Mercearia"))).toBe(true);
 
   await page.reload();
   await waitForList(page, isMobile);
@@ -202,7 +202,7 @@ test("gerente sem VER_FOLHA vê o aviso de valores restritos e nada de Salários
   // Nem como opção de filtro.
   const filters = await openFilters(page, isMobile);
   await filters.locator("summary", { hasText: "Categorias" }).click();
-  await expect(filters.getByLabel("Insumos", { exact: true })).toBeVisible();
+  await expect(filters.getByLabel("Mercearia", { exact: true })).toBeVisible();
   await expect(filters.getByLabel("Salários", { exact: true })).toHaveCount(0);
 });
 

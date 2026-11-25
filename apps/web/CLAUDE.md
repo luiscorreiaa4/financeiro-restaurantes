@@ -29,7 +29,7 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 - Formulário (`entry-form.tsx`): React Hook Form, só o que mudou vai no `patch`, com `expectedVersion`; trava síncrona (`useRef`) contra duplo envio. `select` nativo e fornecedor com lista própria (`supplier-field.tsx`), não o `Combobox` do shadcn.
 - Seleção de linhas do lote: só na tabela do desktop, só dono e gerente; a chave é `serializeFilters` (abrir o drawer não limpa, mudar filtro ou ordem limpa).
 - Link com aparência de botão: `<Link className={buttonVariants(...)}>`, não `<Button render={<Link/>}>` (vira `role=button`).
-- No E2E, a tabela de dono e gerente tem a coluna de seleção: não selecione célula por posição nem `getByLabel("Insumos")` sem `{ exact: true }` (as caixas se chamam "Selecionar Insumos #n"). A API falsa guarda estado: `POST http://localhost:4010/__reset` no `beforeEach` e no `afterEach` de spec que escreve.
+- No E2E, a tabela de dono e gerente tem a coluna de seleção: não selecione célula por posição nem `getByLabel("Mercearia")` sem `{ exact: true }` (as caixas se chamam "Selecionar Mercearia #n"). A API falsa guarda estado: `POST http://localhost:4010/__reset` no `beforeEach` e no `afterEach` de spec que escreve.
 
 ## Lançamentos: criação (`features/entries`, F3c)
 

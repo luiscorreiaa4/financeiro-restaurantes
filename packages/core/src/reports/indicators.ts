@@ -123,17 +123,19 @@ export function changeOf(
   return { changePermille, direction };
 }
 
+/** Os 11 grupos do DRE (RF07.R5). `manutencao` e `outras` viraram `operacionais`. */
 export const DRE_GROUP_LABELS: Readonly<Record<string, string>> = {
+  receita_bruta: "Receita bruta",
+  deducoes: "Deduções",
   cmv: "CMV",
   pessoal: "Pessoal",
   ocupacao: "Ocupação",
   utilidades: "Utilidades",
-  marketing: "Marketing",
-  manutencao: "Manutenção",
-  impostos: "Impostos",
-  outras: "Outras despesas",
   operacionais: "Operacionais",
+  marketing: "Marketing",
   financeiras: "Financeiras",
+  impostos: "Impostos",
+  investimentos: "Investimentos",
 };
 
 export function dreGroupLabel(group: string): string {
