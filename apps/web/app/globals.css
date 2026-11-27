@@ -128,4 +128,12 @@
   html {
     @apply font-sans;
   }
+  /* F7 (DD-44, RNF09.R3): alvo de toque de 44 px só em tela de toque; o mouse não muda. */
+  @media (pointer: coarse) {
+    input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"]),
+    select,
+    textarea {
+      min-height: 2.75rem;
+    }
+  }
 }
