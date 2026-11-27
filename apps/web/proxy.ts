@@ -17,8 +17,12 @@ const PUBLIC_PAGES = [
   "/privacidade",
 ];
 
+// Caminho exato (não prefixo): tela de aviso offline guardada pelo service worker (DD-44).
+const PUBLIC_EXACT = ["/offline.html"];
+
 function isPublic(pathname: string): boolean {
   return (
+    PUBLIC_EXACT.includes(pathname) ||
     PUBLIC_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`)) ||
     pathname.startsWith("/_next/") ||
     pathname === "/api" ||
