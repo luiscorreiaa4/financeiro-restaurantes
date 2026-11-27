@@ -65,8 +65,18 @@ Regras deste módulo. As gerais estão no `CLAUDE.md` da raiz; a ordem das etapa
 
 - `app/(app)/` é a área com a casca (`components/app-shell.tsx`); `app/(public)/` é para login (F1). Navegação em `lib/navigation.ts` (`NAV_ITEMS`).
 - Componentes de `components/ui/` vêm do shadcn (preset `base-nova`, sobre `@base-ui/react`, pacote `cn`). Adicione com `pnpm dlx shadcn@latest add <componente>` dentro de `apps/web`; `--overwrite` apaga edição local.
+- `button.tsx` e `input.tsx` (e qualquer outro de `components/ui` que a F7 ajustar) têm `pointer-coarse:` local (F7, DD-44); `shadcn add --overwrite` apaga isso.
 - **Sem identidade visual por enquanto (D-F8).** Tema neutro, fonte do sistema, cores só pelos tokens de `app/globals.css`. Não invente paleta nem fonte.
 - Ambiente do web: `lib/env.ts` (`parseWebEnv`). Não use `loadEnv` de `@app/config` aqui. `API_URL` é obrigatória em produção (padrão `http://localhost:4000` só fora dela).
+
+## PWA (F7)
+
+- **`public/sw.js` nunca guarda resposta nem age em `/api/`.** Ele só guarda `/offline.html` e `/icons/icon-192.png` (no `install`, recusando resposta redirecionada ou não ok) e só responde navegação GET da mesma origem fora de `/api/`; o resto sai antes do `respondWith`. Dado de empresa e resposta da API nunca entram no cache (regra 1). `lib/service-worker.test.ts` carrega o arquivo num `vm` e prova isso.
+- `/offline.html` é caminho **exato** público no `proxy.ts` (`.html` continua fora de `STATIC_FILE`). `VERSION` do `sw.js` muda quando o `offline.html` ou o ícone de 192 mudar. Os cabeçalhos (`/sw.js` sem cache, CSP própria) moram em `lib/security-headers.ts`.
+- Identidade provisória em `lib/app-identity.ts` (D-F8, F0-1); os PNG de `public/icons/` saem de `assets/icon.svg` por `pnpm --filter @app/web exec node scripts/generate-icons.mjs` e vão para o git (o script não roda no build). Não use `app/icon.tsx`: `/icon` não tem extensão e o proxy o mandaria ao login.
+- Alvo de toque: `pointer-coarse:` (44 px) só em tela de toque; o computador com mouse não muda. Vale em `button.tsx`, `input.tsx`, `tabs.tsx`, na regra de `min-height` do `globals.css` para campos nativos e nos links do menu. Componente novo com altura fixa leva o `pointer-coarse:` junto.
+- E2E: `e2e/helpers/layout.ts` tem `expectNoHorizontalScroll` e `smallTouchTargets(page, 44)` (ignora campo `aria-hidden`; diálogo se mede depois da animação de abertura). `e2e/mobile-review.spec.ts` varre todas as rotas (`APP_ROUTES` mais as públicas) em 360 px: página nova entra na varredura sozinha. `e2e/pwa.spec.ts` roda só no `Mobile Chrome` (instalabilidade pelo CDP, `setOffline`, download com o worker ativo, cache só com a tela de aviso).
+- Item "Instalar o app" (`install-menu-item.tsx`): no menu do usuário do desktop e no menu lateral do celular; o cabeçalho do celular não tem espaço (`UserMenu showInstall={false}`). O evento `beforeinstallprompt` é capturado na raiz (`providers.tsx`, `lib/install-prompt.ts`) porque pode vir no `/login`. A faixa "Sem conexão" da casca vem de `useOnlineStatus`.
 
 ## Testes
 
