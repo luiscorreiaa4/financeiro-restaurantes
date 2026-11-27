@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sem conexão</title>
+    <!-- Repete nome e cores de lib/app-identity.ts: ao mudar lá, mude aqui e suba VERSION no sw.js. -->
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: #ffffff;
+        color: #171717;
+        text-align: center;
+        overflow-x: hidden;
+      }
+      main { width: 100%; max-width: 360px; }
+      img { width: 96px; height: 96px; margin: 0 auto 16px; display: block; }
+      h1 { font-size: 1.5rem; margin: 0 0 8px; }
+      p { font-size: 1rem; line-height: 1.5; margin: 0 0 24px; }
+      button {
+        min-height: 44px;
+        padding: 0 24px;
+        font: inherit;
+        font-weight: 600;
+        color: #ffffff;
+        background: #171717;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" width="96" height="96" />
+      <h1>Sem conexão</h1>
+      <p>O painel precisa de internet para mostrar os dados. Confira o Wi-Fi ou os dados móveis e tente de novo.</p>
+      <button type="button" id="retry">Tentar de novo</button>
+    </main>
+    <script>
+      document.getElementById("retry").addEventListener("click", () => {
+        location.reload();
+      });
+    </script>
+  </body>
+</html>

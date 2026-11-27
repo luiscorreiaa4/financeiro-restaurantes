@@ -83,4 +83,24 @@ describe("proxy de acesso", () => {
     expect(pattern.test("/api/health")).toBe(false);
     expect(pattern.test("/api")).toBe(false);
   });
+
+  it("/offline.html é público sem cookie", () => {
+    const response = proxy(request("/offline.html"));
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.status).toBe(200);
+  });
+
+  it("/qualquer.html continua exigindo sessão", () => {
+    for (const path of ["/qualquer.html", "/offline.html/x", "/offline.htmlx"]) {
+      const response = proxy(request(path));
+      expect(response.status, path).toBe(307);
+      expect(new URL(response.headers.get("location") ?? "").pathname, path).toBe("/login");
+    }
+  });
+
+  it("/sw.js e /manifest.webmanifest são públicos", () => {
+    for (const path of ["/sw.js", "/manifest.webmanifest"]) {
+      expect(proxy(request(path)).headers.get("location"), path).toBeNull();
+    }
+  });
 });

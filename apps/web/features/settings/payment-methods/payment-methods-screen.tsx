@@ -45,7 +45,7 @@ export function PaymentMethodsScreen({ scope }: { scope: SettingsScope }) {
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Formas de pagamento</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
             Situação
             <select

@@ -1,15 +1,9 @@
 import type { NextConfig } from "next";
 import { parsePublicEnv, parseWebEnv } from "./lib/env";
+import { securityHeadersConfig } from "./lib/security-headers";
 
 // Número de WhatsApp inválido derruba o build (falha cedo); ausente é aceito e a tela avisa.
 parsePublicEnv(process.env);
-
-const securityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-];
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@app/config", "@app/core"],
@@ -17,7 +11,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return securityHeadersConfig();
   },
   // Cookies de primeira parte: o navegador fala só com o web, que repassa /api/* para a API.
   async rewrites() {

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { AccountBanner } from "@/components/account-banner";
 import { ContextSwitcher } from "@/components/context-switcher";
+import { InstallMenuItem } from "@/components/install-menu-item";
 import { SessionKeeper } from "@/components/session-keeper";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -14,6 +15,7 @@ import { exportAccess } from "@/features/exports/export-access";
 import { ExportNotifier } from "@/features/exports/export-notifier";
 import type { FullMe } from "@/lib/api/me-contract";
 import { visibleNavItems } from "@/lib/navigation";
+import { useOnlineStatus } from "@/lib/use-online-status";
 
 const ACCESS_REMOVED_PARAM = "aviso=acesso-removido";
 
@@ -37,7 +39,7 @@ function NavLinks({
             href={item.href}
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
-            className="rounded-md px-3 py-2 text-sm hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:font-medium"
+            className="rounded-md px-3 py-2 pointer-coarse:py-3 text-sm hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:font-medium"
           >
             {item.label}
           </Link>
@@ -72,6 +74,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: FullMe }) 
   const [menuOpen, setMenuOpen] = useState(false);
   const accessRemoved = useAccessRemovedNotice();
   const ready = me.contextSource === "cookie";
+  const online = useOnlineStatus();
 
   return (
     <div className="flex min-h-svh flex-col md:flex-row">
@@ -94,6 +97,9 @@ export function AppShell({ children, me }: { children: ReactNode; me: FullMe }) 
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <div className="p-4">
                 <NavLinks label="Menu" me={me} onNavigate={() => setMenuOpen(false)} />
+                <div className="mt-4 border-t pt-4">
+                  <InstallMenuItem />
+                </div>
               </div>
             </SheetContent>
           </Sheet>
@@ -104,10 +110,16 @@ export function AppShell({ children, me }: { children: ReactNode; me: FullMe }) 
               <span className="text-sm font-medium">Finanças para restaurantes</span>
             )}
           </div>
-          <UserMenu name={me.name} className="flex items-center gap-2" />
+          <UserMenu name={me.name} className="flex items-center gap-2" showInstall={false} />
         </header>
 
         <AccountBanner status={me.context.accountStatus} userRole={me.context.role} />
+        {!online && (
+          <p role="status" className="border-b bg-muted px-4 py-2 text-sm">
+            Sem conexão. Os dados podem estar desatualizados e nada pode ser salvo até a internet
+            voltar.
+          </p>
+        )}
         {/* Aviso de exportação pronta (RF29.R4): só com sessão completa e export:data. A chave refaz o aviso ao trocar de empresa ou unidade. */}
         {ready && exportAccess(me.context.allowedActions).canExport && (
           <ExportNotifier key={`${me.context.tenantId}.${me.context.unitId}`} me={me} />

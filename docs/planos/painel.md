@@ -2,7 +2,7 @@
 
 > **Papel deste documento:** **ordem de execução** do painel web. Cada etapa lista os requisitos (RFs) que entrega e **não** copia regra de negócio: a regra está em [`requisitos.md`](../requisitos.md) (cite `RFnn.Rn`), o porquê das decisões em [`decisoes.md`](../decisoes.md) e a técnica em [`arquitetura.md`](../arquitetura.md). Em conflito, vale `requisitos.md`.
 
-Atualizado em 25/11/2026 (F6c feita: categorias, subcategorias e fornecedores; F6 inteira feita); 24/11/2026 (F6b feita: colaboradores, F2-4 fechada); 23/11/2026 (F6a feita, DD-43, requisitos 1.21); 23/11/2026 (F5 feita, DD-42, requisitos 1.20); 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
+Atualizado em 26/11/2026 (F7 feita, DD-44, requisitos 1.22); 25/11/2026 (F6c feita: categorias, subcategorias e fornecedores; F6 inteira feita); 24/11/2026 (F6b feita: colaboradores, F2-4 fechada); 23/11/2026 (F6a feita, DD-43, requisitos 1.21); 23/11/2026 (F5 feita, DD-42, requisitos 1.20); 17/11/2026 (F4 feita, DD-41, requisitos 1.19; F3c feita; F3b feita; F3c nova, RF26 no MVP, DD-37; 14/11/2026: F3a feita, a parte de leitura da F3; F0 feita; F1 inteira feita: F1a, F1b e F1c; F2 feita; bloco pós-F2 feito; desenho da F3 e DD-36; alinhado ao Documento de Requisitos v1.0 e aos requisitos 1.14). Cobre a fase 4 do `docs/escopo-por-fase.md` e o que o painel exige da API. O canal de WhatsApp e a IA têm plano próprio em `docs/planos/canal-whatsapp.md`.
 
 **Pendências P01 a P11 (Matheus) não bloqueiam nenhuma etapa.** Onde o requisito traz `[PROVISÓRIO – Pxx]` (categorias, indicadores, impostos, planos e preços), a implementação isola o valor em configuração ou constante única (DN-11).
 
@@ -33,7 +33,7 @@ Legenda de confiança, usada em todo o documento:
 | F6a Formas, canais, unidades, assistente inicial e reaplicação de taxa | Feita (23/11/2026) | RF04, RF08, RF09, RF01.Obs3, RF04.R6; reaplicação de taxa em fila (DD-43). Desenho `docs/superpowers/specs/2026-11-23-f6-configuracoes-design.md`, plano `docs/superpowers/plans/2026-11-23-f6a-catalogos-taxas.md` |
 | F6b Colaboradores | Feita (24/11/2026) | RF05 e encerramento de sessões (F2-4); `display_name` por vínculo (DD-43). Plano `docs/superpowers/plans/2026-11-23-f6b-colaboradores.md` |
 | F6c Categorias do sistema, subcategorias e fornecedores | Feita (25/11/2026) | RF07 e RF10: categorias do sistema realinhadas ao RF07.Obs2 (script `pnpm db:realign-categories`), subcategorias do dono com herança, fornecedores com busca, total no recorte, CPF mascarado e mesclagem (migration 0025, `supplier:view` e `supplier:manage`, DD-43). Falta rodar os evals da extração com as categorias novas (F6c-1). Plano `docs/superpowers/plans/2026-11-23-f6c-categorias-fornecedores.md` |
-| F7 PWA e responsividade | A fazer | |
+| F7 PWA e responsividade | Feita (26/11/2026) | Manifest, ícones provisórios, service worker mínimo com tela "Sem conexão", faixa na casca, "Instalar o app", alvos de 44 px em tela de toque e varredura de todas as rotas em 360 px (DD-44, requisitos 1.22); roteiro à mão em `f7-roteiro.md` |
 | F8 Endurecimento e lançamento | A fazer | Herda da F1a: `trustProxy` e o IP real atrás do rewrite do Next (limites de envio e auditoria usam o IP); produção só sobe com `DATABASE_AUTH_URL` e e-mail real configurados; trocar o envio falso por serviço real (DD-21) com fila persistente |
 | F9 Assinatura, plano e encerramento da conta (RF37) | A fazer (nova, 29/10/2026) | Depende da F1 (conta com plano e situação). Preços e limites: `[PROVISÓRIO – P03]` |
 | F10 Painel interno de operação (RF38) | A fazer (nova, 29/10/2026) | Usa `ai_usage` do canal (E6 em diante). Recebe o **código de indicação** (RF01.R14), adiado da F1b (DD-25) |
@@ -64,7 +64,7 @@ Legenda de confiança, usada em todo o documento:
 - **Entregue:** Tailwind 4 e shadcn (preset `base-nova`, neutro, D-F8), casca responsiva (menu lateral no desktop e em folha no celular), páginas de erro, carregando e não encontrado, `lib/format`, `lib/api` (`ApiError`, contrato Zod), TanStack Query, `rewrites` de `/api/*`, Cache Components, cabeçalhos de segurança, Vitest e Playwright (desktop e Pixel 7) e os jobs `e2e` e `integration` no CI. Regras do módulo em `apps/web/CLAUDE.md`.
 - **Conferido (era ⚠️):** shadcn com Tailwind 4 e React 19; Recharts 3.10 com `react-is` igual ao React; páginas `webServer`, `projects` e CI do Playwright; as flags `cacheComponents` e `partialPrefetching` e o `headers()` do Next 16.4; `@hookform/resolvers` 7 aceita Zod 4 (peer `^4`, conferido no npm).
 - **Para a F1:** a API do painel (`/api/me`, `/api/signup`, Better Auth) ainda não existe; `lib/api` e o `rewrites` estão prontos e testados com uma API falsa. O `proxy.ts` e a autenticação da casca nascem na F1. Fazer antes a prova de conceito do Better Auth com Fastify. O `storageState` do Playwright (página `auth`) ainda não foi lido.
-- **Pendências abertas** (também em `andamento.md`, seção 6): rodar os jobs novos no GitHub; decidir a identidade visual; decidir o destino do `apps/web/AGENTS.md`; confirmar que a base dos componentes (`@base-ui/react`) serve à F3; seguem ⚠️ o manifest do PWA (F7), a CSP e as metas de Web Vitals (F8) e a base do TanStack Table (F3).
+- **Pendências abertas** (também em `andamento.md`, seção 6): rodar os jobs novos no GitHub; decidir a identidade visual; decidir o destino do `apps/web/AGENTS.md`; confirmar que a base dos componentes (`@base-ui/react`) serve à F3; seguem ⚠️ a CSP e as metas de Web Vitals (F8) e a base do TanStack Table (F3).
 
 **Fechamento de etapa (sempre, antes de marcar "Feita"):**
 1. Rodar `pnpm typecheck && pnpm lint && pnpm test` (e o E2E, quando a etapa tiver) e conferir que a etapa cumpre o "Pronto quando".
@@ -427,8 +427,8 @@ Cada etapa termina com algo testável. Os tamanhos são relativos (P, M, G).
 ### F7: PWA e responsividade — M
 
 **Entregas**
-- Manifest do PWA e ícones ⚠️ (usar a convenção de manifest do Next; confirmar na doc).
-- Instalável no celular; tela inicial rápida; comportamento offline limitado a uma tela de aviso ⚠️ (service worker a definir; não li o guia de PWA do Next).
+- Manifest do PWA e ícones (DD-44: ícone provisório neutro, gerado por script).
+- Instalável no celular; tela inicial rápida; comportamento offline limitado a uma tela de aviso (DD-44: service worker mínimo feito à mão, sem dependência).
 - Revisão mobile de todas as telas: tabelas viram cartões, filtros em folha lateral, alvos de toque confortáveis.
 
 **Testes:** projetos de celular no Playwright em todos os fluxos principais; auditoria de instalabilidade; capturas em larguras de referência (verificação visual opcional).

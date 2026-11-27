@@ -4,7 +4,7 @@
 >
 > Ao fechar uma pendência, marque aqui e atualize a fonte.
 
-Atualizado em 25/11/2026 (F6c feita: entraram F6c-1 a F6c-7). Antes, em 24/11/2026 (F6b feita: F2-4 fechada; entraram F6b-1 a F6b-4). Antes, em 23/11/2026 (F6a feita: F2-2 fechada; DD-43: entrou F6-1; F2-2 e F2-4 apontam para F6a e F6b; desenho da F6 com subetapas F6a, F6b e F6c). Antes, em 17/11/2026 (DD-39: pendências da F3 fechadas antes do merge; E11-2 corrigida). Antes, em 16/11/2026 (F3b feita: edição, exclusão, lote e lixeira no painel; F2-3 fechada; entraram F3b-1 a F3b-5). Antes, em 14/11/2026 (F3a feita: leitura de lançamentos no painel; F2-3 com a parte de leitura feita; F3-3 a F3-6 abertas). Antes, em 13/11/2026 (desenho da F3 e DD-36: F0-3 fechada, F0-4 sem o TanStack Table, F3-1 e F3-2 abertas; pendências do pós-F2 fechadas, DD-34: PF2-1, PF2-2, PF2-3, PF2-4, PF2-6, PF2-7 e PF2-8; PF2-9 corrigida no teste; antes: F0, F1a, F1b, F1c e F2 do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
+Atualizado em 26/11/2026 (F7 feita, DD-44: entrou a nota do ícone provisório; F0-1 continua aberta). Antes, em 25/11/2026 (F6c feita: entraram F6c-1 a F6c-7). Antes, em 24/11/2026 (F6b feita: F2-4 fechada; entraram F6b-1 a F6b-4). Antes, em 23/11/2026 (F6a feita: F2-2 fechada; DD-43: entrou F6-1; F2-2 e F2-4 apontam para F6a e F6b; desenho da F6 com subetapas F6a, F6b e F6c). Antes, em 17/11/2026 (DD-39: pendências da F3 fechadas antes do merge; E11-2 corrigida). Antes, em 16/11/2026 (F3b feita: edição, exclusão, lote e lixeira no painel; F2-3 fechada; entraram F3b-1 a F3b-5). Antes, em 14/11/2026 (F3a feita: leitura de lançamentos no painel; F2-3 com a parte de leitura feita; F3-3 a F3-6 abertas). Antes, em 13/11/2026 (desenho da F3 e DD-36: F0-3 fechada, F0-4 sem o TanStack Table, F3-1 e F3-2 abertas; pendências do pós-F2 fechadas, DD-34: PF2-1, PF2-2, PF2-3, PF2-4, PF2-6, PF2-7 e PF2-8; PF2-9 corrigida no teste; antes: F0, F1a, F1b, F1c e F2 do painel feitas, ajuste do cadastro DD-28 commitado, migrations 0015 e 0016 aplicadas no dev; a reunião de descoberta de 05/11/2026 ampliou o escopo). O escopo do MVP cresceu: ver [`../DESCOBERTA.md`](../DESCOBERTA.md) e as decisões DD-01 a DD-16 em [`../decisoes.md`](../decisoes.md).
 
 Legenda: 🔴 trava algo · 🟡 vale a proposta provisória · `[ ]` a fazer · `[x]` feito
 
@@ -34,7 +34,7 @@ Dá para "conversar" com o sistema pelo terminal (`pnpm dev:chat`), sem WhatsApp
 ## 3. Próximos passos
 
 1. ~~**E11 (canal): modelo de dados dos requisitos**~~ (feita em 09/11/2026, DE-25 e DE-26; mudança `e11-modelo-de-dados`, iniciada ainda no OpenSpec; o registro está em `openspec/changes/e11-modelo-de-dados/`). Quatro papéis (o contador já no MVP, vendo folha) e permissões adicionais, matriz de permissões como teste, unidades de acesso em lista (P13), campos novos de unidade (canal padrão), categoria e lançamento (`paid_on`, `orders`, `CANAL_A_REVISAR`), tabelas de imposto por vigência; destrava `trocar unidade`, `trocar empresa` e empresa citada no texto. Detalhe em [`canal-whatsapp.md`](canal-whatsapp.md).
-2. ~~**F1b (painel): autocadastro do dono**~~ e ~~**F1c (recuperação, perfil e sessões)**~~ (feitas em 09/11/2026, DD-25, DD-26 e DD-27) e ~~**F2 (conta, unidade e permissões)**~~ (feita em 10/11/2026, DD-31). Próxima do painel: **F3**; planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`). As etapas seguintes do painel (F3 a F6, F12 e F13) seguem o mesmo fluxo.
+2. ~~**F1b (painel): autocadastro do dono**~~ e ~~**F1c (recuperação, perfil e sessões)**~~ (feitas em 09/11/2026, DD-25, DD-26 e DD-27) e ~~**F2 (conta, unidade e permissões)**~~ (feita em 10/11/2026, DD-31). Próxima do painel: **F8** (F3 a F7 feitas); planejar com o Superpowers (`brainstorming` ou `grilling`, depois `writing-plans`). As etapas seguintes do painel (F8 a F13) seguem o mesmo fluxo.
 3. ~~**Rodar o CI no GitHub**~~ (feito em 09/11/2026, tudo verde), agora também com os jobs novos `e2e` e `integration` (a suíte de integração nunca tinha rodado no CI; localmente passou: db 179 e api 88).
 4. **Testar áudio e foto reais** (precisa da chave da OpenAI e do ffmpeg).
 5. **Matheus:** CNPJ, nome, mensagens reais, textos do WhatsApp ([`matheus.md`](matheus.md), seção 1).
@@ -86,16 +86,18 @@ Se o bloqueio da Meta durar, os planos B (provedor intermediário, como o Twilio
 
 ## 6. Painel
 
-**F0 feita em 06/11/2026, F1a, F1b e F1c em 09/11/2026 e F2 em 10/11/2026**; F3 a F13 a fazer, a **F3 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
+**F0 a F7 feitas** (F0 em 06/11/2026, F1 em 09/11/2026, F2 em 10/11/2026, F7 em 26/11/2026); F8 a F13 a fazer, a **F8 é a próxima**. Plano completo em [`painel.md`](painel.md) (resumo do que a F0 entregou e deixou para a F1 logo antes de "Fechamento de etapa").
 
 - [ ] **P12:** os ajustes do plano (autocadastro, login por senha, papel Contador) foram escritos em 29/10; falta implementar na F1, F2 e F6.
 - [x] D-F7 (biblioteca de planilha): **Decidido em 23/11/2026 (DD-42):** write-excel-file para o XLSX e fflate para o zip, com prova no começo da F5; plano B, exceljs. (Antes, DD-32: fica para o começo da F5.)
 - **Pendências deixadas pela F0:**
   - [x] 🟡 Rodar no GitHub os jobs novos `e2e` e `integration`: **feito em 09/11/2026 (Luís), tudo verde.** É a primeira vez que a suíte de integração roda no CI; localmente passou (db 179, api 88). Se falhar, diagnosticar a causa real, sem enfraquecer teste. Dono: Luís (depende do push).
   - [ ] Decidir a **identidade visual** (marca, paleta, fonte). A F0 ficou neutra por decisão do Luís (D-F8); a troca é local, em `apps/web/app/globals.css`. Antes do piloto (F7 e F8).
+  - [ ] Ícone provisório da F7 (DD-44): `apps/web/assets/icon.svg`; trocar e rodar `apps/web/scripts/generate-icons.mjs` (F0-1 continua aberta).
   - [x] Destino do `apps/web/AGENTS.md`: **Decidido em 11/11/2026 (DD-32):** já está no `.gitignore` e o `next dev` o regera; fica ignorado, sem apagar.
   - [x] Confirmar com o Luís que a base dos componentes do shadcn (`@base-ui/react`, preset `base-nova`) serve à F3 (tabela, formulário, drawer). Alternativa: refazer o `init` com `--base radix`. **Feito em 13/11/2026 (DD-36): a base `@base-ui/react` serve** (1.9.0 tem dialog, alert-dialog, select, checkbox, popover, tabs, field, form).
-  - [ ] Seguem ⚠️ no `painel.md`: prova de conceito do Better Auth com Fastify e `rewrites` (F1), `storageState` do Playwright (F1), manifest do PWA (F7), CSP e Web Vitals (F8).
+  - [x] Manifest do PWA (F7): **resolvido pela DD-44** (ícone provisório neutro gerado por script).
+  - [ ] Seguem ⚠️ no `painel.md`: prova de conceito do Better Auth com Fastify e `rewrites` (F1), `storageState` do Playwright (F1), CSP e Web Vitals (F8).
   - [x] `apps/web/CLAUDE.md` criado (regras de cache, dinheiro, datas, testes e E2E do painel).
 - **Pendências deixadas pela F1a (09/11/2026):**
   - [x] **Fluxo à mão feito em 09/11/2026 (Luís):** `.env` preenchido (`AUTH_SECRET`, `DATABASE_AUTH_URL`, `DEV_MAIL_DIR`), papel `app_auth` criado, migrations 0011 a 0013 aplicadas, `pnpm db:seed:dev` rodado e login testado em `http://localhost:3000/login` (passos 3.1 a 3.5 do guia da próxima sessão). Detalhes do que apareceu na tela não foram registrados.

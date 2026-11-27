@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -209,5 +209,21 @@ describe("casca: aviso de exportação (RF29.R4)", () => {
     renderShell(meFixture({ contextSource: "fallback" }));
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
     expect(exportsCalls()).toHaveLength(0);
+  });
+
+  it("sem conexão, mostra a faixa 'Sem conexão' e some quando a internet volta", () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    renderShell(meFixture());
+    const text =
+      "Sem conexão. Os dados podem estar desatualizados e nada pode ser salvo até a internet voltar.";
+    expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.getByText(text)).toHaveAttribute("role", "status");
+
+    online.mockReturnValue(true);
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
+    online.mockRestore();
   });
 });
